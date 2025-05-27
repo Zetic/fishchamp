@@ -34,7 +34,73 @@ client.on(Events.MessageCreate, async (message) => {
     // Ignore messages from bots to prevent potential loops
     if (message.author.bot) return;
 
-    // Check for the help command for soundwave
+    // Log every message and roll result
+    const roll = Math.random();
+    console.log(`[MSG] ${message.author.username}: ${message.content} | Roll: ${roll.toFixed(3)}`);
+
+    // --- New Feature: 10% chance to join conversation ---
+    if (roll < 0.1) {
+      // Fetch last 10 messages (including this one)
+      const messages = await message.channel.messages.fetch({ limit: 10 });
+      const sortedMessages = Array.from(messages.values()).sort((a, b) => a.createdTimestamp - b.createdTimestamp);
+      const context = sortedMessages.map(m => `${m.author.username}: ${m.content}`).join('\n');
+      // Prompt for LLM (serious, no emojis, no playfulness)
+      const joinPrompt = `You are a serious, no-nonsense Discord user. Here are the last 10 messages in the conversation:\n${context}\n\nJoin the conversation by sending a single message. Do NOT include any username or name prefix in your reply. If you are replying to or referencing someone, you may @ them using their username. Do NOT use emojis or playful language. Be direct, concise, and serious. Match the tone, spelling, and length of the other messages, but never be silly or lighthearted.`;
+      // Log attempt
+      console.log(`[JOIN ATTEMPT] Channel: ${message.channel.id}, Triggered by: ${message.author.username}`);
+      // Query LLM
+      const joinResponse = await openai.chat.completions.create({
+        model: "gpt-4o",
+        messages: [
+          { role: "system", content: "You are a serious, no-nonsense Discord user. Never include a username or name prefix in your reply. Never use emojis or playful language. Be direct and concise." },
+          { role: "user", content: joinPrompt }
+        ],
+        max_tokens: 100,
+        temperature: 0.7
+      });
+      let botReply = joinResponse.choices[0].message.content.trim();
+      // Remove any username prefix if LLM still adds it
+      botReply = botReply.replace(/^([a-zA-Z0-9_\-.]+):\s*/, '');
+      // Log result
+      if (botReply) {
+        console.log(`[JOIN REPLY] Bot is joining conversation: ${botReply}`);
+        await message.channel.send(botReply);
+      } else {
+        console.log(`[JOIN REPLY] Bot generated an empty message (unexpected).`);
+      }
+    }
+
+    // --- New Feature: Respond to '@bot thoughts?' with serious context-aware reply ---
+    if (message.mentions.has(client.user.id) && /thoughts\?/i.test(message.content)) {
+      // Fetch last 10 messages (excluding the current one)
+      const messages = await message.channel.messages.fetch({ limit: 11 });
+      const sortedMessages = Array.from(messages.values())
+        .filter(m => m.id !== message.id)
+        .sort((a, b) => a.createdTimestamp - b.createdTimestamp);
+      const context = sortedMessages.map(m => `${m.author.username}: ${m.content}`).join('\n');
+      const joinPrompt = `You are a serious, no-nonsense Discord user. Here are the last 10 messages in the conversation:\n${context}\n\nJoin the conversation by sending a single message. Do NOT include any username or name prefix in your reply. If you are replying to or referencing someone, you may @ them using their username. Do NOT use emojis or playful language. Be direct, concise, and serious. Match the tone, spelling, and length of the other messages, but never be silly or lighthearted.`;
+      console.log(`[THOUGHTS TRIGGER] Channel: ${message.channel.id}, Triggered by: ${message.author.username}`);
+      const joinResponse = await openai.chat.completions.create({
+        model: "gpt-4o",
+        messages: [
+          { role: "system", content: "You are a serious, no-nonsense Discord user. Never include a username or name prefix in your reply. Never use emojis or playful language. Be direct and concise." },
+          { role: "user", content: joinPrompt }
+        ],
+        max_tokens: 100,
+        temperature: 0.7
+      });
+      let botReply = joinResponse.choices[0].message.content.trim();
+      botReply = botReply.replace(/^([a-zA-Z0-9_\-.]+):\s*/, '');
+      if (botReply) {
+        console.log(`[THOUGHTS REPLY] Bot is joining conversation: ${botReply}`);
+        await message.channel.send(botReply);
+      } else {
+        console.log(`[THOUGHTS REPLY] Bot generated an empty message (unexpected).`);
+      }
+      return;
+    }
+
+    // Soundwave help command
     if (message.content === '!soundwave help' || message.content === '!soundwave --help') {
       await message.reply(
         'Soundwave Command Help:\n\n' +
@@ -50,49 +116,33 @@ client.on(Events.MessageCreate, async (message) => {
       );
       return;
     }
-    // Check for the soundwave command (starts with "!soundwave ")
-    else if (message.content.startsWith('!soundwave ')) {
-      // Extract the prompt (everything after "!soundwave ")
+    // Soundwave command
+    if (message.content.startsWith('!soundwave ')) {
       let prompt = message.content.slice('!soundwave '.length).trim();
-      
-      // Default voice
       let voice = "alloy";
-      
-      // Check if a voice is specified
       const voiceMatch = prompt.match(/^--voice:(\w+)\s+/);
       if (voiceMatch) {
         voice = voiceMatch[1].toLowerCase();
-        // Remove the voice parameter from the prompt
         prompt = prompt.replace(voiceMatch[0], '');
       }
-      
-      // Validate prompt length
       if (prompt.length === 0) {
         await message.reply('Please provide some text after the !soundwave command.');
         return;
       }
-      
-      // Let the user know we're processing their request
       await message.channel.sendTyping();
       const loadingMessage = await message.reply('Generating soundwave from your text, please wait...');
-      
-      // Generate audio from the text
       const audioBuffer = await createSoundwaveFromText(prompt, voice);
-      
-      // Create a Discord attachment from the audio buffer
       const audioAttachment = new AttachmentBuilder(audioBuffer, { name: 'soundwave.mp3' });
-      
-      // Send the audio file back to the channel
       await message.reply({
         content: `Here's your generated soundwave (using voice: ${voice}):`,
         files: [audioAttachment]
       });
-      
-      // Delete the loading message
       await loadingMessage.delete();
+      return;
     }
+
     // Check if the bot is mentioned in a reply to a message (existing image functionality)
-    else if (message.reference && message.mentions.has(client.user.id)) {
+    if (message.reference && message.mentions.has(client.user.id)) {
       // Fetch the message being replied to
       const repliedMessage = await message.channel.messages.fetch(message.reference.messageId);
       
