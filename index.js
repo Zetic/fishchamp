@@ -60,7 +60,7 @@ client.on(Events.MessageCreate, async (message) => {
       
       // Send the modified image back to the channel
       await message.reply({
-        content: 'Here\'s your crudely crayon drawing version:',
+        content: 'Here\'s your crayon drawing version of the original image:',
         files: [crayonDrawingAttachment]
       });
 
@@ -82,47 +82,45 @@ function isImageAttachment(attachment) {
 // Function to create crayon drawing version using OpenAI API
 async function createCrayonDrawingVersion(imageUrl) {
   try {
-    // First use vision API to understand the image
-    const visionResponse = await openai.chat.completions.create({
-      model: "gpt-4o",
-      messages: [
-        {
-          role: "user",
-          content: [
-            { type: "text", text: "Describe this image in detail, focusing on the main subjects and their arrangement." },
-            { type: "image_url", image_url: { url: imageUrl } },
-          ],
-        },
-      ],
-      max_tokens: 300,
-    });
+    // Download the source image from the URL
+    const imageResponse = await fetch(imageUrl);
+    if (!imageResponse.ok) {
+      throw new Error(`Failed to download source image: ${imageResponse.statusText}`);
+    }
+    const sourceImageBuffer = await imageResponse.buffer();
     
-    // Get the description of the image
-    const imageDescription = visionResponse.choices[0].message.content;
-    
-    // Use the image description to generate a new image with DALL-E
-    const response = await openai.images.generate({
-      model: "dall-e-3",
-      prompt: `Create a crudely drawn crayon drawing version of this image, as if drawn by a child with crayons: ${imageDescription}`,
+    // Use the image to create a variation with OpenAI
+    // Note: OpenAI requires PNG format, <4MB, square dimensions
+    const response = await openai.images.createVariation({
+      image: sourceImageBuffer,
       n: 1,
       size: "1024x1024",
+      response_format: "url",
     });
 
     // Get the URL of the generated image
     const generatedImageUrl = response.data[0].url;
     
-    // Download the image from the URL
-    const imageResponse = await fetch(generatedImageUrl);
-    if (!imageResponse.ok) {
-      throw new Error(`Failed to download image: ${imageResponse.statusText}`);
+    // Download the generated image
+    const resultResponse = await fetch(generatedImageUrl);
+    if (!resultResponse.ok) {
+      throw new Error(`Failed to download generated image: ${resultResponse.statusText}`);
     }
     
     // Get the image data as a buffer
-    const imageBuffer = await imageResponse.buffer();
+    const imageBuffer = await resultResponse.buffer();
     
     return imageBuffer;
   } catch (error) {
     console.error('Error with OpenAI API:', error);
+    
+    // Provide more descriptive error message for common issues
+    if (error.message?.includes('format') || error.message?.includes('PNG')) {
+      throw new Error('Image format not compatible with OpenAI. Please use PNG format.');
+    } else if (error.message?.includes('size') || error.message?.includes('4MB')) {
+      throw new Error('Image is too large for processing. Please use an image smaller than 4MB.');
+    }
+    
     throw new Error('Failed to process image with OpenAI');
   }
 }
