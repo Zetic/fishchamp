@@ -207,22 +207,8 @@ async function reelFishing(interaction) {
   const userId = interaction.user.id;
   const session = activeFishing.get(userId);
   
-  if (!session) {
-    await interaction.reply({
-      content: "You don't have an active fishing session.",
-      ephemeral: true
-    });
-    return;
-  }
-  
-  // Check if the interacting user is the session owner
-  if (session.ownerId !== userId) {
-    await interaction.reply({
-      content: "You can't interact with another user's fishing session.",
-      ephemeral: true
-    });
-    return;
-  }
+  // Note: We don't need to check session existence or ownership here
+  // because that's already handled in handleFishingInteraction
   
   // Clean up timers
   clearTimeout(session.biteTimer);
@@ -303,22 +289,8 @@ async function cancelFishing(interaction) {
   const userId = interaction.user.id;
   const session = activeFishing.get(userId);
   
-  if (!session) {
-    await interaction.reply({
-      content: "You don't have an active fishing session.",
-      ephemeral: true
-    });
-    return;
-  }
-  
-  // Check if the interacting user is the session owner
-  if (session.ownerId !== userId) {
-    await interaction.reply({
-      content: "You can't interact with another user's fishing session.",
-      ephemeral: true
-    });
-    return;
-  }
+  // Note: We don't need to check session existence or ownership here
+  // because that's already handled in handleFishingInteraction
   
   // Clean up timers
   clearTimeout(session.biteTimer);
@@ -343,13 +315,30 @@ async function handleFishingInteraction(interaction) {
   if (!interaction.isButton()) return;
   
   const { customId } = interaction;
+  const userId = interaction.user.id;
   
+  // For start_fishing, we'll just start a new session
   if (customId === 'start_fishing') {
     await startFishing(interaction);
-  } else if (customId === 'reel_fishing') {
-    await reelFishing(interaction);
-  } else if (customId === 'cancel_fishing') {
-    await cancelFishing(interaction);
+  }
+  // For other buttons, check if the user is the session owner
+  else if (customId === 'reel_fishing' || customId === 'cancel_fishing') {
+    const session = activeFishing.get(userId);
+    
+    // If user has no session or isn't the owner of their session
+    if (!session || (session.ownerId !== userId)) {
+      await interaction.reply({
+        content: session ? "You can't interact with another user's fishing session." : "You don't have an active fishing session.",
+        ephemeral: true
+      });
+      return;
+    }
+    
+    if (customId === 'reel_fishing') {
+      await reelFishing(interaction);
+    } else if (customId === 'cancel_fishing') {
+      await cancelFishing(interaction);
+    }
   }
 }
 

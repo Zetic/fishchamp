@@ -478,95 +478,105 @@ async function sellFish(interaction, fishName, sellAll = false) {
  * @param {Object} interaction - Discord interaction
  */
 async function handleShopInteraction(interaction) {
+  const userId = interaction.user.id;
+  
   // Handle buttons
   if (interaction.isButton()) {
     const { customId } = interaction;
     
-    // Main shop navigation
-    if (customId === 'shop_main') {
-      await showShop(interaction);
-      return;
+    // Main shop navigation - anyone can navigate the shop
+    if (customId === 'shop_main' || 
+        customId === 'shop_buy_rods' || 
+        customId === 'shop_buy_bait' || 
+        customId === 'shop_sell_fish' ||
+        customId === 'shop_exit') {
+      
+      if (customId === 'shop_main') {
+        await showShop(interaction);
+        return;
+      }
+      
+      if (customId === 'shop_buy_rods') {
+        await showBuyRods(interaction);
+        return;
+      }
+      
+      if (customId === 'shop_buy_bait') {
+        await showBuyBait(interaction);
+        return;
+      }
+      
+      if (customId === 'shop_sell_fish') {
+        await showSellFish(interaction);
+        return;
+      }
+      
+      if (customId === 'shop_exit') {
+        await interaction.update({
+          content: 'Thanks for visiting the shop!',
+          embeds: [],
+          components: []
+        });
+        return;
+      }
     }
     
-    if (customId === 'shop_buy_rods') {
-      await showBuyRods(interaction);
-      return;
-    }
-    
-    if (customId === 'shop_buy_bait') {
-      await showBuyBait(interaction);
-      return;
-    }
-    
-    if (customId === 'shop_sell_fish') {
-      await showSellFish(interaction);
-      return;
-    }
-    
-    if (customId === 'shop_exit') {
-      await interaction.update({
-        content: 'Thanks for visiting the shop!',
-        embeds: [],
-        components: []
-      });
-      return;
-    }
-    
-    // Bait quantity buttons
-    if (customId.startsWith('bait_qty_')) {
-      const userId = interaction.user.id;
+    // For action buttons that require a session, check ownership
+    if (customId.startsWith('bait_qty_') || customId === 'sell_qty_1' || customId === 'sell_all') {
       const session = interaction.client.shopSessions?.get(userId);
       
-      if (!session || !session.selectedBait || session.ownerId !== userId) {
+      // Check if user has a valid session and is the owner
+      if (!session || session.ownerId !== userId) {
         await interaction.reply({
           content: session && session.ownerId !== userId ? 
             "You can't interact with another user's session." : 
-            "Please select a bait type first!",
+            "Please make a selection first!",
           ephemeral: true
         });
         return;
       }
       
-      const quantity = parseInt(customId.replace('bait_qty_', ''));
-      await buyBait(interaction, session.selectedBait, quantity);
-      return;
-    }
-    
-    // Fish selling buttons
-    if (customId === 'sell_qty_1') {
-      const userId = interaction.user.id;
-      const session = interaction.client.shopSessions?.get(userId);
-      
-      if (!session || !session.selectedFish || session.ownerId !== userId) {
-        await interaction.reply({
-          content: session && session.ownerId !== userId ? 
-            "You can't interact with another user's session." : 
-            "Please select a fish type first!",
-          ephemeral: true
-        });
+      // Bait quantity buttons
+      if (customId.startsWith('bait_qty_')) {
+        if (!session.selectedBait) {
+          await interaction.reply({
+            content: "Please select a bait type first!",
+            ephemeral: true
+          });
+          return;
+        }
+        
+        const quantity = parseInt(customId.replace('bait_qty_', ''));
+        await buyBait(interaction, session.selectedBait, quantity);
         return;
       }
       
-      await sellFish(interaction, session.selectedFish, false);
-      return;
-    }
-    
-    if (customId === 'sell_all') {
-      const userId = interaction.user.id;
-      const session = interaction.client.shopSessions?.get(userId);
-      
-      if (!session || !session.selectedFish || session.ownerId !== userId) {
-        await interaction.reply({
-          content: session && session.ownerId !== userId ? 
-            "You can't interact with another user's session." : 
-            "Please select a fish type first!",
-          ephemeral: true
-        });
+      // Fish selling buttons
+      if (customId === 'sell_qty_1') {
+        if (!session.selectedFish) {
+          await interaction.reply({
+            content: "Please select a fish type first!",
+            ephemeral: true
+          });
+          return;
+        }
+        
+        await sellFish(interaction, session.selectedFish, false);
         return;
       }
       
-      await sellFish(interaction, session.selectedFish, true);
-      return;
+      if (customId === 'sell_all') {
+        if (!session.selectedFish) {
+          await interaction.reply({
+            content: "Please select a fish type first!",
+            ephemeral: true
+          });
+          return;
+        }
+        
+        await sellFish(interaction, session.selectedFish, true);
+        return;
+      }
     }
   }
   
