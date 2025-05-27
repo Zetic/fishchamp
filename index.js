@@ -6,39 +6,14 @@ const fs = require('fs');
 const fetch = require('node-fetch');
 const sharp = require('sharp');
 
+// Import config
+const config = require('./config');
+
 // Import fishing game modules
-const fishingInteraction = require('./interactions/fishingInteraction');
-const shopInteraction = require('./interactions/shopInteraction');
-const startCommand = require('./commands/start');
-const fishCommand = require('./commands/fish');
-const moveCommand = require('./commands/move');
-const shopCommand = require('./commands/shop');
-const inventoryCommand = require('./commands/inventory');
+const fishing = require('./fishing');
 
 // Load environment variables
 dotenv.config();
-
-// Bot configuration
-const config = {
-  commands: {
-    soundwave: '!soundwave',
-    fishingPrefix: '!'
-  },
-  features: {
-    randomConversationChance: 0.1,
-  },
-  openai: {
-    chatModel: 'gpt-4o',
-    imageModel: 'gpt-image-1',
-    ttsModel: 'tts-1',
-    maxTokens: 100,
-    temperature: 0.7,
-  },
-  voices: {
-    default: 'alloy',
-    available: ['alloy', 'echo', 'fable', 'onyx', 'nova', 'shimmer']
-  }
-};
 
 // Initialize Discord client with necessary intents
 const client = new Client({
@@ -493,28 +468,28 @@ client.on(Events.MessageCreate, async (message) => {
     
     // Handle fishing game commands
     if (message.content.startsWith(`${config.commands.fishingPrefix}start`)) {
-      await startCommand.executeMessageCommand(message);
+      await fishing.startCommand.executeMessageCommand(message);
       return;
     }
     
     if (message.content.startsWith(`${config.commands.fishingPrefix}fish`)) {
-      await fishCommand.executeMessageCommand(message);
+      await fishing.fishCommand.executeMessageCommand(message);
       return;
     }
     
     if (message.content.startsWith(`${config.commands.fishingPrefix}move`)) {
-      await moveCommand.executeMessageCommand(message);
+      await fishing.moveCommand.executeMessageCommand(message);
       return;
     }
     
     if (message.content.startsWith(`${config.commands.fishingPrefix}shop`)) {
-      await shopCommand.executeMessageCommand(message);
+      await fishing.shopCommand.executeMessageCommand(message);
       return;
     }
     
     if (message.content.startsWith(`${config.commands.fishingPrefix}inventory`) || 
         message.content.startsWith(`${config.commands.fishingPrefix}inv`)) {
-      await inventoryCommand.executeMessageCommand(message);
+      await fishing.inventoryCommand.executeMessageCommand(message);
       return;
     }
     
@@ -554,7 +529,7 @@ client.on(Events.InteractionCreate, async (interaction) => {
       
       // Fishing-related buttons
       if (customId === 'start_fishing' || customId === 'reel_fishing' || customId === 'cancel_fishing') {
-        await fishingInteraction.handleFishingInteraction(interaction);
+        await fishing.fishingInteraction.handleFishingInteraction(interaction);
         return;
       }
       
@@ -562,13 +537,13 @@ client.on(Events.InteractionCreate, async (interaction) => {
       if (customId.startsWith('shop_') || customId === 'bait_qty_1' || 
           customId === 'bait_qty_5' || customId === 'bait_qty_10' ||
           customId === 'sell_qty_1' || customId === 'sell_all') {
-        await shopInteraction.handleShopInteraction(interaction);
+        await fishing.shopInteraction.handleShopInteraction(interaction);
         return;
       }
       
       // Inventory and other buttons
       if (customId === 'show_inventory') {
-        await inventoryCommand.executeSlashCommand(interaction);
+        await fishing.inventoryCommand.executeSlashCommand(interaction);
         return;
       }
     }
@@ -579,19 +554,19 @@ client.on(Events.InteractionCreate, async (interaction) => {
       
       // Area selection
       if (customId === 'move_area') {
-        await moveCommand.handleAreaSelection(interaction);
+        await fishing.moveCommand.handleAreaSelection(interaction);
         return;
       }
       
       // Shop select menus
       if (customId === 'shop_select_rod' || customId === 'shop_select_bait' || customId === 'shop_select_fish') {
-        await shopInteraction.handleShopInteraction(interaction);
+        await fishing.shopInteraction.handleShopInteraction(interaction);
         return;
       }
       
       // Equipment selection
       if (customId === 'equip_rod' || customId === 'equip_bait') {
-        await inventoryCommand.handleEquipmentSelection(interaction);
+        await fishing.inventoryCommand.handleEquipmentSelection(interaction);
         return;
       }
     }
