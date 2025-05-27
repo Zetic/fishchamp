@@ -1,10 +1,19 @@
 // Import required packages
-const { Client, GatewayIntentBits, Events, MessageType, AttachmentBuilder } = require('discord.js');
+const { Client, GatewayIntentBits, Events, MessageType, AttachmentBuilder, ButtonBuilder, ButtonStyle } = require('discord.js');
 const { OpenAI } = require('openai');
 const dotenv = require('dotenv');
 const fs = require('fs');
 const fetch = require('node-fetch');
 const sharp = require('sharp');
+
+// Import fishing game modules
+const fishingInteraction = require('./interactions/fishingInteraction');
+const shopInteraction = require('./interactions/shopInteraction');
+const startCommand = require('./commands/start');
+const fishCommand = require('./commands/fish');
+const moveCommand = require('./commands/move');
+const shopCommand = require('./commands/shop');
+const inventoryCommand = require('./commands/inventory');
 
 // Load environment variables
 dotenv.config();
@@ -13,6 +22,7 @@ dotenv.config();
 const config = {
   commands: {
     soundwave: '!soundwave',
+    fishingPrefix: '!'
   },
   features: {
     randomConversationChance: 0.1,
@@ -36,12 +46,49 @@ const client = new Client({
     GatewayIntentBits.Guilds,
     GatewayIntentBits.GuildMessages,
     GatewayIntentBits.MessageContent,
+    GatewayIntentBits.GuildMessageReactions,
+    GatewayIntentBits.DirectMessages,
   ],
 });
 
 // Initialize OpenAI API
 const openai = new OpenAI({
   apiKey: process.env.OPENAI_API_KEY,
+});
+
+// Ready event handler
+client.once(Events.ClientReady, async () => {
+  console.log(`Logged in as ${client.user.tag}!`);
+  console.log('Bot is ready!');
+  
+  // Initialize shop sessions map
+  client.shopSessions = new Map();
+  
+  try {
+    // Log available guilds
+    console.log(`Connected to ${client.guilds.cache.size} guild(s)`);
+    
+    // Verify data directories and files
+    const ensureDirectoryExists = (dir) => {
+      if (!fs.existsSync(dir)) {
+        fs.mkdirSync(dir, { recursive: true });
+        console.log(`Created directory: ${dir}`);
+      }
+    };
+    
+    ensureDirectoryExists('./database');
+    
+    // Ensure users.json exists
+    const usersFilePath = './database/users.json';
+    if (!fs.existsSync(usersFilePath)) {
+      fs.writeFileSync(usersFilePath, '{}', 'utf8');
+      console.log('Created empty users.json file');
+    }
+    
+    console.log('Fishing game initialization complete!');
+  } catch (error) {
+    console.error('Error during initialization:', error);
+  }
 });
 
 // Utility functions
@@ -444,6 +491,33 @@ client.on(Events.MessageCreate, async (message) => {
       return;
     }
     
+    // Handle fishing game commands
+    if (message.content.startsWith(`${config.commands.fishingPrefix}start`)) {
+      await startCommand.executeMessageCommand(message);
+      return;
+    }
+    
+    if (message.content.startsWith(`${config.commands.fishingPrefix}fish`)) {
+      await fishCommand.executeMessageCommand(message);
+      return;
+    }
+    
+    if (message.content.startsWith(`${config.commands.fishingPrefix}move`)) {
+      await moveCommand.executeMessageCommand(message);
+      return;
+    }
+    
+    if (message.content.startsWith(`${config.commands.fishingPrefix}shop`)) {
+      await shopCommand.executeMessageCommand(message);
+      return;
+    }
+    
+    if (message.content.startsWith(`${config.commands.fishingPrefix}inventory`) || 
+        message.content.startsWith(`${config.commands.fishingPrefix}inv`)) {
+      await inventoryCommand.executeMessageCommand(message);
+      return;
+    }
+    
     if (message.content === `${config.commands.soundwave} help` || 
         message.content === `${config.commands.soundwave} --help`) {
       await handleSoundwaveHelp(message);
@@ -469,4 +543,75 @@ client.on(Events.MessageCreate, async (message) => {
 client.login(process.env.DISCORD_TOKEN).catch(error => {
   console.error('Failed to login to Discord:', error);
   process.exit(1);
+});
+
+// Handle button and select menu interactions
+client.on(Events.InteractionCreate, async (interaction) => {
+  try {
+    // Handle button interactions
+    if (interaction.isButton()) {
+      const { customId } = interaction;
+      
+      // Fishing-related buttons
+      if (customId === 'start_fishing' || customId === 'reel_fishing' || customId === 'cancel_fishing') {
+        await fishingInteraction.handleFishingInteraction(interaction);
+        return;
+      }
+      
+      // Shop-related buttons
+      if (customId.startsWith('shop_') || customId === 'bait_qty_1' || 
+          customId === 'bait_qty_5' || customId === 'bait_qty_10' ||
+          customId === 'sell_qty_1' || customId === 'sell_all') {
+        await shopInteraction.handleShopInteraction(interaction);
+        return;
+      }
+      
+      // Inventory and other buttons
+      if (customId === 'show_inventory') {
+        await inventoryCommand.executeSlashCommand(interaction);
+        return;
+      }
+    }
+    
+    // Handle select menu interactions
+    if (interaction.isStringSelectMenu()) {
+      const { customId } = interaction;
+      
+      // Area selection
+      if (customId === 'move_area') {
+        await moveCommand.handleAreaSelection(interaction);
+        return;
+      }
+      
+      // Shop select menus
+      if (customId === 'shop_select_rod' || customId === 'shop_select_bait' || customId === 'shop_select_fish') {
+        await shopInteraction.handleShopInteraction(interaction);
+        return;
+      }
+      
+      // Equipment selection
+      if (customId === 'equip_rod' || customId === 'equip_bait') {
+        await inventoryCommand.handleEquipmentSelection(interaction);
+        return;
+      }
+    }
+  } catch (error) {
+    console.error('Error handling interaction:', error);
+    
+    // Try to respond if we can
+    try {
+      const response = {
+        content: 'Sorry, there was an error processing your request.',
+        ephemeral: true
+      };
+      
+      if (interaction.deferred || interaction.replied) {
+        await interaction.followUp(response);
+      } else {
+        await interaction.reply(response);
+      }
+    } catch (err) {
+      console.error('Error sending interaction error response:', err);
+    }
+  }
 });
