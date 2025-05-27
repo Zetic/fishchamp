@@ -179,11 +179,12 @@ function createEquipmentMenuRows(userProfile) {
  * @param {Object} interaction - Discord interaction
  */
 async function handleEquipmentSelection(interaction) {
-  if (!interaction.isStringSelectMenu()) return;
-  
-  const { customId, values } = interaction;
-  const selectedValue = values[0];
-  const userId = interaction.user.id;
+  try {
+    if (!interaction.isStringSelectMenu()) return;
+    
+    const { customId, values } = interaction;
+    const selectedValue = values[0];
+    const userId = interaction.user.id;
   
   try {
     // Get user profile

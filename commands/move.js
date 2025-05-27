@@ -126,9 +126,9 @@ async function executeSlashCommand(interaction) {
  * @param {Object} interaction - Discord interaction
  */
 async function handleAreaSelection(interaction) {
-  if (!interaction.isStringSelectMenu() || interaction.customId !== 'move_area') return;
-  
   try {
+    if (!interaction.isStringSelectMenu() || interaction.customId !== 'move_area') return;
+    
     const userId = interaction.user.id;
     const selectedArea = interaction.values[0];
     

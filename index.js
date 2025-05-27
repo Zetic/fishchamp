@@ -548,20 +548,27 @@ client.login(process.env.DISCORD_TOKEN).catch(error => {
 // Handle button and select menu interactions
 client.on(Events.InteractionCreate, async (interaction) => {
   try {
+    // Ensure shop sessions map is always initialized
+    if (!interaction.client.shopSessions) {
+      interaction.client.shopSessions = new Map();
+    }
+    
     // Handle button interactions
     if (interaction.isButton()) {
       const { customId } = interaction;
       
       // Fishing-related buttons
-      if (customId === 'start_fishing' || customId === 'reel_fishing' || customId === 'cancel_fishing') {
+      if (customId === 'start_fishing' || customId === 'reel_fishing' || customId === 'cancel_fishing' || 
+          customId === 'dig_for_worms' || customId === 'open_shop') {
         await fishingInteraction.handleFishingInteraction(interaction);
         return;
       }
       
       // Shop-related buttons
-      if (customId.startsWith('shop_') || customId === 'bait_qty_1' || 
-          customId === 'bait_qty_5' || customId === 'bait_qty_10' ||
-          customId === 'sell_qty_1' || customId === 'sell_all') {
+      if (customId.startsWith('shop_') || 
+          customId.startsWith('bait_qty_') || 
+          customId === 'sell_qty_1' || 
+          customId === 'sell_all') {
         await shopInteraction.handleShopInteraction(interaction);
         return;
       }
