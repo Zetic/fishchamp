@@ -1,1 +1,20 @@
-{}
+{
+  "100414636569919488": {
+    "area": "Lake",
+    "inventory": {
+      "rods": [
+        "Basic Rod"
+      ],
+      "bait": {
+        "Worm": 7,
+        "Insect": 5
+      },
+      "fish": [
+        "Carp"
+      ]
+    },
+    "equippedRod": "Basic Rod",
+    "equippedBait": "Worm",
+    "money": 25
+  }
+}

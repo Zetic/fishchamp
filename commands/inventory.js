@@ -181,79 +181,73 @@ function createEquipmentMenuRows(userProfile) {
 async function handleEquipmentSelection(interaction) {
   try {
     if (!interaction.isStringSelectMenu()) return;
-    
     const { customId, values } = interaction;
     const selectedValue = values[0];
     const userId = interaction.user.id;
-  
-  try {
-    // Get user profile
-    const userProfile = await userManager.getUser(userId);
-    if (!userProfile) {
-      await interaction.reply({
-        content: "Error retrieving your profile. Please try again.",
-        ephemeral: true
-      });
-      return;
-    }
-    
-    if (customId === 'equip_rod') {
-      // Check if rod is in inventory
-      if (!userProfile.inventory.rods.includes(selectedValue)) {
-        await interaction.reply({
-          content: "You don't have that rod in your inventory.",
-          ephemeral: true
-        });
-        return;
-      }
-      
-      // Equip the rod
-      userProfile.equippedRod = selectedValue;
-      await userManager.updateUser(userId, userProfile);
-      
-      await interaction.reply({
-        content: `Equipped the ${selectedValue}!`,
-        ephemeral: true
-      });
-      return;
-    }
-    
-    if (customId === 'equip_bait') {
-      // Check if bait is in inventory
-      if (!userProfile.inventory.bait[selectedValue] || userProfile.inventory.bait[selectedValue] <= 0) {
-        await interaction.reply({
-          content: "You don't have that bait in your inventory.",
-          ephemeral: true
-        });
-        return;
-      }
-      
-      // Equip the bait
-      userProfile.equippedBait = selectedValue;
-      await userManager.updateUser(userId, userProfile);
-      
-      await interaction.reply({
-        content: `Equipped the ${selectedValue}!`,
-        ephemeral: true
-      });
-      return;
-    }
-  } catch (error) {
-    console.error('Error handling equipment selection:', error);
     try {
-      const response = {
-        content: 'Sorry, there was an error updating your equipment. Please try again.',
-        ephemeral: true
-      };
-      
-      if (interaction.deferred || interaction.replied) {
-        await interaction.followUp(response);
-      } else {
-        await interaction.reply(response);
+      // Get user profile
+      const userProfile = await userManager.getUser(userId);
+      if (!userProfile) {
+        await interaction.reply({
+          content: "Error retrieving your profile. Please try again.",
+          ephemeral: true
+        });
+        return;
       }
-    } catch (err) {
-      console.error('Error sending equipment selection error response:', err);
+      if (customId === 'equip_rod') {
+        // Check if rod is in inventory
+        if (!userProfile.inventory.rods.includes(selectedValue)) {
+          await interaction.reply({
+            content: "You don't have that rod in your inventory.",
+            ephemeral: true
+          });
+          return;
+        }
+        // Equip the rod
+        userProfile.equippedRod = selectedValue;
+        await userManager.updateUser(userId, userProfile);
+        await interaction.reply({
+          content: `Equipped the ${selectedValue}!`,
+          ephemeral: true
+        });
+        return;
+      }
+      if (customId === 'equip_bait') {
+        // Check if bait is in inventory
+        if (!userProfile.inventory.bait[selectedValue] || userProfile.inventory.bait[selectedValue] <= 0) {
+          await interaction.reply({
+            content: "You don't have that bait in your inventory.",
+            ephemeral: true
+          });
+          return;
+        }
+        // Equip the bait
+        userProfile.equippedBait = selectedValue;
+        await userManager.updateUser(userId, userProfile);
+        await interaction.reply({
+          content: `Equipped the ${selectedValue}!`,
+          ephemeral: true
+        });
+        return;
+      }
+    } catch (error) {
+      console.error('Error handling equipment selection:', error);
+      try {
+        const response = {
+          content: 'Sorry, there was an error updating your equipment. Please try again.',
+          ephemeral: true
+        };
+        if (interaction.deferred || interaction.replied) {
+          await interaction.followUp(response);
+        } else {
+          await interaction.reply(response);
+        }
+      } catch (err) {
+        console.error('Error sending equipment selection error response:', err);
+      }
     }
+  } catch (outerError) {
+    console.error('Outer error in handleEquipmentSelection:', outerError);
   }
 }
 
