@@ -34,8 +34,24 @@ client.on(Events.MessageCreate, async (message) => {
     // Ignore messages from bots to prevent potential loops
     if (message.author.bot) return;
 
+    // Check for the help command for soundwave
+    if (message.content === '!soundwave help' || message.content === '!soundwave --help') {
+      await message.reply(
+        'Soundwave Command Help:\n\n' +
+        '`!soundwave [--voice:name] your text here`\n\n' +
+        'Available voices:\n' +
+        '- `alloy`: Neutral, professional voice (default)\n' +
+        '- `echo`: Deep, resonant voice\n' +
+        '- `fable`: Expressive, narrative voice\n' +
+        '- `onyx`: Powerful, confident voice\n' +
+        '- `nova`: Warm, friendly voice\n' +
+        '- `shimmer`: Bright, cheerful voice\n\n' +
+        'Example: `!soundwave --voice:nova Hello, this is a test with the Nova voice`'
+      );
+      return;
+    }
     // Check for the soundwave command (starts with "!soundwave ")
-    if (message.content.startsWith('!soundwave ')) {
+    else if (message.content.startsWith('!soundwave ')) {
       // Extract the prompt (everything after "!soundwave ")
       let prompt = message.content.slice('!soundwave '.length).trim();
       

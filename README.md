@@ -58,7 +58,8 @@ To generate a soundwave:
 3. You can specify a voice by adding `--voice:name` at the beginning of your prompt
    - Available voices: `alloy` (default), `echo`, `fable`, `onyx`, `nova`, `shimmer`
    - Example: `!soundwave --voice:nova Hello, this is a test with the Nova voice`
-4. The bot will generate an audio file based on your text and reply with it
+4. For help, type `!soundwave help` or `!soundwave --help`
+5. The bot will generate an audio file based on your text and reply with it
 
 ## Development
 
