@@ -52,9 +52,46 @@ async function startFishing(interaction) {
   // Check if user has bait in inventory
   if (!userProfile.inventory.bait[userProfile.equippedBait] || 
       userProfile.inventory.bait[userProfile.equippedBait] <= 0) {
+    
+    // Check if user has any bait at all
+    const hasBait = Object.values(userProfile.inventory.bait || {}).some(count => count > 0);
+    
+    if (hasBait) {
+      // User has other bait, but not the equipped one
+      const availableBaits = Object.entries(userProfile.inventory.bait || {})
+        .filter(([_, count]) => count > 0);
+      
+      if (availableBaits.length > 0) {
+        userProfile.equippedBait = availableBaits[0][0];
+        await userManager.updateUser(userId, userProfile);
+        
+        await interaction.reply({
+          content: `You've run out of your equipped bait. Switched to ${userProfile.equippedBait}!`,
+          ephemeral: true
+        });
+        
+        // Call startFishing again with the new bait
+        setTimeout(() => startFishing(interaction), 1000);
+        return;
+      }
+    }
+    
+    // Create the dig for worms button
+    const digButton = new ButtonBuilder()
+      .setCustomId('dig_for_worms')
+      .setLabel('Dig for Worms')
+      .setStyle(ButtonStyle.Primary);
+      
+    const shopButton = new ButtonBuilder()
+      .setCustomId('open_shop')
+      .setLabel('Visit Shop')
+      .setStyle(ButtonStyle.Secondary);
+    
+    const row = new ActionRowBuilder().addComponents(digButton, shopButton);
+    
     await interaction.reply({
-      content: `You don't have any ${userProfile.equippedBait} left! Visit the shop to buy more.`,
-      ephemeral: true
+      content: `You don't have any ${userProfile.equippedBait} left! You can dig for worms or visit the shop to buy more bait.`,
+      components: [row]
     });
     return;
   }
@@ -73,9 +110,22 @@ async function startFishing(interaction) {
   const currentBait = baits.find(bait => bait.name === userProfile.equippedBait);
   
   // Use up one bait
+  const previousBait = userProfile.equippedBait;
   userProfile.inventory.bait[userProfile.equippedBait]--;
   if (userProfile.inventory.bait[userProfile.equippedBait] <= 0) {
     delete userProfile.inventory.bait[userProfile.equippedBait];
+    
+    // Look for another bait if available
+    const availableBaits = Object.entries(userProfile.inventory.bait || {})
+      .filter(([_, count]) => count > 0);
+      
+    if (availableBaits.length > 0) {
+      userProfile.equippedBait = availableBaits[0][0]; // Use the first available bait
+      await interaction.followUp({
+        content: `You're out of ${previousBait}. Automatically switched to ${userProfile.equippedBait}!`,
+        ephemeral: true
+      });
+    }
   }
   await userManager.updateUser(userId, userProfile);
   
@@ -197,6 +247,19 @@ async function handleEscape(userId, message) {
   clearTimeout(session.biteTimer);
   clearTimeout(session.escapeTimer);
   activeFishing.delete(userId);
+  
+  // Auto-delete the message after 2 minutes (120000ms)
+  setTimeout(async () => {
+    try {
+      // Check if the message still exists and delete it
+      if (message && !message.deleted) {
+        await message.delete();
+      }
+    } catch (error) {
+      // Ignore errors that might occur if the message is already deleted
+      console.error('Error auto-deleting fishing escape message:', error);
+    }
+  }, 120000);
 }
 
 /**
@@ -279,6 +342,19 @@ async function reelFishing(interaction) {
   
   // Clean up the session
   activeFishing.delete(userId);
+  
+  // Auto-delete the message after 2 minutes (120000ms)
+  setTimeout(async () => {
+    try {
+      // Check if the message still exists and delete it
+      if (interaction.message && !interaction.message.deleted) {
+        await interaction.message.delete();
+      }
+    } catch (error) {
+      // Ignore errors that might occur if the message is already deleted
+      console.error('Error auto-deleting fishing result message:', error);
+    }
+  }, 120000);
 }
 
 /**
@@ -305,6 +381,67 @@ async function cancelFishing(interaction) {
   
   // Clean up the session
   activeFishing.delete(userId);
+  
+  // Auto-delete the message after 10 seconds
+  setTimeout(async () => {
+    try {
+      // Check if the message still exists and delete it
+      if (interaction.message && !interaction.message.deleted) {
+        await interaction.message.delete();
+      }
+    } catch (error) {
+      // Ignore errors that might occur if the message is already deleted
+      console.error('Error auto-deleting fishing cancel message:', error);
+    }
+  }, 10000);
+}
+
+/**
+ * Dig for worms when user has no bait
+ * @param {Object} interaction - Discord interaction
+ */
+async function digForWorms(interaction) {
+  const userId = interaction.user.id;
+  
+  // Get user profile
+  const userProfile = await userManager.getUser(userId);
+  
+  // Check if user is on cooldown
+  const now = Date.now();
+  const cooldownTime = 5 * 60 * 1000; // 5 minutes in milliseconds
+  
+  if (userProfile.lastWormDig && now - userProfile.lastWormDig < cooldownTime) {
+    const remainingTime = Math.ceil((userProfile.lastWormDig + cooldownTime - now) / 1000 / 60);
+    await interaction.reply({
+      content: `You're tired from digging. Try again in ${remainingTime} minutes.`,
+      ephemeral: true
+    });
+    return;
+  }
+  
+  // Add 3-5 worms to inventory
+  const wormsFound = rng.getRandomInt(3, 5);
+  inventory.addItem(userProfile, 'bait', 'Worm', wormsFound);
+  
+  // Set cooldown
+  userProfile.lastWormDig = now;
+  
+  // If no bait is equipped, equip worms
+  if (!userProfile.equippedBait) {
+    userProfile.equippedBait = 'Worm';
+  }
+  
+  await userManager.updateUser(userId, userProfile);
+  
+  // Notify user
+  await interaction.update({
+    content: `You dug around and found ${wormsFound} worms! They've been added to your inventory.`,
+    embeds: [],
+    components: []
+  });
+  
+  // After a short delay, show the fishing dialog again
+  setTimeout(() => startFishing(interaction), 2000);
 }
 
 /**
@@ -317,8 +454,33 @@ async function handleFishingInteraction(interaction) {
   const { customId } = interaction;
   const userId = interaction.user.id;
   
+  // Handle dig for worms interaction
+  if (customId === 'dig_for_worms') {
+    await digForWorms(interaction);
+    return;
+  }
+  
+  // Handle shop redirection
+  if (customId === 'open_shop') {
+    // Redirect to shop interaction
+    const shopInteraction = require('./shopInteraction');
+    await shopInteraction.showShop(interaction);
+    return;
+  }
+  
   // For start_fishing, we'll just start a new session
   if (customId === 'start_fishing') {
+    // If there's an old message from a previous session, clean it up
+    if (interaction.message) {
+      try {
+        // Delete the previous fishing message
+        await interaction.message.delete();
+      } catch (error) {
+        // Ignore any errors that might occur when trying to delete the message
+        console.error('Error deleting previous fishing message:', error);
+      }
+    }
+    
     await startFishing(interaction);
   }
   // For other buttons, check if the user is the session owner
@@ -344,5 +506,6 @@ async function handleFishingInteraction(interaction) {
 
 module.exports = {
   handleFishingInteraction,
-  startFishing
+  startFishing,
+  digForWorms
 };
