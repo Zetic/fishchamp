@@ -517,9 +517,11 @@ async function handleShopInteraction(interaction) {
       const userId = interaction.user.id;
       const session = interaction.client.shopSessions?.get(userId);
       
-      if (!session || !session.selectedBait) {
+      if (!session || !session.selectedBait || session.ownerId !== userId) {
         await interaction.reply({
-          content: "Please select a bait type first!",
+          content: session && session.ownerId !== userId ? 
+            "You can't interact with another user's session." : 
+            "Please select a bait type first!",
           ephemeral: true
         });
         return;
@@ -535,9 +537,11 @@ async function handleShopInteraction(interaction) {
       const userId = interaction.user.id;
       const session = interaction.client.shopSessions?.get(userId);
       
-      if (!session || !session.selectedFish) {
+      if (!session || !session.selectedFish || session.ownerId !== userId) {
         await interaction.reply({
-          content: "Please select a fish type first!",
+          content: session && session.ownerId !== userId ? 
+            "You can't interact with another user's session." : 
+            "Please select a fish type first!",
           ephemeral: true
         });
         return;
@@ -551,9 +555,11 @@ async function handleShopInteraction(interaction) {
       const userId = interaction.user.id;
       const session = interaction.client.shopSessions?.get(userId);
       
-      if (!session || !session.selectedFish) {
+      if (!session || !session.selectedFish || session.ownerId !== userId) {
         await interaction.reply({
-          content: "Please select a fish type first!",
+          content: session && session.ownerId !== userId ? 
+            "You can't interact with another user's session." : 
+            "Please select a fish type first!",
           ephemeral: true
         });
         return;
@@ -583,7 +589,8 @@ async function handleShopInteraction(interaction) {
     if (customId === 'shop_select_bait') {
       // Store selected bait for quantity buttons
       interaction.client.shopSessions.set(interaction.user.id, { 
-        selectedBait: selectedValue 
+        selectedBait: selectedValue,
+        ownerId: interaction.user.id 
       });
       
       await interaction.reply({
@@ -596,7 +603,8 @@ async function handleShopInteraction(interaction) {
     if (customId === 'shop_select_fish') {
       // Store selected fish for selling buttons
       interaction.client.shopSessions.set(interaction.user.id, { 
-        selectedFish: selectedValue 
+        selectedFish: selectedValue,
+        ownerId: interaction.user.id
       });
       
       await interaction.reply({

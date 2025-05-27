@@ -108,6 +108,7 @@ async function startFishing(interaction) {
     messageId: reply.id,
     channelId: interaction.channelId,
     area: currentArea,
+    ownerId: userId,
     biteTimer: setTimeout(() => handleBite(userId, reply, currentArea), biteTime)
   });
 }
@@ -214,6 +215,15 @@ async function reelFishing(interaction) {
     return;
   }
   
+  // Check if the interacting user is the session owner
+  if (session.ownerId !== userId) {
+    await interaction.reply({
+      content: "You can't interact with another user's fishing session.",
+      ephemeral: true
+    });
+    return;
+  }
+  
   // Clean up timers
   clearTimeout(session.biteTimer);
   clearTimeout(session.escapeTimer);
@@ -296,6 +306,15 @@ async function cancelFishing(interaction) {
   if (!session) {
     await interaction.reply({
       content: "You don't have an active fishing session.",
+      ephemeral: true
+    });
+    return;
+  }
+  
+  // Check if the interacting user is the session owner
+  if (session.ownerId !== userId) {
+    await interaction.reply({
+      content: "You can't interact with another user's fishing session.",
       ephemeral: true
     });
     return;
