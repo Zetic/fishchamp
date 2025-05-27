@@ -34,6 +34,42 @@ client.on(Events.MessageCreate, async (message) => {
     // Ignore messages from bots to prevent potential loops
     if (message.author.bot) return;
 
+    // Log every message and roll result
+    const roll = Math.random();
+    console.log(`[MSG] ${message.author.username}: ${message.content} | Roll: ${roll.toFixed(3)}`);
+
+    // --- New Feature: 10% chance to join conversation ---
+    if (roll < 0.1) {
+      // Fetch last 10 messages (including this one)
+      const messages = await message.channel.messages.fetch({ limit: 10 });
+      const sortedMessages = Array.from(messages.values()).sort((a, b) => a.createdTimestamp - b.createdTimestamp);
+      const context = sortedMessages.map(m => `${m.author.username}: ${m.content}`).join('\n');
+      // Prompt for LLM (force reply, no username, can @ people, be engaging)
+      const joinPrompt = `You are a Discord bot in a group chat. Here are the last 10 messages in the conversation:\n${context}\n\nJoin the conversation by sending a single message (do NOT include any username or name prefix in your reply). If you are replying to or referencing someone, you may @ them using their username. Be engaging, direct, and add something meaningful or interesting to the conversation, not just a background comment. Match the vibe, spelling, and length of the other messages.`;
+      // Log attempt
+      console.log(`[JOIN ATTEMPT] Channel: ${message.channel.id}, Triggered by: ${message.author.username}`);
+      // Query LLM
+      const joinResponse = await openai.chat.completions.create({
+        model: "gpt-4o",
+        messages: [
+          { role: "system", content: "You are a Discord bot in a group chat. Never include a username or name prefix in your reply. If you are replying to someone, you may @ them using their username." },
+          { role: "user", content: joinPrompt }
+        ],
+        max_tokens: 100,
+        temperature: 0.9
+      });
+      let botReply = joinResponse.choices[0].message.content.trim();
+      // Remove any username prefix if LLM still adds it
+      botReply = botReply.replace(/^([a-zA-Z0-9_\-.]+):\s*/, '');
+      // Log result
+      if (botReply) {
+        console.log(`[JOIN REPLY] Bot is joining conversation: ${botReply}`);
+        await message.channel.send(botReply);
+      } else {
+        console.log(`[JOIN REPLY] Bot generated an empty message (unexpected).`);
+      }
+    }
+
     // Check if the bot is mentioned in a reply to a message
     if (message.reference && message.mentions.has(client.user.id)) {
       // Fetch the message being replied to
