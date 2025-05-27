@@ -80,7 +80,7 @@ async function createCrayonDrawingVersion(imageUrl) {
   try {
     // First use vision API to understand the image
     const visionResponse = await openai.chat.completions.create({
-      model: "gpt-4-vision-preview",
+      model: "gpt-4o",
       messages: [
         {
           role: "user",
