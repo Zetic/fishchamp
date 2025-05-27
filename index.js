@@ -1,8 +1,9 @@
 // Import required packages
-const { Client, GatewayIntentBits, Events, MessageType } = require('discord.js');
+const { Client, GatewayIntentBits, Events, MessageType, AttachmentBuilder } = require('discord.js');
 const { OpenAI } = require('openai');
 const dotenv = require('dotenv');
 const fs = require('fs');
+const fetch = require('node-fetch');
 
 // Load environment variables
 dotenv.config();
@@ -52,12 +53,15 @@ client.on(Events.MessageCreate, async (message) => {
       const imageUrl = attachment.url;
       
       // Process the image with OpenAI to get a crayon drawing version
-      const modifiedImageUrl = await createCrayonDrawingVersion(imageUrl);
+      const imageBuffer = await createCrayonDrawingVersion(imageUrl);
+      
+      // Create a Discord attachment from the image buffer
+      const crayonDrawingAttachment = new AttachmentBuilder(imageBuffer, { name: 'crayon-drawing.png' });
       
       // Send the modified image back to the channel
       await message.reply({
         content: 'Here\'s your crudely crayon drawing version:',
-        files: [modifiedImageUrl]
+        files: [crayonDrawingAttachment]
       });
 
       // Delete the loading message
@@ -104,8 +108,19 @@ async function createCrayonDrawingVersion(imageUrl) {
       size: "1024x1024",
     });
 
-    // Return the URL of the generated image
-    return response.data[0].url;
+    // Get the URL of the generated image
+    const generatedImageUrl = response.data[0].url;
+    
+    // Download the image from the URL
+    const imageResponse = await fetch(generatedImageUrl);
+    if (!imageResponse.ok) {
+      throw new Error(`Failed to download image: ${imageResponse.statusText}`);
+    }
+    
+    // Get the image data as a buffer
+    const imageBuffer = await imageResponse.buffer();
+    
+    return imageBuffer;
   } catch (error) {
     console.error('Error with OpenAI API:', error);
     throw new Error('Failed to process image with OpenAI');
