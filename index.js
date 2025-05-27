@@ -64,6 +64,30 @@ client.once(Events.ClientReady, async () => {
   // Initialize shop sessions map
   client.shopSessions = new Map();
   
+  // Set up periodic session cleanup
+  setInterval(() => {
+    try {
+      if (client.shopSessions && client.shopSessions.size > 0) {
+        const now = Date.now();
+        const SESSION_TIMEOUT = 10 * 60 * 1000; // 10 minutes in ms
+        let cleanupCount = 0;
+        
+        client.shopSessions.forEach((session, userId) => {
+          if (session.timestamp && now - session.timestamp > SESSION_TIMEOUT) {
+            client.shopSessions.delete(userId);
+            cleanupCount++;
+          }
+        });
+        
+        if (cleanupCount > 0) {
+          console.log(`Cleaned up ${cleanupCount} stale shop sessions`);
+        }
+      }
+    } catch (error) {
+      console.error('Error during session cleanup:', error);
+    }
+  }, 5 * 60 * 1000); // Run cleanup every 5 minutes
+  
   try {
     // Log available guilds
     console.log(`Connected to ${client.guilds.cache.size} guild(s)`);

@@ -240,10 +240,20 @@ async function handleEquipmentSelection(interaction) {
     }
   } catch (error) {
     console.error('Error handling equipment selection:', error);
-    await interaction.reply({
-      content: 'Sorry, there was an error updating your equipment. Please try again.',
-      ephemeral: true
-    });
+    try {
+      const response = {
+        content: 'Sorry, there was an error updating your equipment. Please try again.',
+        ephemeral: true
+      };
+      
+      if (interaction.deferred || interaction.replied) {
+        await interaction.followUp(response);
+      } else {
+        await interaction.reply(response);
+      }
+    } catch (err) {
+      console.error('Error sending equipment selection error response:', err);
+    }
   }
 }
 
