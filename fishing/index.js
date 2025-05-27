@@ -11,7 +11,7 @@ const shopCommand = require('./commands/shop');
 const startCommand = require('./commands/start');
 
 // Export interactions
-const fishingInteraction = require('./interactions/fishingInteraction');
+const fishingInteraction = require('../interactions/fishingInteraction');
 const shopInteraction = require('./interactions/shopInteraction');
 
 // Export database and utilities

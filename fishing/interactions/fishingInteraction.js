@@ -2,10 +2,12 @@
  * Fishing interaction handler
  */
 const { ActionRowBuilder, ButtonBuilder, ButtonStyle, EmbedBuilder } = require('discord.js');
-const fishingUtils = require('../utils/fishingUtils');
+const gameLogic = require('../utils/gameLogic');
 const rng = require('../utils/rng');
-const fishingDb = require('../database/fishingDb');
-const fishData = require('../data/fishData');
+const inventory = require('../utils/inventory');
+const userManager = require('../database/userManager');
+const areas = require('../data/areas');
+const baits = require('../data/baits');
 
 // Track active fishing sessions
 const activeFishing = new Map();
@@ -20,129 +22,95 @@ async function startFishing(interaction) {
   
   // Check if user is already fishing
   if (activeFishing.has(userId)) {
+    await interaction.reply({ 
+      content: "You're already fishing! Wait for a bite or reel in.", 
+      ephemeral: true 
+    });
+    return;
+  }
+  
+  // Get user profile
+  const userProfile = await userManager.getUser(userId, true);
+  
+  // Check if user has equipped a rod and bait
+  if (!userProfile.equippedRod) {
     await interaction.reply({
-      content: "You're already fishing! Reel in or cancel your current session first.",
+      content: "You need to equip a fishing rod first!",
       ephemeral: true
     });
     return;
   }
   
-  try {
-    // Get user profile
-    const userProfile = await fishingDb.getUser(userId);
-    
-    if (!userProfile) {
-      await interaction.reply({
-        content: "You don't have a fishing profile yet. Use `/start` to begin your adventure.",
-        ephemeral: true
-      });
-      return;
-    }
-    
-    // Check if user has required equipment
-    if (!userProfile.equippedRod) {
-      await interaction.reply({
-        content: "You need to equip a fishing rod first! Use `/inventory` to manage your equipment.",
-        ephemeral: true
-      });
-      return;
-    }
-    
-    if (!userProfile.equippedBait) {
-      await interaction.reply({
-        content: "You need to equip some bait first! Use `/inventory` to manage your equipment.",
-        ephemeral: true
-      });
-      return;
-    }
-    
-    // Check if user has bait in inventory
-    if (!userProfile.inventory.bait[userProfile.equippedBait] || 
-        userProfile.inventory.bait[userProfile.equippedBait] <= 0) {
-      await interaction.reply({
-        content: `You don't have any ${userProfile.equippedBait} left! Visit the shop to buy more.`,
-        ephemeral: true
-      });
-      return;
-    }
-    
-    // Get area information
-    const area = fishData.areas.find(a => a.name === userProfile.area);
-    if (!area) {
-      await interaction.reply({
-        content: "Error finding your current area. Try using `/start` to reset your profile.",
-        ephemeral: true
-      });
-      return;
-    }
-    
-    // Use up one bait
-    userProfile.inventory.bait[userProfile.equippedBait]--;
-    if (userProfile.inventory.bait[userProfile.equippedBait] <= 0) {
-      delete userProfile.inventory.bait[userProfile.equippedBait];
-      
-      // Don't unequip bait yet so this fishing session can complete
-    }
-    
-    await fishingDb.updateUser(userId, userProfile);
-    
-    // Create fishing embed
-    const fishingEmbed = new EmbedBuilder()
-      .setTitle('🎣 Fishing in Progress')
-      .setDescription(`You cast your line using ${userProfile.equippedRod} and ${userProfile.equippedBait}...`)
-      .addFields(
-        { name: 'Area', value: area.name },
-        { name: 'Status', value: 'Waiting for a bite...' }
-      )
-      .setColor(0x3498DB);
-    
-    // Create cancel button
-    const row = new ActionRowBuilder()
-      .addComponents(
-        new ButtonBuilder()
-          .setCustomId('cancel_fishing')
-          .setLabel('Cancel')
-          .setStyle(ButtonStyle.Secondary)
-      );
-    
-    // Send initial message
-    const reply = await interaction.reply({ 
-      embeds: [fishingEmbed],
-      components: [row],
-      fetchReply: true
-    });
-    
-    // Store fishing session
-    activeFishing.set(userId, {
-      ownerId: userId,
-      channelId: interaction.channelId,
-      messageId: reply.id,
-      startTime: Date.now(),
-      area: area.name,
-      rod: userProfile.equippedRod,
-      bait: userProfile.equippedBait,
-      state: 'waiting',
-      fish: null
-    });
-    
-    // Calculate bite time based on bait effectiveness
-    const baitData = fishData.baits.find(b => b.name === userProfile.equippedBait);
-    const biteChance = 0.3 + ((baitData?.bonus || 0) * 0.1);
-    const biteTime = rng.calculateBiteTime(biteChance);
-    
-    console.log(`Fishing started for ${userId}, bite in ${biteTime}ms`);
-    
-    // Set timer for fish bite
-    setTimeout(() => {
-      handleBite(userId, reply, area);
-    }, biteTime);
-  } catch (error) {
-    console.error('Error starting fishing:', error);
+  if (!userProfile.equippedBait) {
     await interaction.reply({
-      content: 'Sorry, there was an error starting your fishing session. Please try again.',
+      content: "You need to equip some bait first!",
       ephemeral: true
     });
+    return;
   }
+  
+  // Check if user has bait in inventory
+  if (!userProfile.inventory.bait[userProfile.equippedBait] || 
+      userProfile.inventory.bait[userProfile.equippedBait] <= 0) {
+    await interaction.reply({
+      content: `You don't have any ${userProfile.equippedBait} left! Visit the shop to buy more.`,
+      ephemeral: true
+    });
+    return;
+  }
+  
+  // Find the current area
+  const currentArea = areas.find(area => area.name === userProfile.area);
+  if (!currentArea) {
+    await interaction.reply({
+      content: "Error finding your current area. Please try again.",
+      ephemeral: true
+    });
+    return;
+  }
+  
+  // Find the bait being used
+  const currentBait = baits.find(bait => bait.name === userProfile.equippedBait);
+  
+  // Use up one bait
+  userProfile.inventory.bait[userProfile.equippedBait]--;
+  if (userProfile.inventory.bait[userProfile.equippedBait] <= 0) {
+    delete userProfile.inventory.bait[userProfile.equippedBait];
+  }
+  await userManager.updateUser(userId, userProfile);
+  
+  // Create the initial fishing embed
+  const fishingEmbed = new EmbedBuilder()
+    .setTitle(`🎣 Fishing at ${currentArea.name}`)
+    .setDescription(`You cast your line using ${userProfile.equippedRod} and ${userProfile.equippedBait} as bait...`)
+    .setColor(0x3498DB);
+  
+  // Create the cancel button
+  const cancelButton = new ButtonBuilder()
+    .setCustomId('cancel_fishing')
+    .setLabel('Cancel')
+    .setStyle(ButtonStyle.Secondary);
+  
+  const row = new ActionRowBuilder().addComponents(cancelButton);
+  
+  // Send the initial message
+  const reply = await interaction.reply({ 
+    embeds: [fishingEmbed],
+    components: [row],
+    fetchReply: true
+  });
+  
+  // Calculate bite time based on bait
+  const biteTime = rng.calculateBiteTime(currentBait.biteChance);
+  
+  // Store fishing session
+  activeFishing.set(userId, {
+    messageId: reply.id,
+    channelId: interaction.channelId,
+    area: currentArea,
+    ownerId: userId,
+    biteTimer: setTimeout(() => handleBite(userId, reply, currentArea), biteTime)
+  });
 }
 
 /**
@@ -153,83 +121,47 @@ async function startFishing(interaction) {
  */
 async function handleBite(userId, message, area) {
   const session = activeFishing.get(userId);
+  if (!session) return;
   
-  // Check if session is still active
-  if (!session || session.state !== 'waiting') return;
-  
-  try {
-    // Select a random fish from the area
-    const fishName = rng.getRandomInt(0, area.fishPool.length - 1);
-    const fish = area.fishPool[fishName];
-    
-    // Update session with fish info
-    session.state = 'biting';
-    session.fish = fish;
-    activeFishing.set(userId, session);
-    
-    // Get fish data
-    const fishInfo = fishData.fish.find(f => f.name === fish);
-    
-    // Calculate how long before fish escapes
-    const escapeTime = rng.getRandomInt(
-      fishInfo?.minCatchTime || 3,
-      fishInfo?.maxCatchTime || 6
-    ) * 1000;
-    
-    // Create updated embed
-    const fishingEmbed = new EmbedBuilder()
-      .setTitle('🎣 Fish On!')
-      .setDescription('A fish is biting! Quick, reel it in!')
-      .addFields(
-        { name: 'Area', value: area.name },
-        { name: 'Status', value: 'Fish is biting! Reel it in!' }
-      )
-      .setColor(0xE74C3C);
-    
-    // Create reel button
-    const row = new ActionRowBuilder()
-      .addComponents(
-        new ButtonBuilder()
-          .setCustomId('reel_fishing')
-          .setLabel('Reel In!')
-          .setStyle(ButtonStyle.Primary)
-          .setEmoji('🎣'),
-        new ButtonBuilder()
-          .setCustomId('cancel_fishing')
-          .setLabel('Let Go')
-          .setStyle(ButtonStyle.Secondary)
-      );
-    
-    // Update message
-    await message.edit({ 
-      embeds: [fishingEmbed],
-      components: [row]
+  // Select a random fish from the area
+  const fishName = gameLogic.getRandomFish(area.fish);
+  if (!fishName) {
+    // This should never happen if area data is correct, but just in case
+    await message.edit({
+      content: "Something went wrong with your fishing session.",
+      embeds: [],
+      components: []
     });
-    
-    // Set timer for fish escape
-    setTimeout(() => {
-      handleEscape(userId, message);
-    }, escapeTime);
-  } catch (error) {
-    console.error('Error handling fish bite:', error);
-    
-    // Try to handle error gracefully
-    try {
-      const errorEmbed = new EmbedBuilder()
-        .setTitle('🎣 Fishing Error')
-        .setDescription('Something went wrong while fishing.')
-        .setColor(0x95A5A6);
-      
-      await message.edit({ 
-        embeds: [errorEmbed],
-        components: [] 
-      });
-      
-      activeFishing.delete(userId);
-    } catch (err) {
-      console.error('Error cleaning up after fishing error:', err);
-    }
+    activeFishing.delete(userId);
+    return;
   }
+  
+  // Store the fish in the session
+  session.fish = fishName;
+  
+  // Update the fishing embed
+  const biteEmbed = new EmbedBuilder()
+    .setTitle(`🎣 Something's biting!`)
+    .setDescription(`Quick, reel it in before it gets away!`)
+    .setColor(0xE74C3C);
+  
+  // Create the reel button
+  const reelButton = new ButtonBuilder()
+    .setCustomId('reel_fishing')
+    .setLabel('Reel In! 🎣')
+    .setStyle(ButtonStyle.Primary);
+  
+  const row = new ActionRowBuilder().addComponents(reelButton);
+  
+  // Edit the message
+  await message.edit({
+    embeds: [biteEmbed],
+    components: [row]
+  });
+  
+  // Set escape timer - fish will escape after 10 seconds if not reeled in
+  session.escapeTimer = setTimeout(() => handleEscape(userId, message), 10000);
+  activeFishing.set(userId, session);
 }
 
 /**
@@ -239,43 +171,32 @@ async function handleBite(userId, message, area) {
  */
 async function handleEscape(userId, message) {
   const session = activeFishing.get(userId);
+  if (!session) return;
   
-  // Check if session is still active and in biting state
-  if (!session || session.state !== 'biting') return;
+  // Update the fishing embed
+  const escapeEmbed = new EmbedBuilder()
+    .setTitle(`🎣 It got away!`)
+    .setDescription(`The fish escaped before you could reel it in.`)
+    .setColor(0x95A5A6);
   
-  try {
-    // Create escape embed
-    const escapeEmbed = new EmbedBuilder()
-      .setTitle('🎣 Fish Escaped!')
-      .setDescription('The fish got away because you didn\'t reel it in fast enough!')
-      .addFields(
-        { name: 'Area', value: session.area },
-        { name: 'Status', value: 'The fish escaped.' }
-      )
-      .setColor(0x95A5A6);
-    
-    // Create new fishing button
-    const row = new ActionRowBuilder()
-      .addComponents(
-        new ButtonBuilder()
-          .setCustomId('start_fishing')
-          .setLabel('Fish Again')
-          .setStyle(ButtonStyle.Primary)
-          .setEmoji('🎣')
-      );
-    
-    // Update message
-    await message.edit({ 
-      embeds: [escapeEmbed],
-      components: [row]
-    });
-    
-    // Clean up session
-    activeFishing.delete(userId);
-  } catch (error) {
-    console.error('Error handling fish escape:', error);
-    activeFishing.delete(userId);
-  }
+  // Button to try again
+  const tryAgainButton = new ButtonBuilder()
+    .setCustomId('start_fishing')
+    .setLabel('Try Again')
+    .setStyle(ButtonStyle.Primary);
+  
+  const row = new ActionRowBuilder().addComponents(tryAgainButton);
+  
+  // Edit the message
+  await message.edit({
+    embeds: [escapeEmbed],
+    components: [row]
+  });
+  
+  // Clean up the session
+  clearTimeout(session.biteTimer);
+  clearTimeout(session.escapeTimer);
+  activeFishing.delete(userId);
 }
 
 /**
@@ -286,148 +207,104 @@ async function reelFishing(interaction) {
   const userId = interaction.user.id;
   const session = activeFishing.get(userId);
   
-  // Check if session exists
-  if (!session) {
+  // Note: We don't need to check session existence or ownership here
+  // because that's already handled in handleFishingInteraction
+  
+  // Clean up timers
+  clearTimeout(session.biteTimer);
+  clearTimeout(session.escapeTimer);
+  
+  // Get user profile
+  const userProfile = await userManager.getUser(userId);
+  if (!userProfile) {
     await interaction.reply({
-      content: "You aren't currently fishing!",
+      content: "Error retrieving your profile. Please try again.",
       ephemeral: true
     });
+    activeFishing.delete(userId);
     return;
   }
   
-  try {
-    // Get user profile
-    const userProfile = await fishingDb.getUser(userId);
-    if (!userProfile) {
-      await interaction.reply({
-        content: "Error retrieving your profile. Try using `/start` to reset.",
-        ephemeral: true
-      });
-      activeFishing.delete(userId);
-      return;
-    }
+  // Calculate catch success
+  const fishData = gameLogic.findFish(session.fish);
+  const catchChance = gameLogic.attemptCatch(session.fish, userProfile.equippedRod);
+  const success = rng.doesEventHappen(catchChance);
+  
+  let resultEmbed;
+  const buttonRow = new ActionRowBuilder();
+  
+  if (success) {
+    // Add the fish to the inventory
+    inventory.addItem(userProfile, 'fish', session.fish);
+    await userManager.updateUser(userId, userProfile);
     
-    // Get fish info
-    const fishItem = fishData.fish.find(f => f.name === session.fish);
-    
-    // Calculate catch success
-    const rodData = fishData.rods.find(r => r.name === session.rod);
-    const rodBonus = rodData?.bonus || 0;
-    
-    const difficulty = fishItem?.rarity || 1;
-    const catchChance = 0.7 - (0.1 * difficulty) + (0.1 * rodBonus);
-    
-    const success = rng.doesEventHappen(catchChance);
-    
-    let resultEmbed;
-    const buttonRow = new ActionRowBuilder();
-    
-    if (success) {
-      // Add the fish to the inventory
-      fishingUtils.addItem(userProfile, 'fish', session.fish);
-      await fishingDb.updateUser(userId, userProfile);
+    resultEmbed = new EmbedBuilder()
+      .setTitle(`🎣 You caught a ${session.fish}!`)
+      .setDescription(`Nice catch! This ${session.fish} is worth ${fishData.value} gold.`)
+      .addFields({ name: 'Fish Value', value: `${fishData.value} gold` })
+      .setColor(0x2ECC71);
       
-      resultEmbed = new EmbedBuilder()
-        .setTitle(`🎣 You caught a ${session.fish}!`)
-        .setDescription(`Nice catch! This ${session.fish} is worth ${fishItem.value} gold.`)
-        .addFields({ name: 'Fish Value', value: `${fishItem.value} gold` })
-        .setColor(0x2ECC71);
-        
-      // Add buttons for next actions
-      const fishAgainButton = new ButtonBuilder()
-        .setCustomId('start_fishing')
-        .setLabel('Fish Again')
-        .setStyle(ButtonStyle.Primary);
-        
-      const inventoryButton = new ButtonBuilder()
-        .setCustomId('show_inventory')
-        .setLabel('Inventory')
-        .setStyle(ButtonStyle.Secondary);
-        
-      buttonRow.addComponents(fishAgainButton, inventoryButton);
-    } else {
-      // Fish got away during reeling
-      resultEmbed = new EmbedBuilder()
-        .setTitle('🎣 The fish got away!')
-        .setDescription('You tried to reel it in, but the fish was too strong and escaped.')
-        .setColor(0xE74C3C);
-        
-      // Add fish again button
-      const fishAgainButton = new ButtonBuilder()
-        .setCustomId('start_fishing')
-        .setLabel('Fish Again')
-        .setStyle(ButtonStyle.Primary);
-        
-      buttonRow.addComponents(fishAgainButton);
-    }
-    
-    // Update message
-    await interaction.update({ 
-      embeds: [resultEmbed],
-      components: [buttonRow]
-    });
-    
-    // Clean up session
-    activeFishing.delete(userId);
-  } catch (error) {
-    console.error('Error handling fish reeling:', error);
-    
-    try {
-      await interaction.reply({
-        content: 'Sorry, there was an error reeling in the fish. Please try again.',
-        ephemeral: true
-      });
+    // Add buttons for next actions
+    const fishAgainButton = new ButtonBuilder()
+      .setCustomId('start_fishing')
+      .setLabel('Fish Again')
+      .setStyle(ButtonStyle.Primary);
       
-      activeFishing.delete(userId);
-    } catch (err) {
-      console.error('Error sending reel error message:', err);
-    }
+    const inventoryButton = new ButtonBuilder()
+      .setCustomId('show_inventory')
+      .setLabel('Inventory')
+      .setStyle(ButtonStyle.Secondary);
+      
+    buttonRow.addComponents(fishAgainButton, inventoryButton);
+  } else {
+    resultEmbed = new EmbedBuilder()
+      .setTitle(`🎣 The ${session.fish} got away!`)
+      .setDescription(`You weren't quick enough and lost it.`)
+      .setColor(0xE74C3C);
+      
+    // Add button to try again
+    const tryAgainButton = new ButtonBuilder()
+      .setCustomId('start_fishing')
+      .setLabel('Try Again')
+      .setStyle(ButtonStyle.Primary);
+      
+    buttonRow.addComponents(tryAgainButton);
   }
+  
+  // Update the message
+  await interaction.update({
+    embeds: [resultEmbed],
+    components: [buttonRow]
+  });
+  
+  // Clean up the session
+  activeFishing.delete(userId);
 }
 
 /**
- * Handle canceling a fishing session
+ * Cancel fishing session
  * @param {Object} interaction - Discord interaction
  */
 async function cancelFishing(interaction) {
   const userId = interaction.user.id;
+  const session = activeFishing.get(userId);
   
-  // Check if session exists
-  if (!activeFishing.has(userId)) {
-    await interaction.reply({
-      content: "You aren't currently fishing!",
-      ephemeral: true
-    });
-    return;
-  }
+  // Note: We don't need to check session existence or ownership here
+  // because that's already handled in handleFishingInteraction
   
-  try {
-    const cancelEmbed = new EmbedBuilder()
-      .setTitle('🎣 Fishing Canceled')
-      .setDescription('You decided to stop fishing.')
-      .setColor(0x95A5A6);
-      
-    // Add fish again button
-    const row = new ActionRowBuilder()
-      .addComponents(
-        new ButtonBuilder()
-          .setCustomId('start_fishing')
-          .setLabel('Fish Again')
-          .setStyle(ButtonStyle.Primary)
-      );
-    
-    // Update message
-    await interaction.update({ 
-      embeds: [cancelEmbed],
-      components: [row] 
-    });
-    
-    // Clean up session
-    activeFishing.delete(userId);
-  } catch (error) {
-    console.error('Error canceling fishing:', error);
-    activeFishing.delete(userId);
-  }
+  // Clean up timers
+  clearTimeout(session.biteTimer);
+  if (session.escapeTimer) clearTimeout(session.escapeTimer);
+  
+  // Update the message
+  await interaction.update({
+    content: "Fishing canceled. Your bait was lost.",
+    embeds: [],
+    components: []
+  });
+  
+  // Clean up the session
+  activeFishing.delete(userId);
 }
 
 /**
@@ -466,6 +343,6 @@ async function handleFishingInteraction(interaction) {
 }
 
 module.exports = {
-  startFishing,
-  handleFishingInteraction
+  handleFishingInteraction,
+  startFishing
 };

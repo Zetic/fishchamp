@@ -5,7 +5,7 @@
 const { EmbedBuilder } = require('discord.js');
 const fishingDb = require('../database/fishingDb');
 const fishData = require('../data/fishData');
-const fishingInteraction = require('../interactions/fishingInteraction');
+const fishingInteraction = require('../../interactions/fishingInteraction');
 
 /**
  * Handle the fish command
