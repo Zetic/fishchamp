@@ -454,53 +454,65 @@ async function handleFishingInteraction(interaction) {
   const { customId } = interaction;
   const userId = interaction.user.id;
   
-  // Handle dig for worms interaction
-  if (customId === 'dig_for_worms') {
-    await digForWorms(interaction);
-    return;
-  }
-  
-  // Handle shop redirection
-  if (customId === 'open_shop') {
-    // Redirect to shop interaction
-    const shopInteraction = require('./shopInteraction');
-    await shopInteraction.showShop(interaction);
-    return;
-  }
-  
-  // For start_fishing, we'll just start a new session
-  if (customId === 'start_fishing') {
-    // If there's an old message from a previous session, clean it up
-    if (interaction.message) {
-      try {
-        // Delete the previous fishing message
-        await interaction.message.delete();
-      } catch (error) {
-        // Ignore any errors that might occur when trying to delete the message
-        console.error('Error deleting previous fishing message:', error);
-      }
-    }
-    
-    await startFishing(interaction);
-  }
-  // For other buttons, check if the user is the session owner
-  else if (customId === 'reel_fishing' || customId === 'cancel_fishing') {
-    const session = activeFishing.get(userId);
-    
-    // If user has no session or isn't the owner of their session
-    if (!session || (session.ownerId !== userId)) {
-      await interaction.reply({
-        content: session ? "You can't interact with another user's fishing session." : "You don't have an active fishing session.",
-        ephemeral: true
-      });
+  try {
+    // Handle dig for worms interaction
+    if (customId === 'dig_for_worms') {
+      await digForWorms(interaction);
       return;
     }
     
-    if (customId === 'reel_fishing') {
-      await reelFishing(interaction);
-    } else if (customId === 'cancel_fishing') {
-      await cancelFishing(interaction);
+    // Handle shop redirection
+    if (customId === 'open_shop') {
+      // Redirect to shop interaction
+      const shopInteraction = require('./shopInteraction');
+      await shopInteraction.showShop(interaction);
+      return;
     }
+    
+    // For start_fishing, we'll just start a new session
+    if (customId === 'start_fishing') {
+      // If there's an old message from a previous session, clean it up
+      if (interaction.message) {
+        try {
+          // Delete the previous fishing message
+          await interaction.message.delete();
+        } catch (error) {
+          // Ignore any errors that might occur when trying to delete the message
+          console.error('Error deleting previous fishing message:', error);
+        }
+      }
+      
+      await startFishing(interaction);
+      return;
+    }
+    
+    // For other buttons, check if the user is the session owner
+    if (customId === 'reel_fishing' || customId === 'cancel_fishing') {
+      const session = activeFishing.get(userId);
+      
+      // If user has no session or isn't the owner of their session
+      if (!session || (session.ownerId !== userId)) {
+        await interaction.reply({
+          content: session ? "You can't interact with another user's fishing session." : "You don't have an active fishing session.",
+          ephemeral: true
+        });
+        return;
+      }
+      
+      if (customId === 'reel_fishing') {
+        await reelFishing(interaction);
+      } else if (customId === 'cancel_fishing') {
+        await cancelFishing(interaction);
+      }
+    }
+  } catch (error) {
+    console.error('Error handling fishing interaction:', error);
+    await interaction.reply({
+      content: 'Sorry, there was an error processing your fishing action. Please try again.',
+      ephemeral: true
+    }).catch(err => {
+      console.error('Error sending error response:', err);
+    });
   }
 }
 

@@ -126,9 +126,9 @@ async function executeSlashCommand(interaction) {
  * @param {Object} interaction - Discord interaction
  */
 async function handleAreaSelection(interaction) {
-  if (!interaction.isStringSelectMenu() || interaction.customId !== 'move_area') return;
-  
   try {
+    if (!interaction.isStringSelectMenu() || interaction.customId !== 'move_area') return;
+    
     const userId = interaction.user.id;
     const selectedArea = interaction.values[0];
     
@@ -196,11 +196,21 @@ async function handleAreaSelection(interaction) {
     });
   } catch (error) {
     console.error('Error handling area selection:', error);
-    await interaction.update({
-      content: 'Sorry, there was an error moving to that area. Please try again.',
-      embeds: [],
-      components: []
-    });
+    try {
+      const response = {
+        content: 'Sorry, there was an error moving to that area. Please try again.',
+        embeds: [],
+        components: []
+      };
+      
+      if (interaction.deferred || interaction.replied) {
+        await interaction.followUp(response);
+      } else {
+        await interaction.update(response);
+      }
+    } catch (err) {
+      console.error('Error sending area selection error response:', err);
+    }
   }
 }
 

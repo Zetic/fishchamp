@@ -64,6 +64,30 @@ client.once(Events.ClientReady, async () => {
   // Initialize shop sessions map
   client.shopSessions = new Map();
   
+  // Set up periodic session cleanup
+  setInterval(() => {
+    try {
+      if (client.shopSessions && client.shopSessions.size > 0) {
+        const now = Date.now();
+        const SESSION_TIMEOUT = 10 * 60 * 1000; // 10 minutes in ms
+        let cleanupCount = 0;
+        
+        client.shopSessions.forEach((session, userId) => {
+          if (session.timestamp && now - session.timestamp > SESSION_TIMEOUT) {
+            client.shopSessions.delete(userId);
+            cleanupCount++;
+          }
+        });
+        
+        if (cleanupCount > 0) {
+          console.log(`Cleaned up ${cleanupCount} stale shop sessions`);
+        }
+      }
+    } catch (error) {
+      console.error('Error during session cleanup:', error);
+    }
+  }, 5 * 60 * 1000); // Run cleanup every 5 minutes
+  
   try {
     // Log available guilds
     console.log(`Connected to ${client.guilds.cache.size} guild(s)`);
@@ -548,20 +572,27 @@ client.login(process.env.DISCORD_TOKEN).catch(error => {
 // Handle button and select menu interactions
 client.on(Events.InteractionCreate, async (interaction) => {
   try {
+    // Ensure shop sessions map is always initialized
+    if (!interaction.client.shopSessions) {
+      interaction.client.shopSessions = new Map();
+    }
+    
     // Handle button interactions
     if (interaction.isButton()) {
       const { customId } = interaction;
       
       // Fishing-related buttons
-      if (customId === 'start_fishing' || customId === 'reel_fishing' || customId === 'cancel_fishing') {
+      if (customId === 'start_fishing' || customId === 'reel_fishing' || customId === 'cancel_fishing' || 
+          customId === 'dig_for_worms' || customId === 'open_shop') {
         await fishingInteraction.handleFishingInteraction(interaction);
         return;
       }
       
       // Shop-related buttons
-      if (customId.startsWith('shop_') || customId === 'bait_qty_1' || 
-          customId === 'bait_qty_5' || customId === 'bait_qty_10' ||
-          customId === 'sell_qty_1' || customId === 'sell_all') {
+      if (customId.startsWith('shop_') || 
+          customId.startsWith('bait_qty_') || 
+          customId === 'sell_qty_1' || 
+          customId === 'sell_all') {
         await shopInteraction.handleShopInteraction(interaction);
         return;
       }

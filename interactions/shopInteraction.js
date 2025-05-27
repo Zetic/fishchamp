@@ -407,6 +407,11 @@ async function buyBait(interaction, baitName, quantity = 1) {
   
   await userManager.updateUser(userId, userProfile);
   
+  // Clean up session after successful purchase
+  if (interaction.client.shopSessions?.has(userId)) {
+    interaction.client.shopSessions.delete(userId);
+  }
+  
   // Confirm purchase
   await interaction.update({
     content: `You purchased ${quantity} ${baitName} for ${totalCost} gold! Your new balance is ${userProfile.money} gold.`,
@@ -463,6 +468,11 @@ async function sellFish(interaction, fishName, sellAll = false) {
   inventory.removeItem(userProfile, 'fish', fishName, sellQuantity);
   await userManager.updateUser(userId, userProfile);
   
+  // Clean up session after successful sale
+  if (interaction.client.shopSessions?.has(userId)) {
+    interaction.client.shopSessions.delete(userId);
+  }
+  
   // Confirm sale
   await interaction.update({
     content: `You sold ${sellQuantity} ${fishName} for ${totalValue} gold! Your new balance is ${userProfile.money} gold.`,
@@ -480,9 +490,10 @@ async function sellFish(interaction, fishName, sellAll = false) {
 async function handleShopInteraction(interaction) {
   const userId = interaction.user.id;
   
-  // Handle buttons
-  if (interaction.isButton()) {
-    const { customId } = interaction;
+  try {
+    // Handle buttons
+    if (interaction.isButton()) {
+      const { customId } = interaction;
     
     // Main shop navigation - anyone can navigate the shop
     if (customId === 'shop_main' || 
@@ -523,7 +534,7 @@ async function handleShopInteraction(interaction) {
     
     // For action buttons that require a session, check ownership
     if (customId.startsWith('bait_qty_') || customId === 'sell_qty_1' || customId === 'sell_all') {
-      const session = interaction.client.shopSessions?.get(userId);
+      const session = interaction.client.shopSessions.get(userId);
       
       // Check if user has a valid session and is the owner
       if (!session || session.ownerId !== userId) {
@@ -531,6 +542,17 @@ async function handleShopInteraction(interaction) {
           content: session && session.ownerId !== userId ? 
             "You can't interact with another user's session." : 
             "Please make a selection first!",
+          ephemeral: true
+        });
+        return;
+      }
+      
+      // Session cleanup - remove stale sessions (older than 10 minutes)
+      const SESSION_TIMEOUT = 10 * 60 * 1000; // 10 minutes in ms
+      if (session.timestamp && Date.now() - session.timestamp > SESSION_TIMEOUT) {
+        interaction.client.shopSessions.delete(userId);
+        await interaction.reply({
+          content: "Your session has expired. Please make a new selection.",
           ephemeral: true
         });
         return;
@@ -546,7 +568,19 @@ async function handleShopInteraction(interaction) {
           return;
         }
         
-        const quantity = parseInt(customId.replace('bait_qty_', ''));
+        // Safely parse the quantity from the customId
+        let quantity = 1;
+        try {
+          const quantityStr = customId.replace('bait_qty_', '');
+          quantity = parseInt(quantityStr, 10);
+          // If parsing fails or results in NaN or negative value, default to 1
+          if (isNaN(quantity) || quantity <= 0) {
+            quantity = 1;
+          }
+        } catch (error) {
+          console.error('Error parsing bait quantity:', error);
+        }
+        
         await buyBait(interaction, session.selectedBait, quantity);
         return;
       }
@@ -585,11 +619,6 @@ async function handleShopInteraction(interaction) {
     const { customId, values } = interaction;
     const selectedValue = values[0];
     
-    // Initialize shop sessions if not exists
-    if (!interaction.client.shopSessions) {
-      interaction.client.shopSessions = new Map();
-    }
-    
     // Store selected items in session
     if (customId === 'shop_select_rod') {
       await buyRod(interaction, selectedValue);
@@ -600,7 +629,8 @@ async function handleShopInteraction(interaction) {
       // Store selected bait for quantity buttons
       interaction.client.shopSessions.set(interaction.user.id, { 
         selectedBait: selectedValue,
-        ownerId: interaction.user.id 
+        ownerId: interaction.user.id,
+        timestamp: Date.now()
       });
       
       await interaction.reply({
@@ -614,7 +644,8 @@ async function handleShopInteraction(interaction) {
       // Store selected fish for selling buttons
       interaction.client.shopSessions.set(interaction.user.id, { 
         selectedFish: selectedValue,
-        ownerId: interaction.user.id
+        ownerId: interaction.user.id,
+        timestamp: Date.now()
       });
       
       await interaction.reply({
@@ -622,6 +653,23 @@ async function handleShopInteraction(interaction) {
         ephemeral: true
       });
       return;
+    }
+  }
+  } catch (error) {
+    console.error('Error handling shop interaction:', error);
+    try {
+      const response = {
+        content: 'Sorry, there was an error with the shop. Please try again.',
+        ephemeral: true
+      };
+      
+      if (interaction.deferred || interaction.replied) {
+        await interaction.followUp(response);
+      } else {
+        await interaction.reply(response);
+      }
+    } catch (err) {
+      console.error('Error sending shop error response:', err);
     }
   }
 }
