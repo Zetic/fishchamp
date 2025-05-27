@@ -9,6 +9,9 @@ const sharp = require('sharp');
 // Load environment variables
 dotenv.config();
 
+// Initialize usage tracker
+const usageTracker = require('./usageTracker').initialize();
+
 // Initialize Discord client with necessary intents
 const client = new Client({
   intents: [
@@ -76,20 +79,24 @@ client.on(Events.MessageCreate, async (message) => {
       await message.channel.sendTyping();
       const loadingMessage = await message.reply('Generating soundwave from your text, please wait...');
       
-      // Generate audio from the text
-      const audioBuffer = await createSoundwaveFromText(prompt, voice);
-      
-      // Create a Discord attachment from the audio buffer
-      const audioAttachment = new AttachmentBuilder(audioBuffer, { name: 'soundwave.mp3' });
-      
-      // Send the audio file back to the channel
-      await message.reply({
-        content: `Here's your generated soundwave (using voice: ${voice}):`,
-        files: [audioAttachment]
-      });
-      
-      // Delete the loading message
-      await loadingMessage.delete();
+      try {
+        // Generate audio from the text with user ID for tracking
+        const audioBuffer = await createSoundwaveFromText(prompt, voice, message.author.id);
+        
+        // Create a Discord attachment from the audio buffer
+        const audioAttachment = new AttachmentBuilder(audioBuffer, { name: 'soundwave.mp3' });
+        
+        // Send the audio file back to the channel
+        await message.reply({
+          content: `Here's your generated soundwave (using voice: ${voice}):`,
+          files: [audioAttachment]
+        });
+      } catch (error) {
+        await message.reply(`Error: ${error.message}`);
+      } finally {
+        // Delete the loading message
+        await loadingMessage.delete().catch(console.error);
+      }
     }
     // Check if the bot is mentioned in a reply to a message (existing image functionality)
     else if (message.reference && message.mentions.has(client.user.id)) {
@@ -110,24 +117,30 @@ client.on(Events.MessageCreate, async (message) => {
       // Get the image URL from the attachment
       const imageUrl = attachment.url;
       
-      // Process the image with OpenAI to get a crayon drawing version
-      const imageBuffer = await createCrayonDrawingVersion(imageUrl);
-      
-      // Create a Discord attachment from the image buffer
-      const crayonDrawingAttachment = new AttachmentBuilder(imageBuffer, { name: 'crayon-drawing.png' });
-      
-      // Send the modified image back to the channel
-      await message.reply({
-        content: 'Here\'s your crayon drawing version of the original image:',
-        files: [crayonDrawingAttachment]
-      });
-
-      // Delete the loading message
-      await loadingMessage.delete();
+      try {
+        // Process the image with OpenAI to get a crayon drawing version with user ID for tracking
+        const imageBuffer = await createCrayonDrawingVersion(imageUrl, message.author.id);
+        
+        // Create a Discord attachment from the image buffer
+        const crayonDrawingAttachment = new AttachmentBuilder(imageBuffer, { name: 'crayon-drawing.png' });
+        
+        // Send the modified image back to the channel
+        await message.reply({
+          content: 'Here\'s your crayon drawing version of the original image:',
+          files: [crayonDrawingAttachment]
+        });
+      } catch (error) {
+        await message.reply(`Error: ${error.message}`);
+      } finally {
+        // Delete the loading message
+        await loadingMessage.delete().catch(console.error);
+      }
     }
   } catch (error) {
     console.error('Error processing message:', error);
-    message.reply('Sorry, there was an error processing your request.').catch(console.error);
+    if (!message.replied) {
+      message.reply('Sorry, there was an error processing your request: ' + error.message).catch(console.error);
+    }
   }
 });
 
@@ -138,8 +151,17 @@ function isImageAttachment(attachment) {
 }
 
 // Function to create crayon drawing version using OpenAI API
-async function createCrayonDrawingVersion(imageUrl) {
+async function createCrayonDrawingVersion(imageUrl, userId) {
   try {
+    // Check usage limits before making API call
+    if (usageTracker.checkUserLimit(userId)) {
+      throw new Error(`You've reached your daily limit for OpenAI API usage ($${usageTracker.userLimit.toFixed(2)}). Please try again tomorrow.`);
+    }
+    
+    if (usageTracker.checkGlobalLimit()) {
+      throw new Error(`The bot has reached its daily limit for OpenAI API usage. Please try again tomorrow.`);
+    }
+    
     // Download the source image from the URL
     const imageResponse = await fetch(imageUrl);
     if (!imageResponse.ok) {
@@ -230,6 +252,10 @@ async function createCrayonDrawingVersion(imageUrl) {
       console.error('OpenAI image generation response:', JSON.stringify(response, null, 2));
       throw new Error('No image returned from OpenAI.');
     }
+    
+    // Track usage after successful API calls
+    usageTracker.trackCrayonDrawingUsage(userId);
+    
     return imageBuffer;
   } catch (error) {
     console.error('Error with OpenAI API:', error);
@@ -238,14 +264,23 @@ async function createCrayonDrawingVersion(imageUrl) {
     } else if (error.message?.includes('size') || error.message?.includes('4MB')) {
       throw new Error('Image is too large for processing. Please use an image smaller than 4MB.');
     }
-    throw new Error('Failed to process image with OpenAI');
+    throw error;
   }
 }
 
 // Function to generate a sound wave from text using OpenAI TTS API
-async function createSoundwaveFromText(prompt, voice = "alloy") {
+async function createSoundwaveFromText(prompt, voice = "alloy", userId) {
   try {
     console.log('Generating audio for prompt:', prompt, 'with voice:', voice);
+    
+    // Check usage limits before making API call
+    if (usageTracker.checkUserLimit(userId)) {
+      throw new Error(`You've reached your daily limit for OpenAI API usage ($${usageTracker.userLimit.toFixed(2)}). Please try again tomorrow.`);
+    }
+    
+    if (usageTracker.checkGlobalLimit()) {
+      throw new Error(`The bot has reached its daily limit for OpenAI API usage. Please try again tomorrow.`);
+    }
     
     // Validate voice parameter
     const validVoices = ["alloy", "echo", "fable", "onyx", "nova", "shimmer"];
@@ -268,10 +303,13 @@ async function createSoundwaveFromText(prompt, voice = "alloy") {
     const audioBuffer = Buffer.from(arrayBuffer);
     console.log('Audio generated successfully, size:', audioBuffer.length, 'bytes');
     
+    // Track usage after successful API call
+    usageTracker.trackTtsApiUsage(userId);
+    
     return audioBuffer;
   } catch (error) {
     console.error('Error with OpenAI TTS API:', error);
-    throw new Error('Failed to generate audio from text');
+    throw error;
   }
 }
 

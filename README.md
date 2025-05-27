@@ -6,6 +6,7 @@ A Discord bot that utilizes OpenAI's image-to-image capabilities to transform im
 
 - Mention the bot while replying to an image to transform it into a crayon drawing version that preserves the original composition
 - Generate speech from text using the `!soundwave` command
+- Daily usage limits to prevent excessive OpenAI API costs
 - Easy setup with local configuration
 
 ## Prerequisites
@@ -36,6 +37,8 @@ A Discord bot that utilizes OpenAI's image-to-image capabilities to transform im
    ```
    DISCORD_TOKEN=your_discord_bot_token_here
    OPENAI_API_KEY=your_openai_api_key_here
+   OPENAI_DAILY_LIMIT_GLOBAL=5.0
+   OPENAI_DAILY_LIMIT_USER=1.0
    ```
 
 ## Running the Bot
@@ -60,6 +63,15 @@ To generate a soundwave:
    - Example: `!soundwave --voice:nova Hello, this is a test with the Nova voice`
 4. For help, type `!soundwave help` or `!soundwave --help`
 5. The bot will generate an audio file based on your text and reply with it
+
+## Usage Limits
+
+To prevent excessive OpenAI API costs, the bot implements daily usage limits:
+
+1. Global daily limit: $5.00 by default (configurable via `OPENAI_DAILY_LIMIT_GLOBAL` in `.env`)
+2. Per-user daily limit: $1.00 by default (configurable via `OPENAI_DAILY_LIMIT_USER` in `.env`)
+
+The limits reset at midnight. When a user reaches their limit or the global limit is reached, the bot will notify users and temporarily disable OpenAI API features until the next day.
 
 ## Development
 
