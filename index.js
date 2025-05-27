@@ -227,238 +227,243 @@ async function createSoundwaveFromText(prompt, voice = config.voices.default) {
   }
 }
 
-// Message create event handler
-client.on(Events.MessageCreate, async (message) => {
+/**
+ * Handle random conversation joining
+ * @param {Object} message - Discord message object
+ */
+async function handleRandomConversation(message) {
   try {
-    // Ignore messages from bots to prevent potential loops
-    if (message.author.bot) return;
+    // Fetch recent messages to build conversation context
+    const recentMessages = await fetchRecentMessages(message.channel, 5, message.id);
+    if (recentMessages.length === 0) return;
 
-    // Log every message and roll result
-    const roll = Math.random();
-    console.log(`[MSG] ${message.author.username}: ${message.content} | Roll: ${roll.toFixed(3)}`);
+    const conversationContext = createConversationContext(recentMessages);
+    console.log('Random conversation context:', conversationContext);
 
-    // Handle random conversation joining
-    if (roll < config.features.randomConversationChance) {
-      await handleRandomConversation(message);
-    }
-
-    // Handle direct command and mention patterns
-    if (message.mentions.has(client.user.id) && /thoughts\?/i.test(message.content)) {
-      await handleThoughtsCommand(message);
-      return;
-    }
-    
-    if (message.content === `${config.commands.soundwave} help` || 
-        message.content === `${config.commands.soundwave} --help`) {
-      await handleSoundwaveHelp(message);
-      return;
-    }
-    
-    if (message.content.startsWith(`${config.commands.soundwave} `)) {
-      await handleSoundwaveCommand(message);
-      return;
-    }
-
-    // Handle image processing via mentions in replies
-    if (message.reference && message.mentions.has(client.user.id)) {
-      await handleImageProcessing(message);
-    }
-  } catch (error) {
-    console.error('Error processing message:', error);
-    message.reply('Sorry, there was an error processing your request.').catch(console.error);
-  }
-});
-
-// Login to Discord with the token
-client.login(process.env.DISCORD_TOKEN).catch(error => {
-  console.error('Failed to login to Discord:', error);
-  process.exit(1);
-});
-// Message create event handler
-client.on(Events.MessageCreate, async (message) => {
-  try {
-    // Ignore messages from bots to prevent potential loops
-    if (message.author.bot) return;
-
-    // Log every message and roll result
-    const roll = Math.random();
-    console.log(`[MSG] ${message.author.username}: ${message.content} | Roll: ${roll.toFixed(3)}`);
-
-    // Handle random conversation joining
-    if (roll < config.features.randomConversationChance) {
-      await handleRandomConversation(message);
-    }
-
-    // Handle direct command and mention patterns
-    if (message.mentions.has(client.user.id) && /thoughts\?/i.test(message.content)) {
-      await handleThoughtsCommand(message);
-      return;
-    }
-    
-    if (message.content === `${config.commands.soundwave} help` || 
-        message.content === `${config.commands.soundwave} --help`) {
-      await handleSoundwaveHelp(message);
-      return;
-    }
-    
-    if (message.content.startsWith(`${config.commands.soundwave} `)) {
-      await handleSoundwaveCommand(message);
-      return;
-    }
-
-    // Handle image processing via mentions in replies
-    if (message.reference && message.mentions.has(client.user.id)) {
-      await handleImageProcessing(message);
-    }
-  } catch (error) {
-    console.error('Error processing message:', error);
-    message.reply('Sorry, there was an error processing your request.').catch(console.error);
-  }
-});
-
-// Function to check if attachment is an image
-function isImageAttachment(attachment) {
-  const validImageTypes = ['image/jpeg', 'image/png', 'image/gif', 'image/webp'];
-  return attachment && validImageTypes.includes(attachment.contentType);
-}
-
-// Function to create crayon drawing version using OpenAI API
-async function createCrayonDrawingVersion(imageUrl) {
-  try {
-    // Download the source image from the URL
-    const imageResponse = await fetch(imageUrl);
-    if (!imageResponse.ok) {
-      throw new Error(`Failed to download source image: ${imageResponse.statusText}`);
-    }
-    let sourceImageBuffer = await imageResponse.buffer();
-
-    // Debug: Log image buffer size before and after processing
-    console.log('Original image buffer size:', sourceImageBuffer.length, 'bytes');
-
-    // Convert to PNG, resize to 1024x1024, and ensure <4MB using sharp
-    sourceImageBuffer = await sharp(sourceImageBuffer)
-      .resize(1024, 1024, { fit: 'cover' })
-      .png({ quality: 50, compressionLevel: 9 })
-      .toBuffer();
-
-    console.log('Processed image buffer size (1024x1024, q50):', sourceImageBuffer.length, 'bytes');
-
-    // If still too large, try reducing quality further and downscale to 512x512
-    let quality = 40;
-    let size = 1024;
-    while (sourceImageBuffer.length > 4 * 1024 * 1024 && size >= 512) {
-      sourceImageBuffer = await sharp(sourceImageBuffer)
-        .resize(size, size, { fit: 'cover' })
-        .png({ quality, compressionLevel: 9 })
-        .toBuffer();
-      console.log(`Processed image buffer size (${size}x${size}, q${quality}):`, sourceImageBuffer.length, 'bytes');
-      if (quality > 10) {
-        quality -= 10;
-      } else {
-        size -= 128;
-        quality = 40;
-      }
-    }
-
-    if (sourceImageBuffer.length > 4 * 1024 * 1024) {
-      console.error('Final processed image buffer size:', sourceImageBuffer.length, 'bytes');
-      throw new Error('Image is too large after processing. Please use a smaller image.');
-    }
-
-    // Log the MIME type for debugging
-    const fileType = await import('file-type');
-    const type = await fileType.fileTypeFromBuffer(sourceImageBuffer);
-    console.log('Processed image MIME type:', type);
-
-    // Use vision API to describe the image
-    const visionResponse = await openai.chat.completions.create({
-      model: "gpt-4o",
+    // Get a response from OpenAI based on the conversation
+    const response = await openai.chat.completions.create({
+      model: config.openai.chatModel,
       messages: [
         {
-          role: "user",
-          content: [
-            { type: "text", text: "Describe this image in detail, focusing on the main subjects and their arrangement." },
-            { type: "image_url", image_url: { url: imageUrl } },
-          ],
+          role: "system",
+          content: "You are a friendly Discord bot that occasionally joins conversations. Keep responses brief, conversational and relevant to the context."
         },
+        {
+          role: "user",
+          content: `Here's a recent conversation in a Discord channel. Provide a short, natural response to join in:\n\n${conversationContext}`
+        }
       ],
-      max_tokens: 300,
-    });
-    const imageDescription = visionResponse.choices[0].message.content;
-
-    // Use the image description to generate a new image with the latest image model
-    let crayonPrompt = `Create an extremely crude, amateurish, and messy crayon drawing version of this image, as if it was scribbled by a 4-year-old child with crayons. The drawing should be naive, unskilled, with uneven lines, off proportions, and lots of random color marks. Do not make it look professional or neat. Here is the image description: ${imageDescription}`;
-    // gpt-image-1 prompt limit is 32000 characters
-    if (crayonPrompt.length > 32000) {
-      crayonPrompt = crayonPrompt.slice(0, 32000);
-    }
-
-    const response = await openai.images.generate({
-      model: "gpt-image-1",
-      prompt: crayonPrompt,
-      n: 1,
-      size: "1024x1024",
+      max_tokens: config.openai.maxTokens,
+      temperature: config.openai.temperature,
     });
 
-    let imageBuffer;
-    if (response.data[0].url) {
-      const generatedImageUrl = response.data[0].url;
-      const resultResponse = await fetch(generatedImageUrl);
-      if (!resultResponse.ok) {
-        throw new Error(`Failed to download generated image: ${resultResponse.statusText}`);
-      }
-      imageBuffer = await resultResponse.buffer();
-    } else if (response.data[0].b64_json) {
-      // Handle base64 image output
-      imageBuffer = Buffer.from(response.data[0].b64_json, 'base64');
-    } else {
-      console.error('OpenAI image generation response:', JSON.stringify(response, null, 2));
-      throw new Error('No image returned from OpenAI.');
-    }
-    return imageBuffer;
+    // Extract and send the bot's response
+    const botResponse = response.choices[0].message.content;
+    await message.channel.send(botResponse);
+    console.log('Bot randomly joined conversation with:', botResponse);
   } catch (error) {
-    console.error('Error with OpenAI API:', error);
-    if (error.message?.includes('format') || error.message?.includes('PNG')) {
-      throw new Error('Image format not compatible with OpenAI. Please use PNG format.');
-    } else if (error.message?.includes('size') || error.message?.includes('4MB')) {
-      throw new Error('Image is too large for processing. Please use an image smaller than 4MB.');
-    }
-    throw new Error('Failed to process image with OpenAI');
+    console.error('Error in random conversation:', error);
+    // Silently fail for random conversations
   }
 }
 
-// Function to generate a sound wave from text using OpenAI TTS API
-async function createSoundwaveFromText(prompt, voice = "alloy") {
+/**
+ * Handle the thoughts command
+ * @param {Object} message - Discord message object
+ */
+async function handleThoughtsCommand(message) {
   try {
-    console.log('Generating audio for prompt:', prompt, 'with voice:', voice);
+    // Get typing indicator and fetch recent messages
+    await message.channel.sendTyping();
+    const recentMessages = await fetchRecentMessages(message.channel, 10, message.id);
     
-    // Validate voice parameter
-    const validVoices = ["alloy", "echo", "fable", "onyx", "nova", "shimmer"];
-    if (!validVoices.includes(voice)) {
-      console.warn(`Invalid voice "${voice}" specified, defaulting to "alloy"`);
-      voice = "alloy";
+    if (recentMessages.length === 0) {
+      await message.reply("I don't have any thoughts on this conversation yet.");
+      return;
     }
 
-    // Use OpenAI's text-to-speech API to generate audio
-    const mp3Response = await openai.audio.speech.create({
-      model: "tts-1", // Using the text-to-speech model
-      voice: voice,   // User specified voice or default
-      input: prompt,
+    const conversationContext = createConversationContext(recentMessages);
+    console.log('Thoughts context:', conversationContext);
+
+    // Ask OpenAI for thoughts on the conversation
+    const response = await openai.chat.completions.create({
+      model: config.openai.chatModel,
+      messages: [
+        {
+          role: "system",
+          content: "You are a thoughtful Discord bot. Someone has asked what you think about the current conversation. Provide an insightful, brief analysis of the conversation, noting themes, emotions, or interesting points."
+        },
+        {
+          role: "user",
+          content: `Here's the recent conversation. What do you think about it?\n\n${conversationContext}`
+        }
+      ],
+      max_tokens: 150,
+      temperature: 0.7,
     });
 
-    // Get audio data as an ArrayBuffer
-    const arrayBuffer = await mp3Response.arrayBuffer();
-    
-    // Convert to a Buffer that can be used by Discord.js
-    const audioBuffer = Buffer.from(arrayBuffer);
-    console.log('Audio generated successfully, size:', audioBuffer.length, 'bytes');
-    
-    return audioBuffer;
+    // Reply with the bot's thoughts
+    const thoughts = response.choices[0].message.content;
+    await message.reply(thoughts);
+    console.log('Bot shared thoughts:', thoughts);
   } catch (error) {
-    console.error('Error with OpenAI TTS API:', error);
-    throw new Error('Failed to generate audio from text');
+    console.error('Error handling thoughts command:', error);
+    await message.reply('I seem to be having trouble organizing my thoughts right now.');
   }
 }
+
+/**
+ * Handle the soundwave help command
+ * @param {Object} message - Discord message object
+ */
+async function handleSoundwaveHelp(message) {
+  try {
+    const helpMessage = `
+**Soundwave Command Help**
+
+\`${config.commands.soundwave} <text>\` - Converts text to speech with the default voice
+
+**Voice Options:**
+You can specify a voice by adding \`--voice <name>\` at the end of your text:
+${config.voices.available.map(voice => `- \`${voice}\``).join('\n')}
+
+**Examples:**
+\`${config.commands.soundwave} Hello, how are you?\` - Uses the default voice (${config.voices.default})
+\`${config.commands.soundwave} Hello there! --voice nova\` - Uses the nova voice
+`;
+    await message.reply(helpMessage);
+    console.log('Soundwave help displayed');
+  } catch (error) {
+    console.error('Error handling soundwave help:', error);
+    await message.reply('Sorry, there was an error displaying the help information.');
+  }
+}
+
+/**
+ * Handle the soundwave command
+ * @param {Object} message - Discord message object
+ */
+async function handleSoundwaveCommand(message) {
+  try {
+    await message.channel.sendTyping();
+    
+    // Get the command content (removing the command prefix)
+    let content = message.content.substring(config.commands.soundwave.length).trim();
+    
+    // Parse for voice option using regex
+    const voiceMatch = content.match(/--voice\s+(\w+)(?:\s|$)/i);
+    let voice = config.voices.default;
+    
+    if (voiceMatch && voiceMatch[1]) {
+      voice = voiceMatch[1].toLowerCase();
+      // Remove the voice flag from the content
+      content = content.replace(/--voice\s+\w+(?:\s|$)/i, '').trim();
+    }
+    
+    if (!content) {
+      await message.reply(`Please provide some text to convert to speech. Try \`${config.commands.soundwave} hello world\``);
+      return;
+    }
+    
+    console.log('Processing soundwave command:', content, 'with voice:', voice);
+    
+    // Generate audio from text
+    const audioBuffer = await createSoundwaveFromText(content, voice);
+    
+    // Send the audio file as an attachment
+    const attachment = new AttachmentBuilder(audioBuffer, { name: 'soundwave.mp3' });
+    await message.reply({ files: [attachment] });
+    console.log('Soundwave audio sent successfully');
+  } catch (error) {
+    console.error('Error handling soundwave command:', error);
+    await message.reply('Sorry, there was an error generating the audio.');
+  }
+}
+
+/**
+ * Handle image processing
+ * @param {Object} message - Discord message object
+ */
+async function handleImageProcessing(message) {
+  try {
+    // Send typing indicator
+    await message.channel.sendTyping();
+    
+    // Get the message being replied to
+    const repliedMessage = await message.channel.messages.fetch(message.reference.messageId);
+    
+    if (!repliedMessage) {
+      await message.reply("I couldn't find the message you're replying to.");
+      return;
+    }
+    
+    // Check if the replied message has image attachments
+    const imageAttachment = repliedMessage.attachments.find(isImageAttachment);
+    
+    if (!imageAttachment) {
+      await message.reply("I don't see any images in that message to transform.");
+      return;
+    }
+    
+    console.log('Processing image:', imageAttachment.url);
+    
+    // Create crayon drawing version of the image
+    const crayonBuffer = await createCrayonDrawingVersion(imageAttachment.url);
+    
+    // Send the transformed image
+    const attachment = new AttachmentBuilder(crayonBuffer, { name: 'crayon_drawing.png' });
+    await message.reply({ 
+      content: 'Here\'s my crayon drawing version!', 
+      files: [attachment] 
+    });
+    console.log('Crayon drawing sent successfully');
+  } catch (error) {
+    console.error('Error handling image processing:', error);
+    await message.reply('Sorry, there was an error processing that image.');
+  }
+}
+
+// Message create event handler
+client.on(Events.MessageCreate, async (message) => {
+  try {
+    // Ignore messages from bots to prevent potential loops
+    if (message.author.bot) return;
+
+    // Log every message and roll result
+    const roll = Math.random();
+    console.log(`[MSG] ${message.author.username}: ${message.content} | Roll: ${roll.toFixed(3)}`);
+
+    // Handle random conversation joining
+    if (roll < config.features.randomConversationChance) {
+      await handleRandomConversation(message);
+    }
+
+    // Handle direct command and mention patterns
+    if (message.mentions.has(client.user.id) && /thoughts\?/i.test(message.content)) {
+      await handleThoughtsCommand(message);
+      return;
+    }
+    
+    if (message.content === `${config.commands.soundwave} help` || 
+        message.content === `${config.commands.soundwave} --help`) {
+      await handleSoundwaveHelp(message);
+      return;
+    }
+    
+    if (message.content.startsWith(`${config.commands.soundwave} `)) {
+      await handleSoundwaveCommand(message);
+      return;
+    }
+
+    // Handle image processing via mentions in replies
+    if (message.reference && message.mentions.has(client.user.id)) {
+      await handleImageProcessing(message);
+    }
+  } catch (error) {
+    console.error('Error processing message:', error);
+    message.reply('Sorry, there was an error processing your request.').catch(console.error);
+  }
+});
 
 // Login to Discord with the token
 client.login(process.env.DISCORD_TOKEN).catch(error => {
