@@ -7,12 +7,19 @@
     "start": "node index.js",
     "test": "echo \"Error: no test specified\" && exit 1"
   },
-  "keywords": ["discord", "bot", "openai", "image", "vision"],
+  "keywords": [
+    "discord",
+    "bot",
+    "openai",
+    "image",
+    "vision"
+  ],
   "author": "",
   "license": "ISC",
   "dependencies": {
     "discord.js": "^14.19.3",
     "dotenv": "^16.5.0",
+    "node-fetch": "^2.7.0",
     "openai": "^4.103.0"
   }
 }
