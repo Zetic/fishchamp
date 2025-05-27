@@ -1,10 +1,10 @@
 # ZPT Discord Bot
 
-A Discord bot that utilizes OpenAI's vision and image generation capabilities to transform images into crudely drawn crayon versions.
+A Discord bot that utilizes OpenAI's image-to-image capabilities to transform images into crayon drawing versions.
 
 ## Features
 
-- Mention the bot while replying to an image to transform it into a "crudely crayon drawing" version
+- Mention the bot while replying to an image to transform it into a crayon drawing version that preserves the original composition
 - Easy setup with local configuration
 
 ## Prerequisites
