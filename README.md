@@ -1,12 +1,14 @@
 # ZPT Discord Bot
 
-A Discord bot that utilizes OpenAI's image-to-image capabilities to transform images into crayon drawing versions.
+A Discord bot that utilizes OpenAI's capabilities to transform images into crayon drawings, generate speech from text, and participate in conversations.
 
 ## Features
 
-- Mention the bot while replying to an image to transform it into a crayon drawing version that preserves the original composition
-- Generate speech from text using the `!soundwave` command
-- Easy setup with local configuration
+- **Image Transformation**: Mention the bot while replying to an image to transform it into a crayon drawing version
+- **Text-to-Speech**: Generate speech from text using the `!soundwave` command with multiple voice options
+- **Conversation Participation**: Bot occasionally joins conversations with contextually relevant messages
+- **Contextual Thoughts**: Ask the bot what it thinks about the current conversation with `@bot thoughts?`
+- **Configurable Settings**: Easy customization through centralized configuration
 
 ## Prerequisites
 
@@ -47,23 +49,38 @@ node index.js
 
 ## Usage
 
-1. Invite the bot to your Discord server
-2. Find an image in any channel
-3. Reply to the message containing the image and mention the bot (e.g., @ZPT)
-4. The bot will process the image and reply with a crayon drawing version
+### Image Transformation
+1. Find an image in any channel
+2. Reply to the message containing the image and mention the bot (e.g., @ZPT)
+3. The bot will process the image and reply with a crayon drawing version
 
-To generate a soundwave:
+### Text-to-Speech
 1. Type `!soundwave` followed by your text prompt
 2. Example: `!soundwave Hello, this is a test of the soundwave feature`
 3. You can specify a voice by adding `--voice:name` at the beginning of your prompt
    - Available voices: `alloy` (default), `echo`, `fable`, `onyx`, `nova`, `shimmer`
    - Example: `!soundwave --voice:nova Hello, this is a test with the Nova voice`
 4. For help, type `!soundwave help` or `!soundwave --help`
-5. The bot will generate an audio file based on your text and reply with it
+
+### Conversation Features
+- The bot has a 10% chance of joining any conversation with a contextually relevant message
+- Ask the bot what it thinks about the current conversation by mentioning it with "thoughts?"
+  - Example: `@ZPT thoughts?`
 
 ## Development
 
 This bot uses:
 - [discord.js](https://discord.js.org/) for Discord API integration
-- [OpenAI Node.js SDK](https://github.com/openai/openai-node) for image processing and text-to-speech
-- [dotenv](https://github.com/motdotla/dotenv) for environment variables
+- [OpenAI Node.js SDK](https://github.com/openai/openai-node) for:
+  - Image processing and generation (Vision API and Image Generation API)
+  - Text-to-speech generation (TTS API)
+  - Natural language understanding (Chat Completions API)
+- [sharp](https://sharp.pixelplumbing.com/) for image processing
+- [dotenv](https://github.com/motdotla/dotenv) for environment variables management
+
+### Architecture
+The bot follows a modular structure:
+- Configuration is centralized for easy customization
+- Utility functions handle common operations
+- Command handlers are separated for better maintainability
+- API interactions are abstracted for consistency
