@@ -34,8 +34,65 @@ client.on(Events.MessageCreate, async (message) => {
     // Ignore messages from bots to prevent potential loops
     if (message.author.bot) return;
 
-    // Check if the bot is mentioned in a reply to a message
-    if (message.reference && message.mentions.has(client.user.id)) {
+    // Check for the help command for soundwave
+    if (message.content === '!soundwave help' || message.content === '!soundwave --help') {
+      await message.reply(
+        'Soundwave Command Help:\n\n' +
+        '`!soundwave [--voice:name] your text here`\n\n' +
+        'Available voices:\n' +
+        '- `alloy`: Neutral, professional voice (default)\n' +
+        '- `echo`: Deep, resonant voice\n' +
+        '- `fable`: Expressive, narrative voice\n' +
+        '- `onyx`: Powerful, confident voice\n' +
+        '- `nova`: Warm, friendly voice\n' +
+        '- `shimmer`: Bright, cheerful voice\n\n' +
+        'Example: `!soundwave --voice:nova Hello, this is a test with the Nova voice`'
+      );
+      return;
+    }
+    // Check for the soundwave command (starts with "!soundwave ")
+    else if (message.content.startsWith('!soundwave ')) {
+      // Extract the prompt (everything after "!soundwave ")
+      let prompt = message.content.slice('!soundwave '.length).trim();
+      
+      // Default voice
+      let voice = "alloy";
+      
+      // Check if a voice is specified
+      const voiceMatch = prompt.match(/^--voice:(\w+)\s+/);
+      if (voiceMatch) {
+        voice = voiceMatch[1].toLowerCase();
+        // Remove the voice parameter from the prompt
+        prompt = prompt.replace(voiceMatch[0], '');
+      }
+      
+      // Validate prompt length
+      if (prompt.length === 0) {
+        await message.reply('Please provide some text after the !soundwave command.');
+        return;
+      }
+      
+      // Let the user know we're processing their request
+      await message.channel.sendTyping();
+      const loadingMessage = await message.reply('Generating soundwave from your text, please wait...');
+      
+      // Generate audio from the text
+      const audioBuffer = await createSoundwaveFromText(prompt, voice);
+      
+      // Create a Discord attachment from the audio buffer
+      const audioAttachment = new AttachmentBuilder(audioBuffer, { name: 'soundwave.mp3' });
+      
+      // Send the audio file back to the channel
+      await message.reply({
+        content: `Here's your generated soundwave (using voice: ${voice}):`,
+        files: [audioAttachment]
+      });
+      
+      // Delete the loading message
+      await loadingMessage.delete();
+    }
+    // Check if the bot is mentioned in a reply to a message (existing image functionality)
+    else if (message.reference && message.mentions.has(client.user.id)) {
       // Fetch the message being replied to
       const repliedMessage = await message.channel.messages.fetch(message.reference.messageId);
       
@@ -182,6 +239,39 @@ async function createCrayonDrawingVersion(imageUrl) {
       throw new Error('Image is too large for processing. Please use an image smaller than 4MB.');
     }
     throw new Error('Failed to process image with OpenAI');
+  }
+}
+
+// Function to generate a sound wave from text using OpenAI TTS API
+async function createSoundwaveFromText(prompt, voice = "alloy") {
+  try {
+    console.log('Generating audio for prompt:', prompt, 'with voice:', voice);
+    
+    // Validate voice parameter
+    const validVoices = ["alloy", "echo", "fable", "onyx", "nova", "shimmer"];
+    if (!validVoices.includes(voice)) {
+      console.warn(`Invalid voice "${voice}" specified, defaulting to "alloy"`);
+      voice = "alloy";
+    }
+
+    // Use OpenAI's text-to-speech API to generate audio
+    const mp3Response = await openai.audio.speech.create({
+      model: "tts-1", // Using the text-to-speech model
+      voice: voice,   // User specified voice or default
+      input: prompt,
+    });
+
+    // Get audio data as an ArrayBuffer
+    const arrayBuffer = await mp3Response.arrayBuffer();
+    
+    // Convert to a Buffer that can be used by Discord.js
+    const audioBuffer = Buffer.from(arrayBuffer);
+    console.log('Audio generated successfully, size:', audioBuffer.length, 'bytes');
+    
+    return audioBuffer;
+  } catch (error) {
+    console.error('Error with OpenAI TTS API:', error);
+    throw new Error('Failed to generate audio from text');
   }
 }
 

@@ -5,6 +5,7 @@ A Discord bot that utilizes OpenAI's image-to-image capabilities to transform im
 ## Features
 
 - Mention the bot while replying to an image to transform it into a crayon drawing version that preserves the original composition
+- Generate speech from text using the `!soundwave` command
 - Easy setup with local configuration
 
 ## Prerequisites
@@ -51,9 +52,18 @@ node index.js
 3. Reply to the message containing the image and mention the bot (e.g., @ZPT)
 4. The bot will process the image and reply with a crayon drawing version
 
+To generate a soundwave:
+1. Type `!soundwave` followed by your text prompt
+2. Example: `!soundwave Hello, this is a test of the soundwave feature`
+3. You can specify a voice by adding `--voice:name` at the beginning of your prompt
+   - Available voices: `alloy` (default), `echo`, `fable`, `onyx`, `nova`, `shimmer`
+   - Example: `!soundwave --voice:nova Hello, this is a test with the Nova voice`
+4. For help, type `!soundwave help` or `!soundwave --help`
+5. The bot will generate an audio file based on your text and reply with it
+
 ## Development
 
 This bot uses:
 - [discord.js](https://discord.js.org/) for Discord API integration
-- [OpenAI Node.js SDK](https://github.com/openai/openai-node) for image processing
+- [OpenAI Node.js SDK](https://github.com/openai/openai-node) for image processing and text-to-speech
 - [dotenv](https://github.com/motdotla/dotenv) for environment variables
