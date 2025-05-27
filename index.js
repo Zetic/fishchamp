@@ -4,6 +4,7 @@ const { OpenAI } = require('openai');
 const dotenv = require('dotenv');
 const fs = require('fs');
 const fetch = require('node-fetch');
+const sharp = require('sharp');
 
 // Load environment variables
 dotenv.config();
@@ -87,40 +88,99 @@ async function createCrayonDrawingVersion(imageUrl) {
     if (!imageResponse.ok) {
       throw new Error(`Failed to download source image: ${imageResponse.statusText}`);
     }
-    const sourceImageBuffer = await imageResponse.buffer();
-    
-    // Use the image to create a variation with OpenAI
-    // Note: OpenAI requires PNG format, <4MB, square dimensions
-    const response = await openai.images.createVariation({
-      image: sourceImageBuffer,
+    let sourceImageBuffer = await imageResponse.buffer();
+
+    // Debug: Log image buffer size before and after processing
+    console.log('Original image buffer size:', sourceImageBuffer.length, 'bytes');
+
+    // Convert to PNG, resize to 1024x1024, and ensure <4MB using sharp
+    sourceImageBuffer = await sharp(sourceImageBuffer)
+      .resize(1024, 1024, { fit: 'cover' })
+      .png({ quality: 50, compressionLevel: 9 })
+      .toBuffer();
+
+    console.log('Processed image buffer size (1024x1024, q50):', sourceImageBuffer.length, 'bytes');
+
+    // If still too large, try reducing quality further and downscale to 512x512
+    let quality = 40;
+    let size = 1024;
+    while (sourceImageBuffer.length > 4 * 1024 * 1024 && size >= 512) {
+      sourceImageBuffer = await sharp(sourceImageBuffer)
+        .resize(size, size, { fit: 'cover' })
+        .png({ quality, compressionLevel: 9 })
+        .toBuffer();
+      console.log(`Processed image buffer size (${size}x${size}, q${quality}):`, sourceImageBuffer.length, 'bytes');
+      if (quality > 10) {
+        quality -= 10;
+      } else {
+        size -= 128;
+        quality = 40;
+      }
+    }
+
+    if (sourceImageBuffer.length > 4 * 1024 * 1024) {
+      console.error('Final processed image buffer size:', sourceImageBuffer.length, 'bytes');
+      throw new Error('Image is too large after processing. Please use a smaller image.');
+    }
+
+    // Log the MIME type for debugging
+    const fileType = await import('file-type');
+    const type = await fileType.fileTypeFromBuffer(sourceImageBuffer);
+    console.log('Processed image MIME type:', type);
+
+    // Use vision API to describe the image
+    const visionResponse = await openai.chat.completions.create({
+      model: "gpt-4o",
+      messages: [
+        {
+          role: "user",
+          content: [
+            { type: "text", text: "Describe this image in detail, focusing on the main subjects and their arrangement." },
+            { type: "image_url", image_url: { url: imageUrl } },
+          ],
+        },
+      ],
+      max_tokens: 300,
+    });
+    const imageDescription = visionResponse.choices[0].message.content;
+
+    // Use the image description to generate a new image with the latest image model
+    let crayonPrompt = `Create an extremely crude, amateurish, and messy crayon drawing version of this image, as if it was scribbled by a 4-year-old child with crayons. The drawing should be naive, unskilled, with uneven lines, off proportions, and lots of random color marks. Do not make it look professional or neat. Here is the image description: ${imageDescription}`;
+    // gpt-image-1 prompt limit is 32000 characters
+    if (crayonPrompt.length > 32000) {
+      crayonPrompt = crayonPrompt.slice(0, 32000);
+    }
+
+    const response = await openai.images.generate({
+      model: "gpt-image-1",
+      prompt: crayonPrompt,
       n: 1,
       size: "1024x1024",
-      response_format: "url",
     });
 
-    // Get the URL of the generated image
-    const generatedImageUrl = response.data[0].url;
-    
-    // Download the generated image
-    const resultResponse = await fetch(generatedImageUrl);
-    if (!resultResponse.ok) {
-      throw new Error(`Failed to download generated image: ${resultResponse.statusText}`);
+    let imageBuffer;
+    if (response.data[0].url) {
+      const generatedImageUrl = response.data[0].url;
+      const resultResponse = await fetch(generatedImageUrl);
+      if (!resultResponse.ok) {
+        throw new Error(`Failed to download generated image: ${resultResponse.statusText}`);
+      }
+      imageBuffer = await resultResponse.buffer();
+    } else if (response.data[0].b64_json) {
+      // Handle base64 image output
+      imageBuffer = Buffer.from(response.data[0].b64_json, 'base64');
+    } else {
+      console.error('OpenAI image generation response:', JSON.stringify(response, null, 2));
+      throw new Error('No image returned from OpenAI.');
     }
-    
-    // Get the image data as a buffer
-    const imageBuffer = await resultResponse.buffer();
-    
     return imageBuffer;
   } catch (error) {
     console.error('Error with OpenAI API:', error);
-    
-    // Provide more descriptive error message for common issues
     if (error.message?.includes('format') || error.message?.includes('PNG')) {
       throw new Error('Image format not compatible with OpenAI. Please use PNG format.');
     } else if (error.message?.includes('size') || error.message?.includes('4MB')) {
       throw new Error('Image is too large for processing. Please use an image smaller than 4MB.');
     }
-    
     throw new Error('Failed to process image with OpenAI');
   }
 }
