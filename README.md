@@ -55,7 +55,10 @@ node index.js
 To generate a soundwave:
 1. Type `!soundwave` followed by your text prompt
 2. Example: `!soundwave Hello, this is a test of the soundwave feature`
-3. The bot will generate an audio file based on your text and reply with it
+3. You can specify a voice by adding `--voice:name` at the beginning of your prompt
+   - Available voices: `alloy` (default), `echo`, `fable`, `onyx`, `nova`, `shimmer`
+   - Example: `!soundwave --voice:nova Hello, this is a test with the Nova voice`
+4. The bot will generate an audio file based on your text and reply with it
 
 ## Development
 

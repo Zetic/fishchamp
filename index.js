@@ -37,7 +37,18 @@ client.on(Events.MessageCreate, async (message) => {
     // Check for the soundwave command (starts with "!soundwave ")
     if (message.content.startsWith('!soundwave ')) {
       // Extract the prompt (everything after "!soundwave ")
-      const prompt = message.content.slice('!soundwave '.length).trim();
+      let prompt = message.content.slice('!soundwave '.length).trim();
+      
+      // Default voice
+      let voice = "alloy";
+      
+      // Check if a voice is specified
+      const voiceMatch = prompt.match(/^--voice:(\w+)\s+/);
+      if (voiceMatch) {
+        voice = voiceMatch[1].toLowerCase();
+        // Remove the voice parameter from the prompt
+        prompt = prompt.replace(voiceMatch[0], '');
+      }
       
       // Validate prompt length
       if (prompt.length === 0) {
@@ -50,14 +61,14 @@ client.on(Events.MessageCreate, async (message) => {
       const loadingMessage = await message.reply('Generating soundwave from your text, please wait...');
       
       // Generate audio from the text
-      const audioBuffer = await createSoundwaveFromText(prompt);
+      const audioBuffer = await createSoundwaveFromText(prompt, voice);
       
       // Create a Discord attachment from the audio buffer
       const audioAttachment = new AttachmentBuilder(audioBuffer, { name: 'soundwave.mp3' });
       
       // Send the audio file back to the channel
       await message.reply({
-        content: 'Here\'s your generated soundwave:',
+        content: `Here's your generated soundwave (using voice: ${voice}):`,
         files: [audioAttachment]
       });
       
@@ -216,14 +227,21 @@ async function createCrayonDrawingVersion(imageUrl) {
 }
 
 // Function to generate a sound wave from text using OpenAI TTS API
-async function createSoundwaveFromText(prompt) {
+async function createSoundwaveFromText(prompt, voice = "alloy") {
   try {
-    console.log('Generating audio for prompt:', prompt);
+    console.log('Generating audio for prompt:', prompt, 'with voice:', voice);
+    
+    // Validate voice parameter
+    const validVoices = ["alloy", "echo", "fable", "onyx", "nova", "shimmer"];
+    if (!validVoices.includes(voice)) {
+      console.warn(`Invalid voice "${voice}" specified, defaulting to "alloy"`);
+      voice = "alloy";
+    }
 
     // Use OpenAI's text-to-speech API to generate audio
     const mp3Response = await openai.audio.speech.create({
       model: "tts-1", // Using the text-to-speech model
-      voice: "alloy", // Default voice
+      voice: voice,   // User specified voice or default
       input: prompt,
     });
 
