@@ -67,36 +67,18 @@ async function executeSlashCommand(interaction) {
     const existingUser = await userManager.getUser(userId);
     
     if (existingUser) {
-      await interaction.reply({
-        content: "You've already started your fishing adventure! Use `/fish` to start fishing or `/help` for more commands.",
-        });
+      // Redirect to the main game interface
+      const gameInterface = require('../interactions/gameInterface');
+      await gameInterface.showMainInterface(interaction);
       return;
     }
     
     // Create new user profile
     const newProfile = await userManager.getUser(userId, true);
     
-    // Create welcome embed
-    const welcomeEmbed = createWelcomeEmbed(newProfile);
-    
-    // Create fishing button
-    const fishButton = new ButtonBuilder()
-      .setCustomId('start_fishing')
-      .setLabel('🎣 Start Fishing')
-      .setStyle(ButtonStyle.Primary);
-      
-    const shopButton = new ButtonBuilder()
-      .setCustomId('shop_main')
-      .setLabel('🏪 Visit Shop')
-      .setStyle(ButtonStyle.Secondary);
-    
-    const row = new ActionRowBuilder().addComponents(fishButton, shopButton);
-    
-    // Send welcome message with embed and buttons
-    await interaction.reply({ 
-      embeds: [welcomeEmbed],
-      components: [row]
-    });
+    // Show welcome interface via game interface
+    const gameInterface = require('../interactions/gameInterface');
+    await gameInterface.showWelcomeInterface(interaction, newProfile);
   } catch (error) {
     console.error('Error handling start command:', error);
     await interaction.reply({

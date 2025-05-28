@@ -60,17 +60,9 @@ async function executeSlashCommand(interaction) {
       return;
     }
     
-    // Create inventory embed
-    const inventoryEmbed = await createInventoryEmbed(userProfile);
-    
-    // Create menu rows for equipment management
-    const rows = createEquipmentMenuRows(userProfile);
-    
-    // Send inventory message
-    await interaction.reply({ 
-      embeds: [inventoryEmbed],
-      components: rows,
-      });
+    // Redirect to the game interface with inventory view
+    const gameInterface = require('../interactions/gameInterface');
+    await gameInterface.showInventoryInterface(interaction, userProfile);
   } catch (error) {
     console.error('Error handling inventory command:', error);
     await interaction.reply({

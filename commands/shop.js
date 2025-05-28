@@ -59,7 +59,11 @@ async function executeSlashCommand(interaction) {
       return;
     }
     
-    // Show shop
+    // First show the main game interface
+    const gameInterface = require('../interactions/gameInterface');
+    await gameInterface.showMainInterface(interaction);
+    
+    // Then navigate to the shop
     await shopInteraction.showShop(interaction);
   } catch (error) {
     console.error('Error handling shop command:', error);

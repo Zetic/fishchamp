@@ -10,7 +10,9 @@ const sharp = require('sharp');
 const fishingInteraction = require('./interactions/fishingInteraction');
 const shopInteraction = require('./interactions/shopInteraction');
 const trapInteraction = require('./interactions/trapInteraction');
+const gameInterface = require('./interactions/gameInterface');
 const startCommand = require('./commands/start');
+const playCommand = require('./commands/play');
 const fishCommand = require('./commands/fish');
 const moveCommand = require('./commands/move');
 const shopCommand = require('./commands/shop');
@@ -43,6 +45,10 @@ const slashCommands = [
   new SlashCommandBuilder()
     .setName('start')
     .setDescription('Start your fishing adventure and create a new profile'),
+    
+  new SlashCommandBuilder()
+    .setName('play')
+    .setDescription('Open the main fishing game interface'),
   
   new SlashCommandBuilder()
     .setName('fish')
@@ -417,6 +423,9 @@ client.on(Events.InteractionCreate, async (interaction) => {
         case 'start':
           await startCommand.executeSlashCommand(interaction);
           break;
+        case 'play':
+          await playCommand.executeSlashCommand(interaction);
+          break;
         case 'fish':
           await fishCommand.executeSlashCommand(interaction);
           break;
@@ -443,6 +452,12 @@ client.on(Events.InteractionCreate, async (interaction) => {
     // Handle button interactions
     if (interaction.isButton()) {
       const { customId } = interaction;
+      
+      // Game interface navigation buttons
+      if (customId.startsWith('game_')) {
+        await gameInterface.handleGameNavigation(interaction);
+        return;
+      }
       
       // Fishing-related buttons
       if (customId === 'start_fishing' || customId === 'reel_fishing' || customId === 'cancel_fishing' || 
