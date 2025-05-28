@@ -235,6 +235,7 @@ async function handleGameNavigation(interaction) {
     // Handle navigation based on button pressed
     switch (customId) {
       case 'game_home':
+      case 'game_back':
         // Show main interface
         await showMainInterface(interaction);
         break;
@@ -512,7 +513,7 @@ function createNavigationRow(currentSection) {
     .setDisabled(currentSection === 'home');
 
   const backButton = new ButtonBuilder()
-    .setCustomId('game_home') // Back always goes to home for simplicity
+    .setCustomId('game_back') // Back always goes to home for simplicity
     .setLabel('⬅️ Back')
     .setStyle(ButtonStyle.Secondary);
 
