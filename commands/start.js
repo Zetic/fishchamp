@@ -69,8 +69,7 @@ async function executeSlashCommand(interaction) {
     if (existingUser) {
       await interaction.reply({
         content: "You've already started your fishing adventure! Use `/fish` to start fishing or `/help` for more commands.",
-        ephemeral: true
-      });
+        });
       return;
     }
     
@@ -102,8 +101,7 @@ async function executeSlashCommand(interaction) {
     console.error('Error handling start command:', error);
     await interaction.reply({
       content: 'Sorry, there was an error starting your fishing adventure. Please try again.',
-      ephemeral: true
-    });
+      });
   }
 }
 

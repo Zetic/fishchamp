@@ -55,8 +55,7 @@ async function executeSlashCommand(interaction) {
     if (!userProfile) {
       await interaction.reply({
         content: "You haven't started your fishing adventure yet! Use `/start` to begin.",
-        ephemeral: true
-      });
+        });
       return;
     }
     
@@ -66,8 +65,7 @@ async function executeSlashCommand(interaction) {
     console.error('Error handling shop command:', error);
     await interaction.reply({
       content: 'Sorry, there was an error opening the shop. Please try again.',
-      ephemeral: true
-    });
+      });
   }
 }
 

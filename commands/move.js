@@ -76,8 +76,7 @@ async function executeSlashCommand(interaction) {
     if (!userProfile) {
       await interaction.reply({
         content: "You haven't started your fishing adventure yet! Use `/start` to begin.",
-        ephemeral: true
-      });
+        });
       return;
     }
     
@@ -111,14 +110,12 @@ async function executeSlashCommand(interaction) {
     await interaction.reply({ 
       embeds: [moveEmbed],
       components: [row],
-      ephemeral: true
-    });
+      });
   } catch (error) {
     console.error('Error handling move command:', error);
     await interaction.reply({
       content: 'Sorry, there was an error showing area selection. Please try again.',
-      ephemeral: true
-    });
+      });
   }
 }
 
