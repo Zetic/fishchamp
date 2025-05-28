@@ -13,6 +13,167 @@ const baits = require('../data/baits');
 const activeFishing = new Map();
 
 /**
+ * Start a new fishing session for a user by editing the existing message
+ * @param {Object} interaction - Discord interaction
+ * @returns {Promise<void>}
+ */
+async function startFishingWithEdit(interaction) {
+  const userId = interaction.user.id;
+  
+  // Check if user is already fishing
+  if (activeFishing.has(userId)) {
+    await interaction.reply({ 
+      content: "You're already fishing! Wait for a bite or reel in.", 
+      ephemeral: true 
+    });
+    return;
+  }
+  
+  // Get user profile
+  const userProfile = await userManager.getUser(userId, true);
+  
+  // Check if user has equipped a rod and bait
+  if (!userProfile.equippedRod) {
+    await interaction.update({
+      content: "You need to equip a fishing rod first!",
+      embeds: [],
+      components: []
+    });
+    return;
+  }
+  
+  if (!userProfile.equippedBait) {
+    await interaction.update({
+      content: "You need to equip some bait first!",
+      embeds: [],
+      components: []
+    });
+    return;
+  }
+  
+  // Check if user has bait in inventory
+  if (!userProfile.inventory.bait[userProfile.equippedBait] || 
+      userProfile.inventory.bait[userProfile.equippedBait] <= 0) {
+    
+    // Check if user has any bait at all
+    const hasBait = Object.values(userProfile.inventory.bait || {}).some(count => count > 0);
+    
+    if (hasBait) {
+      // User has other bait, but not the equipped one
+      const availableBaits = Object.entries(userProfile.inventory.bait || {})
+        .filter(([_, count]) => count > 0);
+      
+      if (availableBaits.length > 0) {
+        userProfile.equippedBait = availableBaits[0][0];
+        await userManager.updateUser(userId, userProfile);
+        
+        // Create a button to start fishing with the new bait
+        const startFishingButton = new ButtonBuilder()
+          .setCustomId('start_fishing')
+          .setLabel('Go Fishing')
+          .setStyle(ButtonStyle.Primary);
+          
+        const row = new ActionRowBuilder().addComponents(startFishingButton);
+        
+        await interaction.update({
+          content: `You've run out of your equipped bait. Switched to ${userProfile.equippedBait}!`,
+          embeds: [],
+          components: [row]
+        });
+        return;
+      }
+    }
+    
+    // Create the dig for worms button
+    const digButton = new ButtonBuilder()
+      .setCustomId('dig_for_worms')
+      .setLabel('Dig for Worms')
+      .setStyle(ButtonStyle.Primary);
+      
+    const shopButton = new ButtonBuilder()
+      .setCustomId('open_shop')
+      .setLabel('Visit Shop')
+      .setStyle(ButtonStyle.Secondary);
+    
+    const row = new ActionRowBuilder().addComponents(digButton, shopButton);
+    
+    await interaction.update({
+      content: `You don't have any ${userProfile.equippedBait} left! You can dig for worms or visit the shop to buy more bait.`,
+      embeds: [],
+      components: [row]
+    });
+    return;
+  }
+  
+  // Find the current area
+  const currentArea = areas.find(area => area.name === userProfile.area);
+  if (!currentArea) {
+    await interaction.update({
+      content: "Error finding your current area. Please try again.",
+      embeds: [],
+      components: []
+    });
+    return;
+  }
+  
+  // Find the bait being used
+  const currentBait = baits.find(bait => bait.name === userProfile.equippedBait);
+  
+  // Use up one bait
+  const previousBait = userProfile.equippedBait;
+  userProfile.inventory.bait[userProfile.equippedBait]--;
+  if (userProfile.inventory.bait[userProfile.equippedBait] <= 0) {
+    delete userProfile.inventory.bait[userProfile.equippedBait];
+    
+    // Look for another bait if available
+    const availableBaits = Object.entries(userProfile.inventory.bait || {})
+      .filter(([_, count]) => count > 0);
+      
+    if (availableBaits.length > 0) {
+      userProfile.equippedBait = availableBaits[0][0]; // Use the first available bait
+      await interaction.followUp({
+        content: `You're out of ${previousBait}. Automatically switched to ${userProfile.equippedBait}!`,
+        ephemeral: true
+      });
+    }
+  }
+  await userManager.updateUser(userId, userProfile);
+  
+  // Create the initial fishing embed
+  const fishingEmbed = new EmbedBuilder()
+    .setTitle(`🎣 Fishing at ${currentArea.name}`)
+    .setDescription(`You cast your line using ${userProfile.equippedRod} and ${userProfile.equippedBait} as bait...`)
+    .setColor(0x3498DB);
+  
+  // Create the cancel button
+  const cancelButton = new ButtonBuilder()
+    .setCustomId('cancel_fishing')
+    .setLabel('Cancel')
+    .setStyle(ButtonStyle.Secondary);
+  
+  const row = new ActionRowBuilder().addComponents(cancelButton);
+  
+  // Edit the existing message instead of creating a new one
+  await interaction.update({ 
+    content: '',
+    embeds: [fishingEmbed],
+    components: [row]
+  });
+  
+  // Calculate bite time based on bait
+  const biteTime = rng.calculateBiteTime(currentBait.biteChance);
+  
+  // Store fishing session with the existing message
+  activeFishing.set(userId, {
+    messageId: interaction.message.id,
+    channelId: interaction.channelId,
+    area: currentArea,
+    ownerId: userId,
+    biteTimer: setTimeout(() => handleBite(userId, interaction.message, currentArea), biteTime)
+  });
+}
+
+/**
  * Start a new fishing session for a user
  * @param {Object} interaction - Discord interaction
  * @returns {Promise<void>}
@@ -179,6 +340,18 @@ async function handleBite(userId, message, area) {
   const session = activeFishing.get(userId);
   if (!session) return;
   
+  // Get user profile to check their equipped rod
+  const userProfile = await userManager.getUser(userId);
+  if (!userProfile) {
+    await message.edit({
+      content: "Error retrieving your profile.",
+      embeds: [],
+      components: []
+    });
+    activeFishing.delete(userId);
+    return;
+  }
+  
   // Select a random fish from the area
   const fishName = gameLogic.getRandomFish(area.fish);
   if (!fishName) {
@@ -195,13 +368,122 @@ async function handleBite(userId, message, area) {
   // Store the fish in the session
   session.fish = fishName;
   
-  // Update the fishing embed
-  const biteEmbed = new EmbedBuilder()
-    .setTitle(`🎣 Something's biting!`)
-    .setDescription(`Quick, reel it in before it gets away!`)
-    .setColor(0xE74C3C);
+  // Check if this fish can be caught with the current rod
+  const canCatch = gameLogic.canCatchFish(fishName, userProfile.equippedRod);
+  const requiresAbility = gameLogic.fishRequiresAbility(fishName);
   
-  // Create the reel button
+  if (!canCatch && requiresAbility) {
+    // Fish requires an ability the user's rod doesn't have
+    const fishData = gameLogic.findFish(fishName);
+    const requiredAbility = fishData.requiredAbility;
+    
+    const failEmbed = new EmbedBuilder()
+      .setTitle(`🎣 A ${fishName} is biting!`)
+      .setDescription(`This ${fishName} requires a special rod ability to catch. You need a rod with the "${requiredAbility}" ability!\n\n${fishData.description || ''}`)
+      .setColor(0xE67E22);
+    
+    const tryAgainButton = new ButtonBuilder()
+      .setCustomId('start_fishing')
+      .setLabel('Try Again')
+      .setStyle(ButtonStyle.Primary);
+    
+    const row = new ActionRowBuilder().addComponents(tryAgainButton);
+    
+    await message.edit({
+      embeds: [failEmbed],
+      components: [row]
+    });
+    
+    // Clean up the session
+    activeFishing.delete(userId);
+    return;
+  }
+  
+  // Check if fish requires a special ability (multi-stage catching)
+  if (requiresAbility) {
+    const rodData = gameLogic.findRod(userProfile.equippedRod);
+    const fishData = gameLogic.findFish(fishName);
+    
+    // Start taming stage
+    session.stage = 'taming';
+    
+    const tamingEmbed = new EmbedBuilder()
+      .setTitle(`🎣 A ${fishName} is biting!`)
+      .setDescription(`This is a special fish that requires taming! Use your rod's ${rodData.abilityName} ability to subdue it first.\n\n${fishData.description || ''}`)
+      .setColor(0x9B59B6);
+    
+    const abilityButton = new ButtonBuilder()
+      .setCustomId(`use_ability_${rodData.ability}`)
+      .setLabel(`${rodData.abilityName} ⚡`)
+      .setStyle(ButtonStyle.Danger);
+    
+    const row = new ActionRowBuilder().addComponents(abilityButton);
+    
+    await message.edit({
+      embeds: [tamingEmbed],
+      components: [row]
+    });
+    
+    // Set escape timer for taming - fish will escape after 15 seconds if not tamed
+    session.escapeTimer = setTimeout(() => handleEscape(userId, message), 15000);
+    activeFishing.set(userId, session);
+  } else {
+    // Regular fish, proceed with normal reeling
+    const biteEmbed = new EmbedBuilder()
+      .setTitle(`🎣 Something's biting!`)
+      .setDescription(`Quick, reel it in before it gets away!`)
+      .setColor(0xE74C3C);
+    
+    const reelButton = new ButtonBuilder()
+      .setCustomId('reel_fishing')
+      .setLabel('Reel In! 🎣')
+      .setStyle(ButtonStyle.Primary);
+    
+    const row = new ActionRowBuilder().addComponents(reelButton);
+    
+    await message.edit({
+      embeds: [biteEmbed],
+      components: [row]
+    });
+    
+    // Set escape timer - fish will escape after 10 seconds if not reeled in
+    session.escapeTimer = setTimeout(() => handleEscape(userId, message), 10000);
+    activeFishing.set(userId, session);
+  }
+}
+
+/**
+ * Handle using rod ability to tame fish
+ * @param {Object} interaction - Discord interaction
+ */
+async function useRodAbility(interaction) {
+  const userId = interaction.user.id;
+  const session = activeFishing.get(userId);
+  
+  if (!session || session.stage !== 'taming') {
+    await interaction.reply({
+      content: "You don't have an active taming session.",
+      ephemeral: true
+    });
+    return;
+  }
+  
+  // Clear the escape timer
+  clearTimeout(session.escapeTimer);
+  
+  // Get the ability type from the button customId
+  const abilityType = interaction.customId.split('_')[2]; // e.g., 'freeze', 'shock', 'charm'
+  
+  const fishData = gameLogic.findFish(session.fish);
+  
+  // Success! Fish is tamed, now allow reeling
+  session.stage = 'reeling';
+  
+  const tamedEmbed = new EmbedBuilder()
+    .setTitle(`⚡ ${fishData.name} tamed!`)
+    .setDescription(`Your ${getAbilityActionText(abilityType)} worked! The ${fishData.name} is now subdued. Quick, reel it in!`)
+    .setColor(0x2ECC71);
+  
   const reelButton = new ButtonBuilder()
     .setCustomId('reel_fishing')
     .setLabel('Reel In! 🎣')
@@ -209,22 +491,33 @@ async function handleBite(userId, message, area) {
   
   const row = new ActionRowBuilder().addComponents(reelButton);
   
-  // Edit the message
-  await message.edit({
-    embeds: [biteEmbed],
+  await interaction.update({
+    embeds: [tamedEmbed],
     components: [row]
   });
   
-  // Set escape timer - fish will escape after 10 seconds if not reeled in
-  session.escapeTimer = setTimeout(() => handleEscape(userId, message), 10000);
+  // Set new escape timer for reeling - fish will escape after 8 seconds if not reeled in
+  session.escapeTimer = setTimeout(() => handleEscape(userId, interaction.message), 8000);
   activeFishing.set(userId, session);
 }
 
 /**
- * Handle fish escaping
- * @param {string} userId - User ID
- * @param {Object} message - Discord message object
+ * Get descriptive text for ability actions
+ * @param {string} abilityType - Type of ability (freeze, shock, charm)
+ * @returns {string} - Action description
  */
+function getAbilityActionText(abilityType) {
+  switch (abilityType) {
+    case 'freeze':
+      return 'freezing attack';
+    case 'shock':
+      return 'electric shock';
+    case 'charm':
+      return 'mystical charm';
+    default:
+      return 'special ability';
+  }
+}
 async function handleEscape(userId, message) {
   const session = activeFishing.get(userId);
   if (!session) return;
@@ -254,7 +547,7 @@ async function handleEscape(userId, message) {
   clearTimeout(session.escapeTimer);
   activeFishing.delete(userId);
   
-  // Auto-delete the message after 2 minutes (120000ms)
+  // Only auto-delete the message after 5 minutes (300000ms) to allow for "Try Again"
   setTimeout(async () => {
     try {
       // Check if the message still exists and delete it
@@ -265,7 +558,7 @@ async function handleEscape(userId, message) {
       // Ignore errors that might occur if the message is already deleted
       console.error('Error auto-deleting fishing escape message:', error);
     }
-  }, 120000);
+  }, 300000);
 }
 
 /**
@@ -349,7 +642,7 @@ async function reelFishing(interaction) {
   // Clean up the session
   activeFishing.delete(userId);
   
-  // Auto-delete the message after 2 minutes (120000ms)
+  // Only auto-delete the message after 5 minutes (300000ms) to allow for "Try Again"
   setTimeout(async () => {
     try {
       // Check if the message still exists and delete it
@@ -360,7 +653,7 @@ async function reelFishing(interaction) {
       // Ignore errors that might occur if the message is already deleted
       console.error('Error auto-deleting fishing result message:', error);
     }
-  }, 120000);
+  }, 300000);
 }
 
 /**
@@ -479,20 +772,22 @@ async function handleFishingInteraction(interaction) {
       return;
     }
     
-    // For start_fishing, we'll just start a new session
+    // Handle rod ability usage
+    if (customId.startsWith('use_ability_')) {
+      await useRodAbility(interaction);
+      return;
+    }
+    
+    // For start_fishing, we'll reuse the message if possible
     if (customId === 'start_fishing') {
-      // If there's an old message from a previous session, clean it up
+      // Check if this is a "Try Again" scenario (interaction.message exists)
       if (interaction.message) {
-        try {
-          // Delete the previous fishing message
-          await interaction.message.delete();
-        } catch (error) {
-          // Ignore any errors that might occur when trying to delete the message
-          console.error('Error deleting previous fishing message:', error);
-        }
+        // Reuse the existing message by editing it
+        await startFishingWithEdit(interaction);
+      } else {
+        // New fishing session, create new message
+        await startFishing(interaction);
       }
-      
-      await startFishing(interaction);
       return;
     }
     
@@ -529,5 +824,6 @@ async function handleFishingInteraction(interaction) {
 module.exports = {
   handleFishingInteraction,
   startFishing,
+  startFishingWithEdit,
   digForWorms
 };
