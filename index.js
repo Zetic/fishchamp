@@ -10,6 +10,7 @@ const sharp = require('sharp');
 const fishingInteraction = require('./interactions/fishingInteraction');
 const shopInteraction = require('./interactions/shopInteraction');
 const trapInteraction = require('./interactions/trapInteraction');
+const aquariumInteraction = require('./interactions/aquariumInteraction');
 const gameInterface = require('./interactions/gameInterface');
 const startCommand = require('./commands/start');
 const playCommand = require('./commands/play');
@@ -18,6 +19,7 @@ const moveCommand = require('./commands/move');
 const shopCommand = require('./commands/shop');
 const inventoryCommand = require('./commands/inventory');
 const trapCommand = require('./commands/trap');
+const aquariumCommand = require('./commands/aquarium');
 
 // Load environment variables
 dotenv.config();
@@ -68,7 +70,11 @@ const slashCommands = [
     
   new SlashCommandBuilder()
     .setName('traps')
-    .setDescription('Manage your fish traps - place, check, and collect')
+    .setDescription('Manage your fish traps - place, check, and collect'),
+    
+  new SlashCommandBuilder()
+    .setName('aquarium')
+    .setDescription('Manage your aquariums - view, feed, and care for your fish')
 ].map(command => command.toJSON());
 
 // Initialize Discord client with necessary intents
@@ -441,6 +447,9 @@ client.on(Events.InteractionCreate, async (interaction) => {
         case 'traps':
           await trapCommand.executeSlashCommand(interaction);
           break;
+        case 'aquarium':
+          await aquariumCommand.executeSlashCommand(interaction);
+          break;
         default:
           await interaction.reply({
             content: `Unknown command: /${commandName}`
@@ -470,6 +479,7 @@ client.on(Events.InteractionCreate, async (interaction) => {
       if (customId.startsWith('shop_') || 
           customId.startsWith('bait_qty_') || 
           customId.startsWith('trap_qty_') || 
+          customId.startsWith('decoration_qty_') ||
           customId === 'sell_qty_1' || 
           customId === 'sell_all') {
         await shopInteraction.handleShopInteraction(interaction);
@@ -479,6 +489,12 @@ client.on(Events.InteractionCreate, async (interaction) => {
       // Trap-related buttons
       if (customId.startsWith('trap_') || customId === 'open_traps') {
         await trapInteraction.handleTrapInteraction(interaction);
+        return;
+      }
+      
+      // Aquarium-related buttons
+      if (customId.startsWith('aquarium_') || customId === 'open_aquarium') {
+        await aquariumInteraction.handleAquariumInteraction(interaction);
         return;
       }
       

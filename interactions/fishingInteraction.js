@@ -583,14 +583,22 @@ async function reelFishing(interaction) {
   const buttonRow = new ActionRowBuilder();
   
   if (success) {
+    // Generate fish with size and rarity
+    const fishGenerator = require('../utils/fishGenerator');
+    const generatedFish = fishGenerator.generateFishInstance(fishData);
+    
     // Add the fish to the inventory
-    inventory.addItem(userProfile, 'fish', session.fish);
+    inventory.addItem(userProfile, 'fish', generatedFish);
     await userManager.updateUser(userId, userProfile);
     
     resultEmbed = new EmbedBuilder()
-      .setTitle(`🎣 You caught a ${session.fish}!`)
-      .setDescription(`Nice catch! This ${session.fish} is worth ${fishData.value} gold.`)
-      .addFields({ name: 'Fish Value', value: `${fishData.value} gold` })
+      .setTitle(`🎣 You caught a ${generatedFish.rarity} ${generatedFish.size} ${session.fish}!`)
+      .setDescription(`Nice catch! This ${generatedFish.rarity} ${generatedFish.size} ${session.fish} is worth ${generatedFish.value} gold.`)
+      .addFields(
+        { name: 'Fish Value', value: `${generatedFish.value} gold`, inline: true },
+        { name: 'Size', value: generatedFish.size, inline: true },
+        { name: 'Rarity', value: generatedFish.rarity, inline: true }
+      )
       .setColor(0x2ECC71);
       
     // Add buttons for next actions
