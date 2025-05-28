@@ -198,10 +198,16 @@ async function showBuyBait(interaction) {
     .setCustomId('shop_main')
     .setLabel('Back to Shop')
     .setStyle(ButtonStyle.Secondary);
-  
+    
+  // Home button
+  const homeButton = new ButtonBuilder()
+    .setCustomId('game_home')
+    .setLabel('🏠 Home')
+    .setStyle(ButtonStyle.Secondary);
+
   // Add components to rows
   const selectRow = new ActionRowBuilder().addComponents(selectMenu);
-  const buttonRow = new ActionRowBuilder().addComponents(qty1Button, qty5Button, qty10Button, backButton);
+  const buttonRow = new ActionRowBuilder().addComponents(qty1Button, qty5Button, qty10Button, backButton, homeButton);
   
   // Send the bait menu
   await interaction.update({
