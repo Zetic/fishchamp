@@ -14,6 +14,8 @@ const rods = require('../data/rods');
 const baits = require('../data/baits');
 const fish = require('../data/fish');
 const traps = require('../data/traps');
+const aquariums = require('../data/aquariums');
+const decorations = require('../data/decorations');
 
 // Shop section enum
 const ShopSection = {
@@ -21,6 +23,8 @@ const ShopSection = {
   BUY_RODS: 'buy_rods',
   BUY_BAIT: 'buy_bait',
   BUY_TRAPS: 'buy_traps',
+  BUY_AQUARIUMS: 'buy_aquariums',
+  BUY_DECORATIONS: 'buy_decorations',
   SELL_FISH: 'sell_fish'
 };
 
@@ -56,24 +60,43 @@ async function showShop(interaction) {
     .setCustomId('shop_buy_traps')
     .setLabel('Buy Fish Traps')
     .setStyle(ButtonStyle.Primary);
-  
+    
   const sellFishButton = new ButtonBuilder()
     .setCustomId('shop_sell_fish')
     .setLabel('Sell Fish')
     .setStyle(ButtonStyle.Success);
   
+  // Create first row of buttons
+  const firstRow = new ActionRowBuilder().addComponents(
+    buyRodsButton, buyBaitButton, buyTrapsButton, sellFishButton
+  );
+  
+  // Create buttons for aquarium-related items
+  const buyAquariumsButton = new ButtonBuilder()
+    .setCustomId('shop_buy_aquariums')
+    .setLabel('Buy Aquariums')
+    .setStyle(ButtonStyle.Primary);
+    
+  const buyDecorationsButton = new ButtonBuilder()
+    .setCustomId('shop_buy_decorations')
+    .setLabel('Buy Decorations')
+    .setStyle(ButtonStyle.Primary);
+    
   const backButton = new ButtonBuilder()
     .setCustomId('game_home')
     .setLabel('🏠 Home')
     .setStyle(ButtonStyle.Secondary);
-  
-  const row = new ActionRowBuilder().addComponents(buyRodsButton, buyBaitButton, buyTrapsButton, sellFishButton, backButton);
+    
+  // Create second row of buttons
+  const secondRow = new ActionRowBuilder().addComponents(
+    buyAquariumsButton, buyDecorationsButton, backButton
+  );
   
   // Send the shop menu
   const method = interaction.replied ? 'editReply' : 'reply';
   await interaction[method]({
     embeds: [shopEmbed],
-    components: [row]
+    components: [firstRow, secondRow]
   });
 }
 
@@ -226,11 +249,23 @@ async function showSellFish(interaction) {
   // Get user profile
   const userProfile = await userManager.getUser(userId);
   
-  // Count fish in inventory
+  // Count fish in inventory by name
   const fishCounts = {};
+  const fishValuesByName = {};
+  
   if (userProfile.inventory.fish) {
-    userProfile.inventory.fish.forEach(fishName => {
+    userProfile.inventory.fish.forEach(fishItem => {
+      // Handle both string-based and object-based fish
+      const fishName = typeof fishItem === 'string' ? fishItem : fishItem.name;
       fishCounts[fishName] = (fishCounts[fishName] || 0) + 1;
+      
+      // Track the total value of each fish type
+      if (typeof fishItem === 'object' && fishItem.value) {
+        fishValuesByName[fishName] = (fishValuesByName[fishName] || 0) + fishItem.value;
+      } else {
+        const fishData = fish.find(f => f.name === fishName);
+        fishValuesByName[fishName] = (fishValuesByName[fishName] || 0) + (fishData ? fishData.value : 0);
+      }
     });
   }
   
@@ -247,11 +282,10 @@ async function showSellFish(interaction) {
   } else {
     // Create options for each fish type the user has
     const fishOptions = Object.keys(fishCounts).map(fishName => {
-      const fishData = fish.find(f => f.name === fishName);
-      const value = fishData ? fishData.value : 0;
+      const avgValue = Math.round(fishValuesByName[fishName] / fishCounts[fishName]);
       return {
         label: fishName,
-        description: `Quantity: ${fishCounts[fishName]} | Value: ${value} gold each`,
+        description: `Quantity: ${fishCounts[fishName]} | Avg Value: ${avgValue} gold each`,
         value: fishName
       };
     });
@@ -480,28 +514,13 @@ async function sellFish(interaction, fishName, sellAll = false) {
   // Get user profile
   const userProfile = await userManager.getUser(userId);
   
-  // Find the selected fish data
-  const fishData = fish.find(f => f.name === fishName);
+  // Find matching fish in inventory
+  const matchingFish = userProfile.inventory.fish.filter(fishItem => {
+    return (typeof fishItem === 'string' && fishItem === fishName) || 
+           (typeof fishItem === 'object' && fishItem.name === fishName);
+  });
   
-  if (!fishData) {
-    const backButton = new ButtonBuilder()
-      .setCustomId('shop_sell_fish')
-      .setLabel('Back to Sell Fish')
-      .setStyle(ButtonStyle.Primary);
-    
-    const row = new ActionRowBuilder().addComponents(backButton);
-    
-    await interaction.update({
-      content: "Fish not found. Please try again.",
-      components: [row]
-    });
-    return;
-  }
-  
-  // Count how many of this fish the user has
-  const count = userProfile.inventory.fish.filter(f => f === fishName).length;
-  
-  if (count === 0) {
+  if (matchingFish.length === 0) {
     const backButton = new ButtonBuilder()
       .setCustomId('shop_sell_fish')
       .setLabel('Back to Sell Fish')
@@ -517,8 +536,21 @@ async function sellFish(interaction, fishName, sellAll = false) {
   }
   
   // Calculate quantity to sell and total value
-  const sellQuantity = sellAll ? count : 1;
-  const totalValue = sellQuantity * fishData.value;
+  const sellQuantity = sellAll ? matchingFish.length : 1;
+  
+  // Calculate total value based on individual fish values
+  let totalValue = 0;
+  for (let i = 0; i < sellQuantity; i++) {
+    const fishItem = matchingFish[i];
+    if (typeof fishItem === 'string') {
+      // Handle legacy string fish
+      const fishData = fish.find(f => f.name === fishItem);
+      totalValue += fishData ? fishData.value : 0;
+    } else if (typeof fishItem === 'object') {
+      // Handle object fish with potentially custom value
+      totalValue += fishItem.value || 0;
+    }
+  }
   
   // Update inventory and money
   userProfile.money += totalValue;
@@ -561,6 +593,8 @@ async function handleShopInteraction(interaction) {
         customId === 'shop_buy_rods' || 
         customId === 'shop_buy_bait' ||
         customId === 'shop_buy_traps' ||
+        customId === 'shop_buy_aquariums' ||
+        customId === 'shop_buy_decorations' ||
         customId === 'shop_sell_fish' ||
         customId === 'shop_exit') {
       
@@ -584,6 +618,16 @@ async function handleShopInteraction(interaction) {
         return;
       }
       
+      if (customId === 'shop_buy_aquariums') {
+        await showBuyAquariums(interaction);
+        return;
+      }
+      
+      if (customId === 'shop_buy_decorations') {
+        await showBuyDecorations(interaction);
+        return;
+      }
+      
       if (customId === 'shop_sell_fish') {
         await showSellFish(interaction);
         return;
@@ -598,7 +642,8 @@ async function handleShopInteraction(interaction) {
     }
     
     // For action buttons that require a session, check ownership
-    if (customId.startsWith('bait_qty_') || customId === 'sell_qty_1' || customId === 'sell_all' || customId.startsWith('trap_qty_')) {
+    if (customId.startsWith('bait_qty_') || customId === 'sell_qty_1' || customId === 'sell_all' || 
+        customId.startsWith('trap_qty_') || customId.startsWith('decoration_qty_')) {
       const session = interaction.client.shopSessions.get(userId);
       
       // Check if user has a valid session and is the owner
@@ -672,6 +717,31 @@ async function handleShopInteraction(interaction) {
         return;
       }
       
+      // Decoration quantity buttons
+      if (customId.startsWith('decoration_qty_')) {
+        if (!session.selectedDecoration) {
+          await interaction.reply({
+            content: "Please select a decoration type first!"
+          });
+          return;
+        }
+        
+        // Parse the quantity
+        let quantity = 1;
+        try {
+          const quantityStr = customId.replace('decoration_qty_', '');
+          quantity = parseInt(quantityStr, 10);
+          if (isNaN(quantity) || quantity <= 0) {
+            quantity = 1;
+          }
+        } catch (error) {
+          console.error('Error parsing decoration quantity:', error);
+        }
+        
+        await buyDecoration(interaction, session.selectedDecoration, quantity);
+        return;
+      }
+      
       // Fish selling buttons
       if (customId === 'sell_qty_1') {
         if (!session.selectedFish) {
@@ -728,6 +798,25 @@ async function handleShopInteraction(interaction) {
       // Store selected trap for quantity buttons
       interaction.client.shopSessions.set(interaction.user.id, { 
         selectedTrap: selectedValue,
+        ownerId: interaction.user.id,
+        timestamp: Date.now()
+      });
+      
+      await interaction.reply({
+        content: `Selected ${selectedValue}. Now choose a quantity to buy.`
+      });
+      return;
+    }
+    
+    if (customId === 'shop_select_aquarium') {
+      await buyAquarium(interaction, selectedValue);
+      return;
+    }
+    
+    if (customId === 'shop_select_decoration') {
+      // Store selected decoration for quantity buttons
+      interaction.client.shopSessions.set(interaction.user.id, { 
+        selectedDecoration: selectedValue,
         ownerId: interaction.user.id,
         timestamp: Date.now()
       });
@@ -925,9 +1014,304 @@ async function buyTrap(interaction, trapName, quantity = 1) {
   });
 }
 
+/**
+ * Show aquarium buying menu
+ * @param {Object} interaction - Discord interaction
+ */
+async function showBuyAquariums(interaction) {
+  const userId = interaction.user.id;
+  
+  // Get user profile
+  const userProfile = await userManager.getUser(userId);
+  
+  // Create shop embed
+  const aquariumsEmbed = new EmbedBuilder()
+    .setTitle('🐠 Aquariums')
+    .setDescription('Select an aquarium to purchase:')
+    .addFields({ name: 'Your Gold', value: `${userProfile.money} 💰` })
+    .setColor(0x3498DB);
+  
+  // Add all available aquariums to the embed
+  aquariums.forEach(aquarium => {
+    const owned = userProfile.inventory.aquariums?.includes(aquarium.name) || false;
+    aquariumsEmbed.addFields({
+      name: `${aquarium.name} - ${aquarium.price} gold`,
+      value: `Capacity: ${aquarium.capacity} fish | ${owned ? '✅ Owned' : '❌ Not owned'}\n${aquarium.description}`
+    });
+  });
+  
+  // Create select menu for buying aquariums
+  const aquariumOptions = aquariums
+    .filter(aquarium => !userProfile.inventory.aquariums?.includes(aquarium.name))  // Only show unowned aquariums
+    .map(aquarium => ({
+      label: aquarium.name,
+      description: `Price: ${aquarium.price} gold | Capacity: ${aquarium.capacity} fish`,
+      value: aquarium.name
+    }));
+  
+  const components = [];
+  
+  // Only add select menu if there are aquariums to buy
+  if (aquariumOptions.length > 0) {
+    const selectMenu = new StringSelectMenuBuilder()
+      .setCustomId('shop_select_aquarium')
+      .setPlaceholder('Choose an aquarium to buy...')
+      .addOptions(aquariumOptions);
+    
+    components.push(new ActionRowBuilder().addComponents(selectMenu));
+  }
+  
+  // Add back button
+  const backButton = new ButtonBuilder()
+    .setCustomId('shop_main')
+    .setLabel('Back to Shop')
+    .setStyle(ButtonStyle.Secondary);
+  
+  components.push(new ActionRowBuilder().addComponents(backButton));
+  
+  // Send the aquarium menu
+  await interaction.update({
+    embeds: [aquariumsEmbed],
+    components
+  });
+}
+
+/**
+ * Show decoration buying menu
+ * @param {Object} interaction - Discord interaction
+ */
+async function showBuyDecorations(interaction) {
+  const userId = interaction.user.id;
+  
+  // Get user profile
+  const userProfile = await userManager.getUser(userId);
+  
+  // Create shop embed
+  const decorationsEmbed = new EmbedBuilder()
+    .setTitle('🪴 Aquarium Decorations')
+    .setDescription('Select a decoration to purchase:')
+    .addFields({ name: 'Your Gold', value: `${userProfile.money} 💰` })
+    .setColor(0x2ECC71);
+  
+  // Add all available decorations to the embed
+  decorations.forEach(decoration => {
+    const owned = (userProfile.inventory.decorations?.[decoration.name] || 0);
+    decorationsEmbed.addFields({
+      name: `${decoration.name} - ${decoration.price} gold`,
+      value: `Happiness: +${decoration.happinessBonus} | You own: ${owned}\n${decoration.description}`
+    });
+  });
+  
+  // Create select menu for buying decorations
+  const decorationOptions = decorations.map(decoration => ({
+    label: decoration.name,
+    description: `Price: ${decoration.price} gold | Happiness: +${decoration.happinessBonus}`,
+    value: decoration.name
+  }));
+  
+  const selectMenu = new StringSelectMenuBuilder()
+    .setCustomId('shop_select_decoration')
+    .setPlaceholder('Choose a decoration to buy...')
+    .addOptions(decorationOptions);
+  
+  // Create quantity buttons
+  const qty1Button = new ButtonBuilder()
+    .setCustomId('decoration_qty_1')
+    .setLabel('Buy 1')
+    .setStyle(ButtonStyle.Primary);
+    
+  const qty3Button = new ButtonBuilder()
+    .setCustomId('decoration_qty_3')
+    .setLabel('Buy 3')
+    .setStyle(ButtonStyle.Primary);
+  
+  // Back button
+  const backButton = new ButtonBuilder()
+    .setCustomId('shop_main')
+    .setLabel('Back to Shop')
+    .setStyle(ButtonStyle.Secondary);
+  
+  // Add components to rows
+  const selectRow = new ActionRowBuilder().addComponents(selectMenu);
+  const buttonRow = new ActionRowBuilder().addComponents(qty1Button, qty3Button, backButton);
+  
+  // Send the decoration menu
+  await interaction.update({
+    embeds: [decorationsEmbed],
+    components: [selectRow, buttonRow]
+  });
+}
+
+/**
+ * Buy an aquarium
+ * @param {Object} interaction - Discord interaction
+ * @param {string} aquariumName - Name of aquarium to buy
+ */
+async function buyAquarium(interaction, aquariumName) {
+  const userId = interaction.user.id;
+  
+  // Get user profile
+  const userProfile = await userManager.getUser(userId);
+  
+  // Find the selected aquarium
+  const selectedAquarium = aquariums.find(a => a.name === aquariumName);
+  
+  if (!selectedAquarium) {
+    const backButton = new ButtonBuilder()
+      .setCustomId('shop_buy_aquariums')
+      .setLabel('Back to Aquariums')
+      .setStyle(ButtonStyle.Primary);
+    
+    const row = new ActionRowBuilder().addComponents(backButton);
+    
+    await interaction.update({
+      content: "Aquarium not found. Please try again.",
+      components: [row]
+    });
+    return;
+  }
+  
+  // Check if user already owns this aquarium
+  if (userProfile.inventory.aquariums?.includes(aquariumName)) {
+    const backButton = new ButtonBuilder()
+      .setCustomId('shop_buy_aquariums')
+      .setLabel('Back to Aquariums')
+      .setStyle(ButtonStyle.Primary);
+    
+    const row = new ActionRowBuilder().addComponents(backButton);
+    
+    await interaction.update({
+      content: `You already own a ${aquariumName}!`,
+      components: [row]
+    });
+    return;
+  }
+  
+  // Check if user has enough money
+  if (userProfile.money < selectedAquarium.price) {
+    const backButton = new ButtonBuilder()
+      .setCustomId('shop_buy_aquariums')
+      .setLabel('Back to Aquariums')
+      .setStyle(ButtonStyle.Primary);
+    
+    const row = new ActionRowBuilder().addComponents(backButton);
+    
+    await interaction.update({
+      content: `You don't have enough gold to buy a ${aquariumName}. You need ${selectedAquarium.price} gold but only have ${userProfile.money}.`,
+      components: [row]
+    });
+    return;
+  }
+  
+  // Purchase the aquarium
+  userProfile.money -= selectedAquarium.price;
+  inventory.addItem(userProfile, 'aquariums', aquariumName);
+  await userManager.updateUser(userId, userProfile);
+  
+  // Confirm purchase with a button to go back to the shop
+  const backButton = new ButtonBuilder()
+    .setCustomId('shop_buy_aquariums')
+    .setLabel('Back to Aquariums')
+    .setStyle(ButtonStyle.Primary);
+  
+  const setupButton = new ButtonBuilder()
+    .setCustomId('aquarium_menu')
+    .setLabel('Set Up Aquarium')
+    .setStyle(ButtonStyle.Success);
+  
+  const row = new ActionRowBuilder().addComponents(setupButton, backButton);
+  
+  await interaction.update({
+    content: `You purchased a ${aquariumName} for ${selectedAquarium.price} gold! Your new balance is ${userProfile.money} gold.`,
+    components: [row]
+  });
+}
+
+/**
+ * Buy aquarium decoration
+ * @param {Object} interaction - Discord interaction
+ * @param {string} decorationName - Name of decoration to buy
+ * @param {number} quantity - Quantity to buy
+ */
+async function buyDecoration(interaction, decorationName, quantity = 1) {
+  const userId = interaction.user.id;
+  
+  // Get user profile
+  const userProfile = await userManager.getUser(userId);
+  
+  // Find the selected decoration
+  const selectedDecoration = decorations.find(d => d.name === decorationName);
+  
+  if (!selectedDecoration) {
+    const backButton = new ButtonBuilder()
+      .setCustomId('shop_buy_decorations')
+      .setLabel('Back to Decorations')
+      .setStyle(ButtonStyle.Primary);
+    
+    const row = new ActionRowBuilder().addComponents(backButton);
+    
+    await interaction.update({
+      content: "Decoration not found. Please try again.",
+      components: [row]
+    });
+    return;
+  }
+  
+  // Calculate total cost
+  const totalCost = selectedDecoration.price * quantity;
+  
+  // Check if user has enough money
+  if (userProfile.money < totalCost) {
+    const backButton = new ButtonBuilder()
+      .setCustomId('shop_buy_decorations')
+      .setLabel('Back to Decorations')
+      .setStyle(ButtonStyle.Primary);
+    
+    const row = new ActionRowBuilder().addComponents(backButton);
+    
+    await interaction.update({
+      content: `You don't have enough gold to buy ${quantity} ${decorationName}. You need ${totalCost} gold but only have ${userProfile.money}.`,
+      components: [row]
+    });
+    return;
+  }
+  
+  // Purchase the decoration
+  userProfile.money -= totalCost;
+  inventory.addItem(userProfile, 'decorations', decorationName, quantity);
+  await userManager.updateUser(userId, userProfile);
+  
+  // Clean up session after successful purchase
+  if (interaction.client.shopSessions?.has(userId)) {
+    interaction.client.shopSessions.delete(userId);
+  }
+  
+  // Confirm purchase with a button to go back to the shop
+  const backButton = new ButtonBuilder()
+    .setCustomId('shop_buy_decorations')
+    .setLabel('Back to Decorations')
+    .setStyle(ButtonStyle.Primary);
+  
+  const aquariumButton = new ButtonBuilder()
+    .setCustomId('aquarium_menu')
+    .setLabel('Go to Aquarium')
+    .setStyle(ButtonStyle.Success);
+  
+  const row = new ActionRowBuilder().addComponents(aquariumButton, backButton);
+  
+  await interaction.update({
+    content: `You purchased ${quantity} ${decorationName} for ${totalCost} gold! Your new balance is ${userProfile.money} gold.`,
+    components: [row]
+  });
+}
+
 module.exports = {
   handleShopInteraction,
   showShop,
   showBuyTraps,
-  buyTrap
+  buyTrap,
+  showBuyAquariums,
+  showBuyDecorations,
+  buyAquarium,
+  buyDecoration
 };

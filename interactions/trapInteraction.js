@@ -459,10 +459,10 @@ function calculateTrapCatches(trap, area) {
   
   // For each hour, calculate catches
   for (let hour = 0; hour < effectiveHours && remainingBait > 0; hour++) {
-    // Base chance for this hour
-    const hourlyChance = trapData.catchRate * baitData.biteChance * 0.8;
+    // Base chance for this hour - increased by 5x to make traps worthwhile
+    const hourlyChance = trapData.catchRate * baitData.biteChance * 4.0;
     
-    // Each hour has a small chance to catch something
+    // Each hour has a chance to catch something
     if (rng.doesEventHappen(hourlyChance)) {
       // Get a random basic fish from the area
       // Filter to only basic fish (difficulty <= 2)
@@ -477,8 +477,8 @@ function calculateTrapCatches(trap, area) {
       }
     }
     
-    // Use up some bait (20-30% per hour)
-    const baitUsedPercent = 0.2 + (Math.random() * 0.1);
+    // Use up some bait (5-10% per hour) - reduced from 20-30% to make traps more efficient
+    const baitUsedPercent = 0.05 + (Math.random() * 0.05);
     const baitUsed = Math.max(1, Math.floor(trap.baitAmount * baitUsedPercent));
     remainingBait = Math.max(0, remainingBait - baitUsed);
   }

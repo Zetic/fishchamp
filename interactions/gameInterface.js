@@ -11,6 +11,7 @@ const inventoryUtils = require('../utils/inventory');
 const fishingInteraction = require('./fishingInteraction');
 const shopInteraction = require('./shopInteraction');
 const trapInteraction = require('./trapInteraction');
+const aquariumInteraction = require('./aquariumInteraction');
 
 // Track active game sessions (user ID -> interaction message)
 const activeGameSessions = new Map();
@@ -38,11 +39,11 @@ async function showMainInterface(interaction) {
     const gameEmbed = await createMainGameEmbed(userProfile);
     
     // Create main navigation buttons
-    const navigationRow = createMainNavigationRow();
+    const navigationRows = createMainNavigationRow();
     
     const response = {
       embeds: [gameEmbed],
-      components: [navigationRow],
+      components: navigationRows,
     };
     
     // Check if this is a new interaction or an existing one we should update
@@ -80,11 +81,11 @@ async function showWelcomeInterface(interaction, userProfile) {
     const welcomeEmbed = createWelcomeEmbed(userProfile);
     
     // Create main navigation buttons
-    const navigationRow = createMainNavigationRow();
+    const navigationRows = createMainNavigationRow();
     
     await interaction.reply({
       embeds: [welcomeEmbed],
-      components: [navigationRow],
+      components: navigationRows,
     });
     
     // Store this session
@@ -167,7 +168,12 @@ function createMainNavigationRow() {
     .setCustomId('game_shop')
     .setLabel('🏪 Shop')
     .setStyle(ButtonStyle.Secondary);
-
+    
+  // First row with the primary actions  
+  const firstRow = new ActionRowBuilder().addComponents(
+    fishButton, inventoryButton, shopButton
+  );
+  
   const moveButton = new ButtonBuilder()
     .setCustomId('game_move')
     .setLabel('🌊 Change Area')
@@ -177,14 +183,18 @@ function createMainNavigationRow() {
     .setCustomId('game_traps')
     .setLabel('🪤 Traps')
     .setStyle(ButtonStyle.Secondary);
+    
+  const aquariumButton = new ButtonBuilder()
+    .setCustomId('game_aquarium')
+    .setLabel('🐠 Aquarium')
+    .setStyle(ButtonStyle.Secondary);
 
-  return new ActionRowBuilder().addComponents(
-    fishButton, 
-    inventoryButton, 
-    shopButton, 
-    moveButton, 
-    trapButton
+  // Second row with additional features
+  const secondRow = new ActionRowBuilder().addComponents(
+    moveButton, trapButton, aquariumButton
   );
+
+  return [firstRow, secondRow];
 }
 
 /**
@@ -254,6 +264,11 @@ async function handleGameNavigation(interaction) {
         await trapInteraction.showTrapMenu(interaction);
         break;
         
+      case 'game_aquarium':
+        // Redirect to aquarium interface
+        await aquariumInteraction.showAquariumMenu(interaction);
+        break;
+        
       default:
         // Unknown button, return to main interface
         await showMainInterface(interaction);
@@ -278,15 +293,15 @@ async function handleGameNavigation(interaction) {
  */
 async function showInventoryInterface(interaction, userProfile) {
   try {
-    // Count fish in inventory
+    // Format fish list - handle both string and object fish
     const fishCounts = {};
     if (userProfile.inventory.fish) {
-      userProfile.inventory.fish.forEach(fishName => {
+      userProfile.inventory.fish.forEach(fishItem => {
+        const fishName = typeof fishItem === 'string' ? fishItem : fishItem.name;
         fishCounts[fishName] = (fishCounts[fishName] || 0) + 1;
       });
     }
     
-    // Format fish list
     const fishText = Object.entries(fishCounts)
       .map(([name, count]) => `${name} (×${count})`)
       .join(', ') || 'None';
@@ -296,6 +311,14 @@ async function showInventoryInterface(interaction, userProfile) {
     
     // Format bait list
     const baitText = Object.entries(userProfile.inventory.bait || {})
+      .map(([name, count]) => `${name} (×${count})`)
+      .join(', ') || 'None';
+      
+    // Format aquariums list
+    const aquariumsText = userProfile.inventory.aquariums?.join(', ') || 'None';
+    
+    // Format decorations list
+    const decorationsText = Object.entries(userProfile.inventory.decorations || {})
       .map(([name, count]) => `${name} (×${count})`)
       .join(', ') || 'None';
     
@@ -313,7 +336,9 @@ async function showInventoryInterface(interaction, userProfile) {
         { name: '🎣 Rods', value: rodsText },
         { name: '🪱 Bait', value: baitText },
         { name: '🐟 Fish', value: fishText },
-        { name: '💵 Fish Value', value: `${fishValue} gold total` }
+        { name: '💵 Fish Value', value: `${fishValue} gold total` },
+        { name: '🐠 Aquariums', value: aquariumsText },
+        { name: '🪴 Decorations', value: decorationsText }
       )
       .setColor(0xF1C40F)
       .setFooter({ text: 'Use the equipment menus to change your rod and bait.' });
