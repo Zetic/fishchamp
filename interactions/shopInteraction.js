@@ -313,34 +313,49 @@ async function buyRod(interaction, rodName) {
   const selectedRod = rods.find(rod => rod.name === rodName);
   
   if (!selectedRod) {
+    const backButton = new ButtonBuilder()
+      .setCustomId('shop_buy_rods')
+      .setLabel('Back to Rod Shop')
+      .setStyle(ButtonStyle.Primary);
+    
+    const row = new ActionRowBuilder().addComponents(backButton);
+    
     await interaction.update({
       content: "Rod not found. Please try again.",
-      components: []
+      components: [row]
     });
     return;
   }
   
   // Check if user already owns this rod
   if (userProfile.inventory.rods.includes(rodName)) {
+    const backButton = new ButtonBuilder()
+      .setCustomId('shop_buy_rods')
+      .setLabel('Back to Rod Shop')
+      .setStyle(ButtonStyle.Primary);
+    
+    const row = new ActionRowBuilder().addComponents(backButton);
+    
     await interaction.update({
       content: `You already own a ${rodName}!`,
-      components: []
+      components: [row]
     });
-    
-    // Return to rod menu after a short delay
-    setTimeout(() => showBuyRods(interaction), 2000);
     return;
   }
   
   // Check if user has enough money
   if (userProfile.money < selectedRod.price) {
+    const backButton = new ButtonBuilder()
+      .setCustomId('shop_buy_rods')
+      .setLabel('Back to Rod Shop')
+      .setStyle(ButtonStyle.Primary);
+    
+    const row = new ActionRowBuilder().addComponents(backButton);
+    
     await interaction.update({
       content: `You don't have enough gold to buy a ${rodName}. You need ${selectedRod.price} gold but only have ${userProfile.money}.`,
-      components: []
+      components: [row]
     });
-    
-    // Return to rod menu after a short delay
-    setTimeout(() => showBuyRods(interaction), 2000);
     return;
   }
   
@@ -349,14 +364,18 @@ async function buyRod(interaction, rodName) {
   userProfile.inventory.rods.push(rodName);
   await userManager.updateUser(userId, userProfile);
   
-  // Confirm purchase
+  // Confirm purchase with a button to go back to the shop
+  const backButton = new ButtonBuilder()
+    .setCustomId('shop_buy_rods')
+    .setLabel('Back to Rod Shop')
+    .setStyle(ButtonStyle.Primary);
+  
+  const row = new ActionRowBuilder().addComponents(backButton);
+  
   await interaction.update({
     content: `You purchased a ${rodName} for ${selectedRod.price} gold! Your new balance is ${userProfile.money} gold.`,
-    components: []
+    components: [row]
   });
-  
-  // Return to rod menu after a short delay
-  setTimeout(() => showBuyRods(interaction), 2000);
 }
 
 /**
@@ -375,9 +394,16 @@ async function buyBait(interaction, baitName, quantity = 1) {
   const selectedBait = baits.find(bait => bait.name === baitName);
   
   if (!selectedBait) {
+    const backButton = new ButtonBuilder()
+      .setCustomId('shop_buy_bait')
+      .setLabel('Back to Bait Shop')
+      .setStyle(ButtonStyle.Primary);
+    
+    const row = new ActionRowBuilder().addComponents(backButton);
+    
     await interaction.update({
       content: "Bait not found. Please try again.",
-      components: []
+      components: [row]
     });
     return;
   }
@@ -387,13 +413,17 @@ async function buyBait(interaction, baitName, quantity = 1) {
   
   // Check if user has enough money
   if (userProfile.money < totalCost) {
+    const backButton = new ButtonBuilder()
+      .setCustomId('shop_buy_bait')
+      .setLabel('Back to Bait Shop')
+      .setStyle(ButtonStyle.Primary);
+    
+    const row = new ActionRowBuilder().addComponents(backButton);
+    
     await interaction.update({
       content: `You don't have enough gold to buy ${quantity} ${baitName}. You need ${totalCost} gold but only have ${userProfile.money}.`,
-      components: []
+      components: [row]
     });
-    
-    // Return to bait menu after a short delay
-    setTimeout(() => showBuyBait(interaction), 2000);
     return;
   }
   
@@ -412,14 +442,18 @@ async function buyBait(interaction, baitName, quantity = 1) {
     interaction.client.shopSessions.delete(userId);
   }
   
-  // Confirm purchase
+  // Confirm purchase with a button to go back to the shop
+  const backButton = new ButtonBuilder()
+    .setCustomId('shop_buy_bait')
+    .setLabel('Back to Bait Shop')
+    .setStyle(ButtonStyle.Primary);
+  
+  const row = new ActionRowBuilder().addComponents(backButton);
+  
   await interaction.update({
     content: `You purchased ${quantity} ${baitName} for ${totalCost} gold! Your new balance is ${userProfile.money} gold.`,
-    components: []
+    components: [row]
   });
-  
-  // Return to bait menu after a short delay
-  setTimeout(() => showBuyBait(interaction), 2000);
 }
 
 /**
@@ -438,9 +472,16 @@ async function sellFish(interaction, fishName, sellAll = false) {
   const fishData = fish.find(f => f.name === fishName);
   
   if (!fishData) {
+    const backButton = new ButtonBuilder()
+      .setCustomId('shop_sell_fish')
+      .setLabel('Back to Sell Fish')
+      .setStyle(ButtonStyle.Primary);
+    
+    const row = new ActionRowBuilder().addComponents(backButton);
+    
     await interaction.update({
       content: "Fish not found. Please try again.",
-      components: []
+      components: [row]
     });
     return;
   }
@@ -449,13 +490,17 @@ async function sellFish(interaction, fishName, sellAll = false) {
   const count = userProfile.inventory.fish.filter(f => f === fishName).length;
   
   if (count === 0) {
+    const backButton = new ButtonBuilder()
+      .setCustomId('shop_sell_fish')
+      .setLabel('Back to Sell Fish')
+      .setStyle(ButtonStyle.Primary);
+    
+    const row = new ActionRowBuilder().addComponents(backButton);
+    
     await interaction.update({
       content: `You don't have any ${fishName} to sell.`,
-      components: []
+      components: [row]
     });
-    
-    // Return to sell menu after a short delay
-    setTimeout(() => showSellFish(interaction), 2000);
     return;
   }
   
@@ -473,14 +518,18 @@ async function sellFish(interaction, fishName, sellAll = false) {
     interaction.client.shopSessions.delete(userId);
   }
   
-  // Confirm sale
+  // Confirm sale with a button to go back to the shop
+  const backButton = new ButtonBuilder()
+    .setCustomId('shop_sell_fish')
+    .setLabel('Back to Sell Fish')
+    .setStyle(ButtonStyle.Primary);
+  
+  const row = new ActionRowBuilder().addComponents(backButton);
+  
   await interaction.update({
     content: `You sold ${sellQuantity} ${fishName} for ${totalValue} gold! Your new balance is ${userProfile.money} gold.`,
-    components: []
+    components: [row]
   });
-  
-  // Return to sell menu after a short delay
-  setTimeout(() => showSellFish(interaction), 2000);
 }
 
 /**
