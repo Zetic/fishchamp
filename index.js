@@ -24,12 +24,8 @@ const config = {
     soundwave: '!soundwave',
     fishingPrefix: '!'
   },
-  features: {
-    randomConversationChance: 0.1,
-  },
   openai: {
     chatModel: 'gpt-4o',
-    imageModel: 'gpt-image-1',
     ttsModel: 'tts-1',
     maxTokens: 100,
     temperature: 0.7,
@@ -423,6 +419,51 @@ async function handleThoughtsCommand(message) {
 }
 
 /**
+ * Handle direct mentions to the bot
+ * @param {Object} message - Discord message object
+ */
+async function handleDirectMention(message) {
+  try {
+    // Send typing indicator
+    await message.channel.sendTyping();
+    
+    // Get the message content removing the mention
+    let content = message.content.replace(/<@!?(\d+)>/g, '').trim();
+    
+    if (!content) {
+      content = "Hello there.";
+    }
+    
+    console.log('Processing direct mention with content:', content);
+    
+    // Get a response from OpenAI
+    const response = await openai.chat.completions.create({
+      model: config.openai.chatModel,
+      messages: [
+        {
+          role: "system",
+          content: "You are a helpful Discord bot. Provide neutral, matter-of-fact responses that are concise and helpful. Do not use emojis or express emotions. Maintain a professional, straightforward tone."
+        },
+        {
+          role: "user",
+          content: content
+        }
+      ],
+      max_tokens: config.openai.maxTokens,
+      temperature: config.openai.temperature,
+    });
+    
+    // Reply with the bot's response
+    const botResponse = response.choices[0].message.content;
+    await message.reply(botResponse);
+    console.log('Bot replied to mention with:', botResponse);
+  } catch (error) {
+    console.error('Error handling direct mention:', error);
+    await message.reply('Sorry, there was an error processing your request.');
+  }
+}
+
+/**
  * Handle the soundwave help command
  * @param {Object} message - Discord message object
  */
@@ -539,21 +580,9 @@ client.on(Events.MessageCreate, async (message) => {
     // Ignore messages from bots to prevent potential loops
     if (message.author.bot) return;
 
-    // Log every message and roll result
-    const roll = Math.random();
-    console.log(`[MSG] ${message.author.username}: ${message.content} | Roll: ${roll.toFixed(3)}`);
+    // Log every message
+    console.log(`[MSG] ${message.author.username}: ${message.content}`);
 
-    // Handle random conversation joining
-    if (roll < config.features.randomConversationChance) {
-      await handleRandomConversation(message);
-    }
-
-    // Handle direct command and mention patterns
-    if (message.mentions.has(client.user.id) && /thoughts\?/i.test(message.content)) {
-      await handleThoughtsCommand(message);
-      return;
-    }
-    
     // Note: Fishing game message commands have been converted to slash commands
     // The original message command handlers have been commented out
     
@@ -597,9 +626,10 @@ client.on(Events.MessageCreate, async (message) => {
       return;
     }
 
-    // Handle image processing via mentions in replies
-    if (message.reference && message.mentions.has(client.user.id)) {
-      await handleImageProcessing(message);
+    // Handle direct mentions of the bot
+    if (message.mentions.has(client.user.id)) {
+      await handleDirectMention(message);
+      return;
     }
   } catch (error) {
     console.error('Error processing message:', error);
