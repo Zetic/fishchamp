@@ -34,8 +34,43 @@ function attemptCatch(fishName, rodName) {
   
   if (!fish || !rod) return 0;
   
+  // If fish requires an ability and rod doesn't have it, catch chance is 0
+  if (fish.requiredAbility && rod.ability !== fish.requiredAbility) {
+    return 0;
+  }
+  
   const chance = 0.3 + (rod.bonus * 0.1) - (fish.difficulty * 0.05);
   return Math.max(0.05, Math.min(0.95, chance)); // Ensure chance is between 5% and 95%
+}
+
+/**
+ * Check if a rod can catch a specific fish
+ * @param {string} fishName - Name of the fish
+ * @param {string} rodName - Name of the rod
+ * @returns {boolean} - True if rod can catch the fish
+ */
+function canCatchFish(fishName, rodName) {
+  const fish = findFish(fishName);
+  const rod = findRod(rodName);
+  
+  if (!fish || !rod) return false;
+  
+  // If fish requires an ability, check if rod has it
+  if (fish.requiredAbility) {
+    return rod.ability === fish.requiredAbility;
+  }
+  
+  return true; // No special requirement
+}
+
+/**
+ * Check if a fish requires a special ability
+ * @param {string} fishName - Name of the fish
+ * @returns {boolean} - True if fish requires special ability
+ */
+function fishRequiresAbility(fishName) {
+  const fish = findFish(fishName);
+  return fish && fish.requiredAbility;
 }
 
 /**
@@ -52,5 +87,7 @@ module.exports = {
   findFish,
   findRod,
   attemptCatch,
-  getRandomFish
+  getRandomFish,
+  canCatchFish,
+  fishRequiresAbility
 };

@@ -438,7 +438,7 @@ client.on(Events.InteractionCreate, async (interaction) => {
       
       // Fishing-related buttons
       if (customId === 'start_fishing' || customId === 'reel_fishing' || customId === 'cancel_fishing' || 
-          customId === 'dig_for_worms' || customId === 'open_shop') {
+          customId === 'dig_for_worms' || customId === 'open_shop' || customId.startsWith('use_ability_')) {
         await fishingInteraction.handleFishingInteraction(interaction);
         return;
       }

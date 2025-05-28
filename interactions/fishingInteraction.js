@@ -179,6 +179,18 @@ async function handleBite(userId, message, area) {
   const session = activeFishing.get(userId);
   if (!session) return;
   
+  // Get user profile to check their equipped rod
+  const userProfile = await userManager.getUser(userId);
+  if (!userProfile) {
+    await message.edit({
+      content: "Error retrieving your profile.",
+      embeds: [],
+      components: []
+    });
+    activeFishing.delete(userId);
+    return;
+  }
+  
   // Select a random fish from the area
   const fishName = gameLogic.getRandomFish(area.fish);
   if (!fishName) {
@@ -195,13 +207,122 @@ async function handleBite(userId, message, area) {
   // Store the fish in the session
   session.fish = fishName;
   
-  // Update the fishing embed
-  const biteEmbed = new EmbedBuilder()
-    .setTitle(`🎣 Something's biting!`)
-    .setDescription(`Quick, reel it in before it gets away!`)
-    .setColor(0xE74C3C);
+  // Check if this fish can be caught with the current rod
+  const canCatch = gameLogic.canCatchFish(fishName, userProfile.equippedRod);
+  const requiresAbility = gameLogic.fishRequiresAbility(fishName);
   
-  // Create the reel button
+  if (!canCatch && requiresAbility) {
+    // Fish requires an ability the user's rod doesn't have
+    const fishData = gameLogic.findFish(fishName);
+    const requiredAbility = fishData.requiredAbility;
+    
+    const failEmbed = new EmbedBuilder()
+      .setTitle(`🎣 A ${fishName} is biting!`)
+      .setDescription(`This ${fishName} requires a special rod ability to catch. You need a rod with the "${requiredAbility}" ability!\n\n${fishData.description || ''}`)
+      .setColor(0xE67E22);
+    
+    const tryAgainButton = new ButtonBuilder()
+      .setCustomId('start_fishing')
+      .setLabel('Try Again')
+      .setStyle(ButtonStyle.Primary);
+    
+    const row = new ActionRowBuilder().addComponents(tryAgainButton);
+    
+    await message.edit({
+      embeds: [failEmbed],
+      components: [row]
+    });
+    
+    // Clean up the session
+    activeFishing.delete(userId);
+    return;
+  }
+  
+  // Check if fish requires a special ability (multi-stage catching)
+  if (requiresAbility) {
+    const rodData = gameLogic.findRod(userProfile.equippedRod);
+    const fishData = gameLogic.findFish(fishName);
+    
+    // Start taming stage
+    session.stage = 'taming';
+    
+    const tamingEmbed = new EmbedBuilder()
+      .setTitle(`🎣 A ${fishName} is biting!`)
+      .setDescription(`This is a special fish that requires taming! Use your rod's ${rodData.abilityName} ability to subdue it first.\n\n${fishData.description || ''}`)
+      .setColor(0x9B59B6);
+    
+    const abilityButton = new ButtonBuilder()
+      .setCustomId(`use_ability_${rodData.ability}`)
+      .setLabel(`${rodData.abilityName} ⚡`)
+      .setStyle(ButtonStyle.Danger);
+    
+    const row = new ActionRowBuilder().addComponents(abilityButton);
+    
+    await message.edit({
+      embeds: [tamingEmbed],
+      components: [row]
+    });
+    
+    // Set escape timer for taming - fish will escape after 15 seconds if not tamed
+    session.escapeTimer = setTimeout(() => handleEscape(userId, message), 15000);
+    activeFishing.set(userId, session);
+  } else {
+    // Regular fish, proceed with normal reeling
+    const biteEmbed = new EmbedBuilder()
+      .setTitle(`🎣 Something's biting!`)
+      .setDescription(`Quick, reel it in before it gets away!`)
+      .setColor(0xE74C3C);
+    
+    const reelButton = new ButtonBuilder()
+      .setCustomId('reel_fishing')
+      .setLabel('Reel In! 🎣')
+      .setStyle(ButtonStyle.Primary);
+    
+    const row = new ActionRowBuilder().addComponents(reelButton);
+    
+    await message.edit({
+      embeds: [biteEmbed],
+      components: [row]
+    });
+    
+    // Set escape timer - fish will escape after 10 seconds if not reeled in
+    session.escapeTimer = setTimeout(() => handleEscape(userId, message), 10000);
+    activeFishing.set(userId, session);
+  }
+}
+
+/**
+ * Handle using rod ability to tame fish
+ * @param {Object} interaction - Discord interaction
+ */
+async function useRodAbility(interaction) {
+  const userId = interaction.user.id;
+  const session = activeFishing.get(userId);
+  
+  if (!session || session.stage !== 'taming') {
+    await interaction.reply({
+      content: "You don't have an active taming session.",
+      ephemeral: true
+    });
+    return;
+  }
+  
+  // Clear the escape timer
+  clearTimeout(session.escapeTimer);
+  
+  // Get the ability type from the button customId
+  const abilityType = interaction.customId.split('_')[2]; // e.g., 'freeze', 'shock', 'charm'
+  
+  const fishData = gameLogic.findFish(session.fish);
+  
+  // Success! Fish is tamed, now allow reeling
+  session.stage = 'reeling';
+  
+  const tamedEmbed = new EmbedBuilder()
+    .setTitle(`⚡ ${fishData.name} tamed!`)
+    .setDescription(`Your ${getAbilityActionText(abilityType)} worked! The ${fishData.name} is now subdued. Quick, reel it in!`)
+    .setColor(0x2ECC71);
+  
   const reelButton = new ButtonBuilder()
     .setCustomId('reel_fishing')
     .setLabel('Reel In! 🎣')
@@ -209,22 +330,33 @@ async function handleBite(userId, message, area) {
   
   const row = new ActionRowBuilder().addComponents(reelButton);
   
-  // Edit the message
-  await message.edit({
-    embeds: [biteEmbed],
+  await interaction.update({
+    embeds: [tamedEmbed],
     components: [row]
   });
   
-  // Set escape timer - fish will escape after 10 seconds if not reeled in
-  session.escapeTimer = setTimeout(() => handleEscape(userId, message), 10000);
+  // Set new escape timer for reeling - fish will escape after 8 seconds if not reeled in
+  session.escapeTimer = setTimeout(() => handleEscape(userId, interaction.message), 8000);
   activeFishing.set(userId, session);
 }
 
 /**
- * Handle fish escaping
- * @param {string} userId - User ID
- * @param {Object} message - Discord message object
+ * Get descriptive text for ability actions
+ * @param {string} abilityType - Type of ability (freeze, shock, charm)
+ * @returns {string} - Action description
  */
+function getAbilityActionText(abilityType) {
+  switch (abilityType) {
+    case 'freeze':
+      return 'freezing attack';
+    case 'shock':
+      return 'electric shock';
+    case 'charm':
+      return 'mystical charm';
+    default:
+      return 'special ability';
+  }
+}
 async function handleEscape(userId, message) {
   const session = activeFishing.get(userId);
   if (!session) return;
@@ -476,6 +608,12 @@ async function handleFishingInteraction(interaction) {
       // Redirect to shop interaction
       const shopInteraction = require('./shopInteraction');
       await shopInteraction.showShop(interaction);
+      return;
+    }
+    
+    // Handle rod ability usage
+    if (customId.startsWith('use_ability_')) {
+      await useRodAbility(interaction);
       return;
     }
     
