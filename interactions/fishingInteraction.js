@@ -65,13 +65,19 @@ async function startFishing(interaction) {
         userProfile.equippedBait = availableBaits[0][0];
         await userManager.updateUser(userId, userProfile);
         
+        // Create a button to start fishing with the new bait
+        const startFishingButton = new ButtonBuilder()
+          .setCustomId('start_fishing')
+          .setLabel('Go Fishing')
+          .setStyle(ButtonStyle.Primary);
+          
+        const row = new ActionRowBuilder().addComponents(startFishingButton);
+        
         await interaction.reply({
           content: `You've run out of your equipped bait. Switched to ${userProfile.equippedBait}!`,
-          ephemeral: true
+          ephemeral: true,
+          components: [row]
         });
-        
-        // Call startFishing again with the new bait
-        setTimeout(() => startFishing(interaction), 1000);
         return;
       }
     }
