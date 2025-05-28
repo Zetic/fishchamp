@@ -13,6 +13,167 @@ const baits = require('../data/baits');
 const activeFishing = new Map();
 
 /**
+ * Start a new fishing session for a user by editing the existing message
+ * @param {Object} interaction - Discord interaction
+ * @returns {Promise<void>}
+ */
+async function startFishingWithEdit(interaction) {
+  const userId = interaction.user.id;
+  
+  // Check if user is already fishing
+  if (activeFishing.has(userId)) {
+    await interaction.reply({ 
+      content: "You're already fishing! Wait for a bite or reel in.", 
+      ephemeral: true 
+    });
+    return;
+  }
+  
+  // Get user profile
+  const userProfile = await userManager.getUser(userId, true);
+  
+  // Check if user has equipped a rod and bait
+  if (!userProfile.equippedRod) {
+    await interaction.update({
+      content: "You need to equip a fishing rod first!",
+      embeds: [],
+      components: []
+    });
+    return;
+  }
+  
+  if (!userProfile.equippedBait) {
+    await interaction.update({
+      content: "You need to equip some bait first!",
+      embeds: [],
+      components: []
+    });
+    return;
+  }
+  
+  // Check if user has bait in inventory
+  if (!userProfile.inventory.bait[userProfile.equippedBait] || 
+      userProfile.inventory.bait[userProfile.equippedBait] <= 0) {
+    
+    // Check if user has any bait at all
+    const hasBait = Object.values(userProfile.inventory.bait || {}).some(count => count > 0);
+    
+    if (hasBait) {
+      // User has other bait, but not the equipped one
+      const availableBaits = Object.entries(userProfile.inventory.bait || {})
+        .filter(([_, count]) => count > 0);
+      
+      if (availableBaits.length > 0) {
+        userProfile.equippedBait = availableBaits[0][0];
+        await userManager.updateUser(userId, userProfile);
+        
+        // Create a button to start fishing with the new bait
+        const startFishingButton = new ButtonBuilder()
+          .setCustomId('start_fishing')
+          .setLabel('Go Fishing')
+          .setStyle(ButtonStyle.Primary);
+          
+        const row = new ActionRowBuilder().addComponents(startFishingButton);
+        
+        await interaction.update({
+          content: `You've run out of your equipped bait. Switched to ${userProfile.equippedBait}!`,
+          embeds: [],
+          components: [row]
+        });
+        return;
+      }
+    }
+    
+    // Create the dig for worms button
+    const digButton = new ButtonBuilder()
+      .setCustomId('dig_for_worms')
+      .setLabel('Dig for Worms')
+      .setStyle(ButtonStyle.Primary);
+      
+    const shopButton = new ButtonBuilder()
+      .setCustomId('open_shop')
+      .setLabel('Visit Shop')
+      .setStyle(ButtonStyle.Secondary);
+    
+    const row = new ActionRowBuilder().addComponents(digButton, shopButton);
+    
+    await interaction.update({
+      content: `You don't have any ${userProfile.equippedBait} left! You can dig for worms or visit the shop to buy more bait.`,
+      embeds: [],
+      components: [row]
+    });
+    return;
+  }
+  
+  // Find the current area
+  const currentArea = areas.find(area => area.name === userProfile.area);
+  if (!currentArea) {
+    await interaction.update({
+      content: "Error finding your current area. Please try again.",
+      embeds: [],
+      components: []
+    });
+    return;
+  }
+  
+  // Find the bait being used
+  const currentBait = baits.find(bait => bait.name === userProfile.equippedBait);
+  
+  // Use up one bait
+  const previousBait = userProfile.equippedBait;
+  userProfile.inventory.bait[userProfile.equippedBait]--;
+  if (userProfile.inventory.bait[userProfile.equippedBait] <= 0) {
+    delete userProfile.inventory.bait[userProfile.equippedBait];
+    
+    // Look for another bait if available
+    const availableBaits = Object.entries(userProfile.inventory.bait || {})
+      .filter(([_, count]) => count > 0);
+      
+    if (availableBaits.length > 0) {
+      userProfile.equippedBait = availableBaits[0][0]; // Use the first available bait
+      await interaction.followUp({
+        content: `You're out of ${previousBait}. Automatically switched to ${userProfile.equippedBait}!`,
+        ephemeral: true
+      });
+    }
+  }
+  await userManager.updateUser(userId, userProfile);
+  
+  // Create the initial fishing embed
+  const fishingEmbed = new EmbedBuilder()
+    .setTitle(`🎣 Fishing at ${currentArea.name}`)
+    .setDescription(`You cast your line using ${userProfile.equippedRod} and ${userProfile.equippedBait} as bait...`)
+    .setColor(0x3498DB);
+  
+  // Create the cancel button
+  const cancelButton = new ButtonBuilder()
+    .setCustomId('cancel_fishing')
+    .setLabel('Cancel')
+    .setStyle(ButtonStyle.Secondary);
+  
+  const row = new ActionRowBuilder().addComponents(cancelButton);
+  
+  // Edit the existing message instead of creating a new one
+  await interaction.update({ 
+    content: '',
+    embeds: [fishingEmbed],
+    components: [row]
+  });
+  
+  // Calculate bite time based on bait
+  const biteTime = rng.calculateBiteTime(currentBait.biteChance);
+  
+  // Store fishing session with the existing message
+  activeFishing.set(userId, {
+    messageId: interaction.message.id,
+    channelId: interaction.channelId,
+    area: currentArea,
+    ownerId: userId,
+    biteTimer: setTimeout(() => handleBite(userId, interaction.message, currentArea), biteTime)
+  });
+}
+
+/**
  * Start a new fishing session for a user
  * @param {Object} interaction - Discord interaction
  * @returns {Promise<void>}
@@ -386,7 +547,7 @@ async function handleEscape(userId, message) {
   clearTimeout(session.escapeTimer);
   activeFishing.delete(userId);
   
-  // Auto-delete the message after 2 minutes (120000ms)
+  // Only auto-delete the message after 5 minutes (300000ms) to allow for "Try Again"
   setTimeout(async () => {
     try {
       // Check if the message still exists and delete it
@@ -397,7 +558,7 @@ async function handleEscape(userId, message) {
       // Ignore errors that might occur if the message is already deleted
       console.error('Error auto-deleting fishing escape message:', error);
     }
-  }, 120000);
+  }, 300000);
 }
 
 /**
@@ -481,7 +642,7 @@ async function reelFishing(interaction) {
   // Clean up the session
   activeFishing.delete(userId);
   
-  // Auto-delete the message after 2 minutes (120000ms)
+  // Only auto-delete the message after 5 minutes (300000ms) to allow for "Try Again"
   setTimeout(async () => {
     try {
       // Check if the message still exists and delete it
@@ -492,7 +653,7 @@ async function reelFishing(interaction) {
       // Ignore errors that might occur if the message is already deleted
       console.error('Error auto-deleting fishing result message:', error);
     }
-  }, 120000);
+  }, 300000);
 }
 
 /**
@@ -617,20 +778,16 @@ async function handleFishingInteraction(interaction) {
       return;
     }
     
-    // For start_fishing, we'll just start a new session
+    // For start_fishing, we'll reuse the message if possible
     if (customId === 'start_fishing') {
-      // If there's an old message from a previous session, clean it up
+      // Check if this is a "Try Again" scenario (interaction.message exists)
       if (interaction.message) {
-        try {
-          // Delete the previous fishing message
-          await interaction.message.delete();
-        } catch (error) {
-          // Ignore any errors that might occur when trying to delete the message
-          console.error('Error deleting previous fishing message:', error);
-        }
+        // Reuse the existing message by editing it
+        await startFishingWithEdit(interaction);
+      } else {
+        // New fishing session, create new message
+        await startFishing(interaction);
       }
-      
-      await startFishing(interaction);
       return;
     }
     
@@ -667,5 +824,6 @@ async function handleFishingInteraction(interaction) {
 module.exports = {
   handleFishingInteraction,
   startFishing,
+  startFishingWithEdit,
   digForWorms
 };
