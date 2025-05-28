@@ -1,13 +1,14 @@
 /**
  * Start command for fishing game
  * Initializes a new user profile with default items
+ * Now accessible via slash command: /start
  */
 const { EmbedBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle } = require('discord.js');
 const userManager = require('../database/userManager');
 const areas = require('../data/areas');
 
 /**
- * Handle the start command
+ * Handle the start command (legacy message command - deprecated)
  * @param {Object} message - Discord message object
  */
 async function executeMessageCommand(message) {
