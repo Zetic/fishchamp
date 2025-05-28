@@ -24,12 +24,8 @@ const config = {
     soundwave: '!soundwave',
     fishingPrefix: '!'
   },
-  features: {
-    randomConversationChance: 0.1,
-  },
   openai: {
     chatModel: 'gpt-4o',
-    imageModel: 'gpt-image-1',
     ttsModel: 'tts-1',
     maxTokens: 100,
     temperature: 0.7,
@@ -183,126 +179,6 @@ function createConversationContext(messages) {
 }
 
 /**
- * Check if attachment is an image
- * @param {Object} attachment - Discord attachment object
- * @returns {boolean} - True if attachment is a valid image
- */
-function isImageAttachment(attachment) {
-  const validImageTypes = ['image/jpeg', 'image/png', 'image/gif', 'image/webp'];
-  return attachment && validImageTypes.includes(attachment.contentType);
-}
-
-/**
- * Create crayon drawing version using OpenAI API
- * @param {string} imageUrl - URL of the image to convert
- * @returns {Buffer} - Buffer containing the processed image
- */
-async function createCrayonDrawingVersion(imageUrl) {
-  try {
-    // Download the source image from the URL
-    const imageResponse = await fetch(imageUrl);
-    if (!imageResponse.ok) {
-      throw new Error(`Failed to download source image: ${imageResponse.statusText}`);
-    }
-    let sourceImageBuffer = await imageResponse.buffer();
-
-    console.log('Original image buffer size:', sourceImageBuffer.length, 'bytes');
-
-    // Convert to PNG, resize to 1024x1024, and ensure <4MB using sharp
-    sourceImageBuffer = await sharp(sourceImageBuffer)
-      .resize(1024, 1024, { fit: 'cover' })
-      .png({ quality: 50, compressionLevel: 9 })
-      .toBuffer();
-
-    console.log('Processed image buffer size (1024x1024, q50):', sourceImageBuffer.length, 'bytes');
-
-    // If still too large, try reducing quality further and downscale to 512x512
-    let quality = 40;
-    let size = 1024;
-    while (sourceImageBuffer.length > 4 * 1024 * 1024 && size >= 512) {
-      sourceImageBuffer = await sharp(sourceImageBuffer)
-        .resize(size, size, { fit: 'cover' })
-        .png({ quality, compressionLevel: 9 })
-        .toBuffer();
-      console.log(`Processed image buffer size (${size}x${size}, q${quality}):`, sourceImageBuffer.length, 'bytes');
-      
-      if (quality > 10) {
-        quality -= 10;
-      } else {
-        size -= 128;
-        quality = 40;
-      }
-    }
-
-    if (sourceImageBuffer.length > 4 * 1024 * 1024) {
-      throw new Error('Image is too large after processing. Please use a smaller image.');
-    }
-
-    // Get image MIME type
-    const fileType = await import('file-type');
-    const type = await fileType.fileTypeFromBuffer(sourceImageBuffer);
-    console.log('Processed image MIME type:', type);
-
-    // Use vision API to describe the image
-    const visionResponse = await openai.chat.completions.create({
-      model: config.openai.chatModel,
-      messages: [
-        {
-          role: "user",
-          content: [
-            { type: "text", text: "Describe this image in detail, focusing on the main subjects and their arrangement." },
-            { type: "image_url", image_url: { url: imageUrl } },
-          ],
-        },
-      ],
-      max_tokens: 300,
-    });
-    const imageDescription = visionResponse.choices[0].message.content;
-
-    // Use the image description to generate a new image
-    let crayonPrompt = `Create an extremely crude, amateurish, and messy crayon drawing version of this image, as if it was scribbled by a 4-year-old child with crayons. The drawing should be naive, unskilled, with uneven lines, off proportions, and lots of random color marks. Do not make it look professional or neat. Here is the image description: ${imageDescription}`;
-    
-    // Handle prompt length limit
-    if (crayonPrompt.length > 32000) {
-      crayonPrompt = crayonPrompt.slice(0, 32000);
-    }
-
-    const response = await openai.images.generate({
-      model: config.openai.imageModel,
-      prompt: crayonPrompt,
-      n: 1,
-      size: "1024x1024",
-    });
-
-    let imageBuffer;
-    if (response.data[0].url) {
-      const generatedImageUrl = response.data[0].url;
-      const resultResponse = await fetch(generatedImageUrl);
-      if (!resultResponse.ok) {
-        throw new Error(`Failed to download generated image: ${resultResponse.statusText}`);
-      }
-      imageBuffer = await resultResponse.buffer();
-    } else if (response.data[0].b64_json) {
-      imageBuffer = Buffer.from(response.data[0].b64_json, 'base64');
-    } else {
-      throw new Error('No image returned from OpenAI.');
-    }
-    
-    return imageBuffer;
-  } catch (error) {
-    console.error('Error with OpenAI API:', error);
-    
-    if (error.message?.includes('format') || error.message?.includes('PNG')) {
-      throw new Error('Image format not compatible with OpenAI. Please use PNG format.');
-    } else if (error.message?.includes('size') || error.message?.includes('4MB')) {
-      throw new Error('Image is too large for processing. Please use an image smaller than 4MB.');
-    }
-    
-    throw new Error('Failed to process image with OpenAI');
-  }
-}
-
-/**
  * Generate a sound wave from text using OpenAI TTS API
  * @param {string} prompt - Text to convert to audio
  * @param {string} voice - Voice to use for audio generation
@@ -338,87 +214,47 @@ async function createSoundwaveFromText(prompt, voice = config.voices.default) {
 }
 
 /**
- * Handle random conversation joining
+ * Handle direct mentions to the bot
  * @param {Object} message - Discord message object
  */
-async function handleRandomConversation(message) {
+async function handleDirectMention(message) {
   try {
-    // Fetch recent messages to build conversation context
-    const recentMessages = await fetchRecentMessages(message.channel, 5, message.id);
-    if (recentMessages.length === 0) return;
-
-    const conversationContext = createConversationContext(recentMessages);
-    console.log('Random conversation context:', conversationContext);
-
-    // Get a response from OpenAI based on the conversation
+    // Send typing indicator
+    await message.channel.sendTyping();
+    
+    // Get the message content removing the mention
+    let content = message.content.replace(/<@!?(\d+)>/g, '').trim();
+    
+    if (!content) {
+      content = "Hello there.";
+    }
+    
+    console.log('Processing direct mention with content:', content);
+    
+    // Get a response from OpenAI
     const response = await openai.chat.completions.create({
       model: config.openai.chatModel,
       messages: [
         {
           role: "system",
-          content: "You are a friendly Discord bot that occasionally joins conversations. Keep responses brief, conversational and relevant to the context."
+          content: "You are a helpful Discord bot. Provide neutral, matter-of-fact responses that are concise and helpful. Do not use emojis or express emotions. Maintain a professional, straightforward tone."
         },
         {
           role: "user",
-          content: `Here's a recent conversation in a Discord channel. Provide a short, natural response to join in:\n\n${conversationContext}`
+          content: content
         }
       ],
       max_tokens: config.openai.maxTokens,
       temperature: config.openai.temperature,
     });
-
-    // Extract and send the bot's response
-    const botResponse = response.choices[0].message.content;
-    await message.channel.send(botResponse);
-    console.log('Bot randomly joined conversation with:', botResponse);
-  } catch (error) {
-    console.error('Error in random conversation:', error);
-    // Silently fail for random conversations
-  }
-}
-
-/**
- * Handle the thoughts command
- * @param {Object} message - Discord message object
- */
-async function handleThoughtsCommand(message) {
-  try {
-    // Get typing indicator and fetch recent messages
-    await message.channel.sendTyping();
-    const recentMessages = await fetchRecentMessages(message.channel, 10, message.id);
     
-    if (recentMessages.length === 0) {
-      await message.reply("I don't have any thoughts on this conversation yet.");
-      return;
-    }
-
-    const conversationContext = createConversationContext(recentMessages);
-    console.log('Thoughts context:', conversationContext);
-
-    // Ask OpenAI for thoughts on the conversation
-    const response = await openai.chat.completions.create({
-      model: config.openai.chatModel,
-      messages: [
-        {
-          role: "system",
-          content: "You are a thoughtful Discord bot. Someone has asked what you think about the current conversation. Provide an insightful, brief analysis of the conversation, noting themes, emotions, or interesting points."
-        },
-        {
-          role: "user",
-          content: `Here's the recent conversation. What do you think about it?\n\n${conversationContext}`
-        }
-      ],
-      max_tokens: 150,
-      temperature: 0.7,
-    });
-
-    // Reply with the bot's thoughts
-    const thoughts = response.choices[0].message.content;
-    await message.reply(thoughts);
-    console.log('Bot shared thoughts:', thoughts);
+    // Reply with the bot's response
+    const botResponse = response.choices[0].message.content;
+    await message.reply(botResponse);
+    console.log('Bot replied to mention with:', botResponse);
   } catch (error) {
-    console.error('Error handling thoughts command:', error);
-    await message.reply('I seem to be having trouble organizing my thoughts right now.');
+    console.error('Error handling direct mention:', error);
+    await message.reply('Sorry, there was an error processing your request.');
   }
 }
 
@@ -490,70 +326,15 @@ async function handleSoundwaveCommand(message) {
   }
 }
 
-/**
- * Handle image processing
- * @param {Object} message - Discord message object
- */
-async function handleImageProcessing(message) {
-  try {
-    // Send typing indicator
-    await message.channel.sendTyping();
-    
-    // Get the message being replied to
-    const repliedMessage = await message.channel.messages.fetch(message.reference.messageId);
-    
-    if (!repliedMessage) {
-      await message.reply("I couldn't find the message you're replying to.");
-      return;
-    }
-    
-    // Check if the replied message has image attachments
-    const imageAttachment = repliedMessage.attachments.find(isImageAttachment);
-    
-    if (!imageAttachment) {
-      await message.reply("I don't see any images in that message to transform.");
-      return;
-    }
-    
-    console.log('Processing image:', imageAttachment.url);
-    
-    // Create crayon drawing version of the image
-    const crayonBuffer = await createCrayonDrawingVersion(imageAttachment.url);
-    
-    // Send the transformed image
-    const attachment = new AttachmentBuilder(crayonBuffer, { name: 'crayon_drawing.png' });
-    await message.reply({ 
-      content: 'Here\'s my crayon drawing version!', 
-      files: [attachment] 
-    });
-    console.log('Crayon drawing sent successfully');
-  } catch (error) {
-    console.error('Error handling image processing:', error);
-    await message.reply('Sorry, there was an error processing that image.');
-  }
-}
-
 // Message create event handler
 client.on(Events.MessageCreate, async (message) => {
   try {
     // Ignore messages from bots to prevent potential loops
     if (message.author.bot) return;
 
-    // Log every message and roll result
-    const roll = Math.random();
-    console.log(`[MSG] ${message.author.username}: ${message.content} | Roll: ${roll.toFixed(3)}`);
+    // Log every message
+    console.log(`[MSG] ${message.author.username}: ${message.content}`);
 
-    // Handle random conversation joining
-    if (roll < config.features.randomConversationChance) {
-      await handleRandomConversation(message);
-    }
-
-    // Handle direct command and mention patterns
-    if (message.mentions.has(client.user.id) && /thoughts\?/i.test(message.content)) {
-      await handleThoughtsCommand(message);
-      return;
-    }
-    
     // Note: Fishing game message commands have been converted to slash commands
     // The original message command handlers have been commented out
     
@@ -597,9 +378,10 @@ client.on(Events.MessageCreate, async (message) => {
       return;
     }
 
-    // Handle image processing via mentions in replies
-    if (message.reference && message.mentions.has(client.user.id)) {
-      await handleImageProcessing(message);
+    // Handle direct mentions of the bot
+    if (message.mentions.has(client.user.id)) {
+      await handleDirectMention(message);
+      return;
     }
   } catch (error) {
     console.error('Error processing message:', error);

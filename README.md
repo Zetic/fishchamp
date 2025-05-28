@@ -1,13 +1,11 @@
 # ZPT Discord Bot
 
-A Discord bot that utilizes OpenAI's capabilities to transform images into crayon drawings, generate speech from text, and participate in conversations.
+A Discord bot that utilizes OpenAI's capabilities to generate speech from text and respond to direct mentions.
 
 ## Features
 
-- **Image Transformation**: Mention the bot while replying to an image to transform it into a crayon drawing version
 - **Text-to-Speech**: Generate speech from text using the `!soundwave` command with multiple voice options
-- **Conversation Participation**: Bot occasionally joins conversations with contextually relevant messages
-- **Contextual Thoughts**: Ask the bot what it thinks about the current conversation with `@bot thoughts?`
+- **Direct Responses**: Mention the bot to receive concise, helpful responses
 - **Configurable Settings**: Easy customization through centralized configuration
 
 ## Prerequisites
@@ -49,33 +47,25 @@ node index.js
 
 ## Usage
 
-### Image Transformation
-1. Find an image in any channel
-2. Reply to the message containing the image and mention the bot (e.g., @ZPT)
-3. The bot will process the image and reply with a crayon drawing version
-
 ### Text-to-Speech
 1. Type `!soundwave` followed by your text prompt
 2. Example: `!soundwave Hello, this is a test of the soundwave feature`
-3. You can specify a voice by adding `--voice:name` at the beginning of your prompt
+3. You can specify a voice by adding `--voice name` at the end of your prompt
    - Available voices: `alloy` (default), `echo`, `fable`, `onyx`, `nova`, `shimmer`
-   - Example: `!soundwave --voice:nova Hello, this is a test with the Nova voice`
+   - Example: `!soundwave Hello, this is a test with the Nova voice --voice nova`
 4. For help, type `!soundwave help` or `!soundwave --help`
 
-### Conversation Features
-- The bot has a 10% chance of joining any conversation with a contextually relevant message
-- Ask the bot what it thinks about the current conversation by mentioning it with "thoughts?"
-  - Example: `@ZPT thoughts?`
+### Direct Mention
+- Simply mention the bot with your message (e.g., `@ZPT How does photosynthesis work?`)
+- The bot will respond with a concise, helpful answer in a neutral tone
 
 ## Development
 
 This bot uses:
 - [discord.js](https://discord.js.org/) for Discord API integration
 - [OpenAI Node.js SDK](https://github.com/openai/openai-node) for:
-  - Image processing and generation (Vision API and Image Generation API)
   - Text-to-speech generation (TTS API)
   - Natural language understanding (Chat Completions API)
-- [sharp](https://sharp.pixelplumbing.com/) for image processing
 - [dotenv](https://github.com/motdotla/dotenv) for environment variables management
 
 ### Architecture
