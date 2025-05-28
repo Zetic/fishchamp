@@ -1,13 +1,14 @@
 /**
  * Inventory command for fishing game
  * Shows player inventory and allows managing equipment
+ * Now accessible via slash command: /inventory
  */
 const { EmbedBuilder, ActionRowBuilder, StringSelectMenuBuilder } = require('discord.js');
 const userManager = require('../database/userManager');
 const inventoryUtils = require('../utils/inventory');
 
 /**
- * Handle the inventory command
+ * Handle the inventory command (legacy message command - deprecated)
  * @param {Object} message - Discord message object
  */
 async function executeMessageCommand(message) {

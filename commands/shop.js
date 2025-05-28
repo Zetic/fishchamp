@@ -1,12 +1,13 @@
 /**
  * Shop command for fishing game
  * Allows players to buy and sell items
+ * Now accessible via slash command: /shop
  */
 const shopInteraction = require('../interactions/shopInteraction');
 const userManager = require('../database/userManager');
 
 /**
- * Handle the shop command
+ * Handle the shop command (legacy message command - deprecated)
  * @param {Object} message - Discord message object
  */
 async function executeMessageCommand(message) {

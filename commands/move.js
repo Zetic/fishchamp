@@ -1,13 +1,14 @@
 /**
  * Move command for fishing game
  * Allows players to move between fishing areas
+ * Now accessible via slash command: /move
  */
 const { ActionRowBuilder, StringSelectMenuBuilder, EmbedBuilder, ButtonBuilder, ButtonStyle } = require('discord.js');
 const userManager = require('../database/userManager');
 const areas = require('../data/areas');
 
 /**
- * Handle the move command
+ * Handle the move command (legacy message command - deprecated)
  * @param {Object} message - Discord message object
  */
 async function executeMessageCommand(message) {

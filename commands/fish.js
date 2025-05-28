@@ -1,6 +1,7 @@
 /**
  * Fish command for fishing game
  * Starts the fishing process
+ * Now accessible via slash command: /fish
  */
 const { EmbedBuilder } = require('discord.js');
 const userManager = require('../database/userManager');
@@ -9,7 +10,7 @@ const baits = require('../data/baits');
 const fishingInteraction = require('../interactions/fishingInteraction');
 
 /**
- * Handle the fish command
+ * Handle the fish command (legacy message command - deprecated)
  * @param {Object} message - Discord message object
  */
 async function executeMessageCommand(message) {
