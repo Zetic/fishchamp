@@ -1,5 +1,5 @@
 // Import required packages
-const { Client, GatewayIntentBits, Events, MessageType, AttachmentBuilder, ButtonBuilder, ButtonStyle } = require('discord.js');
+const { Client, GatewayIntentBits, Events, MessageType, AttachmentBuilder, ButtonBuilder, ButtonStyle, REST, Routes, SlashCommandBuilder } = require('discord.js');
 const { OpenAI } = require('openai');
 const dotenv = require('dotenv');
 const fs = require('fs');
@@ -40,6 +40,29 @@ const config = {
   }
 };
 
+// Define slash commands
+const slashCommands = [
+  new SlashCommandBuilder()
+    .setName('start')
+    .setDescription('Start your fishing adventure and create a new profile'),
+  
+  new SlashCommandBuilder()
+    .setName('fish')
+    .setDescription('Start fishing in your current area'),
+  
+  new SlashCommandBuilder()
+    .setName('move')
+    .setDescription('Move to a different fishing area'),
+  
+  new SlashCommandBuilder()
+    .setName('shop')
+    .setDescription('Visit the shop to buy equipment or sell fish'),
+  
+  new SlashCommandBuilder()
+    .setName('inventory')
+    .setDescription('View and manage your inventory and equipped items')
+].map(command => command.toJSON());
+
 // Initialize Discord client with necessary intents
 const client = new Client({
   intents: [
@@ -60,6 +83,22 @@ const openai = new OpenAI({
 client.once(Events.ClientReady, async () => {
   console.log(`Logged in as ${client.user.tag}!`);
   console.log('Bot is ready!');
+  
+  // Register slash commands
+  try {
+    console.log('Started refreshing application (/) commands...');
+    
+    const rest = new REST({ version: '10' }).setToken(process.env.DISCORD_TOKEN);
+    
+    await rest.put(
+      Routes.applicationCommands(client.user.id),
+      { body: slashCommands },
+    );
+    
+    console.log('Successfully reloaded application (/) commands!');
+  } catch (error) {
+    console.error('Error refreshing application commands:', error);
+  }
   
   // Initialize shop sessions map
   client.shopSessions = new Map();
@@ -515,7 +554,11 @@ client.on(Events.MessageCreate, async (message) => {
       return;
     }
     
-    // Handle fishing game commands
+    // Note: Fishing game message commands have been converted to slash commands
+    // The original message command handlers have been commented out
+    
+    /* 
+    // Handle fishing game commands (now using slash commands instead)
     if (message.content.startsWith(`${config.commands.fishingPrefix}start`)) {
       await startCommand.executeMessageCommand(message);
       return;
@@ -541,6 +584,7 @@ client.on(Events.MessageCreate, async (message) => {
       await inventoryCommand.executeMessageCommand(message);
       return;
     }
+    */
     
     if (message.content === `${config.commands.soundwave} help` || 
         message.content === `${config.commands.soundwave} --help`) {
@@ -575,6 +619,35 @@ client.on(Events.InteractionCreate, async (interaction) => {
     // Ensure shop sessions map is always initialized
     if (!interaction.client.shopSessions) {
       interaction.client.shopSessions = new Map();
+    }
+
+    // Handle slash commands
+    if (interaction.isChatInputCommand()) {
+      const { commandName } = interaction;
+
+      switch (commandName) {
+        case 'start':
+          await startCommand.executeSlashCommand(interaction);
+          break;
+        case 'fish':
+          await fishCommand.executeSlashCommand(interaction);
+          break;
+        case 'move':
+          await moveCommand.executeSlashCommand(interaction);
+          break;
+        case 'shop':
+          await shopCommand.executeSlashCommand(interaction);
+          break;
+        case 'inventory':
+          await inventoryCommand.executeSlashCommand(interaction);
+          break;
+        default:
+          await interaction.reply({
+            content: `Unknown command: /${commandName}`,
+            ephemeral: true
+          });
+      }
+      return;
     }
     
     // Handle button interactions
