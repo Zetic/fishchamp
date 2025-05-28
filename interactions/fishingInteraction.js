@@ -433,15 +433,19 @@ async function digForWorms(interaction) {
   
   await userManager.updateUser(userId, userProfile);
   
-  // Notify user
+  // Notify user with a button to start fishing
+  const fishButton = new ButtonBuilder()
+    .setCustomId('start_fishing')
+    .setLabel('Go Fishing')
+    .setStyle(ButtonStyle.Primary);
+  
+  const row = new ActionRowBuilder().addComponents(fishButton);
+  
   await interaction.update({
     content: `You dug around and found ${wormsFound} worms! They've been added to your inventory.`,
     embeds: [],
-    components: []
+    components: [row]
   });
-  
-  // After a short delay, show the fishing dialog again
-  setTimeout(() => startFishing(interaction), 2000);
 }
 
 /**
