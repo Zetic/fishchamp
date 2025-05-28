@@ -22,7 +22,11 @@ async function executeMessageCommand(message) {
  */
 async function executeSlashCommand(interaction) {
   try {
-    // Show trap management menu
+    // First show the main game interface
+    const gameInterface = require('../interactions/gameInterface');
+    await gameInterface.showMainInterface(interaction);
+    
+    // Then show trap management menu
     await trapInteraction.showTrapMenu(interaction);
   } catch (error) {
     console.error('Error in trap slash command:', error);

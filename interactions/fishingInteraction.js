@@ -378,8 +378,13 @@ async function handleBite(userId, message, area) {
       .setCustomId('start_fishing')
       .setLabel('Try Again')
       .setStyle(ButtonStyle.Primary);
+      
+    const homeButton = new ButtonBuilder()
+      .setCustomId('game_home')
+      .setLabel('🏠 Home')
+      .setStyle(ButtonStyle.Secondary);
     
-    const row = new ActionRowBuilder().addComponents(tryAgainButton);
+    const row = new ActionRowBuilder().addComponents(tryAgainButton, homeButton);
     
     await message.edit({
       embeds: [failEmbed],
@@ -525,7 +530,12 @@ async function handleEscape(userId, message) {
     .setLabel('Try Again')
     .setStyle(ButtonStyle.Primary);
   
-  const row = new ActionRowBuilder().addComponents(tryAgainButton);
+  const homeButton = new ButtonBuilder()
+    .setCustomId('game_home')
+    .setLabel('🏠 Home')
+    .setStyle(ButtonStyle.Secondary);
+  
+  const row = new ActionRowBuilder().addComponents(tryAgainButton, homeButton);
   
   // Edit the message
   await message.edit({
@@ -537,19 +547,6 @@ async function handleEscape(userId, message) {
   clearTimeout(session.biteTimer);
   clearTimeout(session.escapeTimer);
   activeFishing.delete(userId);
-  
-  // Only auto-delete the message after 5 minutes (300000ms) to allow for "Try Again"
-  setTimeout(async () => {
-    try {
-      // Check if the message still exists and delete it
-      if (message && !message.deleted) {
-        await message.delete();
-      }
-    } catch (error) {
-      // Ignore errors that might occur if the message is already deleted
-      console.error('Error auto-deleting fishing escape message:', error);
-    }
-  }, 300000);
 }
 
 /**
@@ -607,7 +604,12 @@ async function reelFishing(interaction) {
       .setLabel('Inventory')
       .setStyle(ButtonStyle.Secondary);
       
-    buttonRow.addComponents(fishAgainButton, inventoryButton);
+    const homeButton = new ButtonBuilder()
+      .setCustomId('game_home')
+      .setLabel('🏠 Home')
+      .setStyle(ButtonStyle.Secondary);
+      
+    buttonRow.addComponents(fishAgainButton, inventoryButton, homeButton);
   } else {
     resultEmbed = new EmbedBuilder()
       .setTitle(`🎣 The ${session.fish} got away!`)
@@ -620,7 +622,12 @@ async function reelFishing(interaction) {
       .setLabel('Try Again')
       .setStyle(ButtonStyle.Primary);
       
-    buttonRow.addComponents(tryAgainButton);
+    const homeButton = new ButtonBuilder()
+      .setCustomId('game_home')
+      .setLabel('🏠 Home')
+      .setStyle(ButtonStyle.Secondary);
+      
+    buttonRow.addComponents(tryAgainButton, homeButton);
   }
   
   // Update the message
@@ -631,19 +638,6 @@ async function reelFishing(interaction) {
   
   // Clean up the session
   activeFishing.delete(userId);
-  
-  // Only auto-delete the message after 5 minutes (300000ms) to allow for "Try Again"
-  setTimeout(async () => {
-    try {
-      // Check if the message still exists and delete it
-      if (interaction.message && !interaction.message.deleted) {
-        await interaction.message.delete();
-      }
-    } catch (error) {
-      // Ignore errors that might occur if the message is already deleted
-      console.error('Error auto-deleting fishing result message:', error);
-    }
-  }, 300000);
 }
 
 /**
@@ -661,28 +655,12 @@ async function cancelFishing(interaction) {
   clearTimeout(session.biteTimer);
   if (session.escapeTimer) clearTimeout(session.escapeTimer);
   
-  // Update the message
-  await interaction.update({
-    content: "Fishing canceled. Your bait was lost.",
-    embeds: [],
-    components: []
-  });
+  // Return to main game interface
+  const gameInterface = require('./gameInterface');
+  await gameInterface.showMainInterface(interaction);
   
   // Clean up the session
   activeFishing.delete(userId);
-  
-  // Auto-delete the message after 10 seconds
-  setTimeout(async () => {
-    try {
-      // Check if the message still exists and delete it
-      if (interaction.message && !interaction.message.deleted) {
-        await interaction.message.delete();
-      }
-    } catch (error) {
-      // Ignore errors that might occur if the message is already deleted
-      console.error('Error auto-deleting fishing cancel message:', error);
-    }
-  }, 10000);
 }
 
 /**
@@ -727,7 +705,12 @@ async function digForWorms(interaction) {
     .setLabel('Go Fishing')
     .setStyle(ButtonStyle.Primary);
   
-  const row = new ActionRowBuilder().addComponents(fishButton);
+  const homeButton = new ButtonBuilder()
+    .setCustomId('game_home')
+    .setLabel('🏠 Home')
+    .setStyle(ButtonStyle.Secondary);
+  
+  const row = new ActionRowBuilder().addComponents(fishButton, homeButton);
   
   await interaction.update({
     content: `You dug around and found ${wormsFound} worms! They've been added to your inventory.`,

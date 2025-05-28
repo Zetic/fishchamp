@@ -63,8 +63,8 @@ async function showShop(interaction) {
     .setStyle(ButtonStyle.Success);
   
   const backButton = new ButtonBuilder()
-    .setCustomId('shop_exit')
-    .setLabel('Exit Shop')
+    .setCustomId('game_home')
+    .setLabel('🏠 Home')
     .setStyle(ButtonStyle.Secondary);
   
   const row = new ActionRowBuilder().addComponents(buyRodsButton, buyBaitButton, buyTrapsButton, sellFishButton, backButton);
@@ -198,10 +198,16 @@ async function showBuyBait(interaction) {
     .setCustomId('shop_main')
     .setLabel('Back to Shop')
     .setStyle(ButtonStyle.Secondary);
-  
+    
+  // Home button
+  const homeButton = new ButtonBuilder()
+    .setCustomId('game_home')
+    .setLabel('🏠 Home')
+    .setStyle(ButtonStyle.Secondary);
+
   // Add components to rows
   const selectRow = new ActionRowBuilder().addComponents(selectMenu);
-  const buttonRow = new ActionRowBuilder().addComponents(qty1Button, qty5Button, qty10Button, backButton);
+  const buttonRow = new ActionRowBuilder().addComponents(qty1Button, qty5Button, qty10Button, backButton, homeButton);
   
   // Send the bait menu
   await interaction.update({
@@ -584,11 +590,9 @@ async function handleShopInteraction(interaction) {
       }
       
       if (customId === 'shop_exit') {
-        await interaction.update({
-          content: 'Thanks for visiting the shop!',
-          embeds: [],
-          components: []
-        });
+        // Redirect to main game interface
+        const gameInterface = require('./gameInterface');
+        await gameInterface.showMainInterface(interaction);
         return;
       }
     }

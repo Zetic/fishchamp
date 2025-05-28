@@ -65,16 +65,16 @@ async function showTrapMenu(interaction) {
     .setDisabled(placedTraps.length === 0);
   
   const shopButton = new ButtonBuilder()
-    .setCustomId('shop_main')
+    .setCustomId('game_shop')
     .setLabel('Visit Shop')
     .setStyle(ButtonStyle.Secondary);
   
-  const backButton = new ButtonBuilder()
-    .setCustomId('trap_exit')
-    .setLabel('Exit')
+  const homeButton = new ButtonBuilder()
+    .setCustomId('game_home')
+    .setLabel('🏠 Home')
     .setStyle(ButtonStyle.Secondary);
   
-  const row = new ActionRowBuilder().addComponents(placeTrapButton, checkTrapsButton, shopButton, backButton);
+  const row = new ActionRowBuilder().addComponents(placeTrapButton, checkTrapsButton, shopButton, homeButton);
   
   // Send the trap menu
   const method = interaction.replied ? 'editReply' : (interaction.deferred ? 'followUp' : 'reply');
@@ -623,12 +623,9 @@ async function handleTrapInteraction(interaction) {
       }
       
       if (customId === 'trap_exit') {
-        // Return to main fishing menu
-        await interaction.update({
-          content: "Exited trap management.",
-          embeds: [],
-          components: []
-        });
+        // Return to main fishing menu using game interface
+        const gameInterface = require('./gameInterface');
+        await gameInterface.showMainInterface(interaction);
         return;
       }
       

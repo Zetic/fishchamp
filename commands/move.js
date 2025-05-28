@@ -80,34 +80,16 @@ async function executeSlashCommand(interaction) {
       return;
     }
     
-    // Create area selection embed
-    const moveEmbed = new EmbedBuilder()
-      .setTitle('🚶 Choose Area')
-      .setDescription('Select an area to move to:')
-      .setColor(0x9B59B6);
-    
-    // Add current location
-    moveEmbed.addFields({ 
-      name: 'Current Location', 
-      value: userProfile.area
-    });
-    
-    // Create select menu with area options
-    const areaOptions = areas.map(area => ({
-      label: area.name,
-      description: `Difficulty: ${area.difficulty}/4 | Fish: ${area.fish.length} species`,
-      value: area.name
-    }));
-    
-    const selectMenu = new StringSelectMenuBuilder()
-      .setCustomId('move_area')
-      .setPlaceholder('Choose an area...')
-      .addOptions(areaOptions);
-    
-    const row = new ActionRowBuilder().addComponents(selectMenu);
-    
-    // Send area selection message
-    await interaction.reply({ 
+    // Redirect to game interface with move view
+    const gameInterface = require('../interactions/gameInterface');
+    await gameInterface.showMoveInterface(interaction, userProfile);
+  } catch (error) {
+    console.error('Error handling move command:', error);
+    await interaction.reply({
+      content: 'Sorry, there was an error showing area selection. Please try again.',
+      });
+  }
+} 
       embeds: [moveEmbed],
       components: [row],
       });
