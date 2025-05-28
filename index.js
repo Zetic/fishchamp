@@ -9,11 +9,13 @@ const sharp = require('sharp');
 // Import fishing game modules
 const fishingInteraction = require('./interactions/fishingInteraction');
 const shopInteraction = require('./interactions/shopInteraction');
+const trapInteraction = require('./interactions/trapInteraction');
 const startCommand = require('./commands/start');
 const fishCommand = require('./commands/fish');
 const moveCommand = require('./commands/move');
 const shopCommand = require('./commands/shop');
 const inventoryCommand = require('./commands/inventory');
+const trapCommand = require('./commands/trap');
 
 // Load environment variables
 dotenv.config();
@@ -56,7 +58,11 @@ const slashCommands = [
   
   new SlashCommandBuilder()
     .setName('inventory')
-    .setDescription('View and manage your inventory and equipped items')
+    .setDescription('View and manage your inventory and equipped items'),
+    
+  new SlashCommandBuilder()
+    .setName('traps')
+    .setDescription('Manage your fish traps - place, check, and collect')
 ].map(command => command.toJSON());
 
 // Initialize Discord client with necessary intents
@@ -423,10 +429,12 @@ client.on(Events.InteractionCreate, async (interaction) => {
         case 'inventory':
           await inventoryCommand.executeSlashCommand(interaction);
           break;
+        case 'traps':
+          await trapCommand.executeSlashCommand(interaction);
+          break;
         default:
           await interaction.reply({
-            content: `Unknown command: /${commandName}`,
-            ephemeral: true
+            content: `Unknown command: /${commandName}`
           });
       }
       return;
@@ -446,9 +454,16 @@ client.on(Events.InteractionCreate, async (interaction) => {
       // Shop-related buttons
       if (customId.startsWith('shop_') || 
           customId.startsWith('bait_qty_') || 
+          customId.startsWith('trap_qty_') || 
           customId === 'sell_qty_1' || 
           customId === 'sell_all') {
         await shopInteraction.handleShopInteraction(interaction);
+        return;
+      }
+      
+      // Trap-related buttons
+      if (customId.startsWith('trap_') || customId === 'open_traps') {
+        await trapInteraction.handleTrapInteraction(interaction);
         return;
       }
       
@@ -470,8 +485,14 @@ client.on(Events.InteractionCreate, async (interaction) => {
       }
       
       // Shop select menus
-      if (customId === 'shop_select_rod' || customId === 'shop_select_bait' || customId === 'shop_select_fish') {
+      if (customId === 'shop_select_rod' || customId === 'shop_select_bait' || customId === 'shop_select_fish' || customId === 'shop_select_trap') {
         await shopInteraction.handleShopInteraction(interaction);
+        return;
+      }
+      
+      // Trap select menus
+      if (customId === 'trap_select_place' || customId.startsWith('trap_select_bait_')) {
+        await trapInteraction.handleTrapInteraction(interaction);
         return;
       }
       
@@ -487,8 +508,7 @@ client.on(Events.InteractionCreate, async (interaction) => {
     // Try to respond if we can
     try {
       const response = {
-        content: 'Sorry, there was an error processing your request.',
-        ephemeral: true
+        content: 'Sorry, there was an error processing your request.'
       };
       
       if (interaction.deferred || interaction.replied) {

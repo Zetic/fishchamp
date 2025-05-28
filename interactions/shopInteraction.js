@@ -13,12 +13,14 @@ const userManager = require('../database/userManager');
 const rods = require('../data/rods');
 const baits = require('../data/baits');
 const fish = require('../data/fish');
+const traps = require('../data/traps');
 
 // Shop section enum
 const ShopSection = {
   MAIN: 'main',
   BUY_RODS: 'buy_rods',
   BUY_BAIT: 'buy_bait',
+  BUY_TRAPS: 'buy_traps',
   SELL_FISH: 'sell_fish'
 };
 
@@ -50,6 +52,11 @@ async function showShop(interaction) {
     .setLabel('Buy Bait')
     .setStyle(ButtonStyle.Primary);
   
+  const buyTrapsButton = new ButtonBuilder()
+    .setCustomId('shop_buy_traps')
+    .setLabel('Buy Fish Traps')
+    .setStyle(ButtonStyle.Primary);
+  
   const sellFishButton = new ButtonBuilder()
     .setCustomId('shop_sell_fish')
     .setLabel('Sell Fish')
@@ -60,14 +67,13 @@ async function showShop(interaction) {
     .setLabel('Exit Shop')
     .setStyle(ButtonStyle.Secondary);
   
-  const row = new ActionRowBuilder().addComponents(buyRodsButton, buyBaitButton, sellFishButton, backButton);
+  const row = new ActionRowBuilder().addComponents(buyRodsButton, buyBaitButton, buyTrapsButton, sellFishButton, backButton);
   
   // Send the shop menu
   const method = interaction.replied ? 'editReply' : 'reply';
   await interaction[method]({
     embeds: [shopEmbed],
-    components: [row],
-    ephemeral: true
+    components: [row]
   });
 }
 
@@ -547,7 +553,8 @@ async function handleShopInteraction(interaction) {
     // Main shop navigation - anyone can navigate the shop
     if (customId === 'shop_main' || 
         customId === 'shop_buy_rods' || 
-        customId === 'shop_buy_bait' || 
+        customId === 'shop_buy_bait' ||
+        customId === 'shop_buy_traps' ||
         customId === 'shop_sell_fish' ||
         customId === 'shop_exit') {
       
@@ -563,6 +570,11 @@ async function handleShopInteraction(interaction) {
       
       if (customId === 'shop_buy_bait') {
         await showBuyBait(interaction);
+        return;
+      }
+      
+      if (customId === 'shop_buy_traps') {
+        await showBuyTraps(interaction);
         return;
       }
       
@@ -582,7 +594,7 @@ async function handleShopInteraction(interaction) {
     }
     
     // For action buttons that require a session, check ownership
-    if (customId.startsWith('bait_qty_') || customId === 'sell_qty_1' || customId === 'sell_all') {
+    if (customId.startsWith('bait_qty_') || customId === 'sell_qty_1' || customId === 'sell_all' || customId.startsWith('trap_qty_')) {
       const session = interaction.client.shopSessions.get(userId);
       
       // Check if user has a valid session and is the owner
@@ -590,8 +602,7 @@ async function handleShopInteraction(interaction) {
         await interaction.reply({
           content: session && session.ownerId !== userId ? 
             "You can't interact with another user's session." : 
-            "Please make a selection first!",
-          ephemeral: true
+            "Please make a selection first!"
         });
         return;
       }
@@ -601,8 +612,7 @@ async function handleShopInteraction(interaction) {
       if (session.timestamp && Date.now() - session.timestamp > SESSION_TIMEOUT) {
         interaction.client.shopSessions.delete(userId);
         await interaction.reply({
-          content: "Your session has expired. Please make a new selection.",
-          ephemeral: true
+          content: "Your session has expired. Please make a new selection."
         });
         return;
       }
@@ -611,8 +621,7 @@ async function handleShopInteraction(interaction) {
       if (customId.startsWith('bait_qty_')) {
         if (!session.selectedBait) {
           await interaction.reply({
-            content: "Please select a bait type first!",
-            ephemeral: true
+            content: "Please select a bait type first!"
           });
           return;
         }
@@ -634,12 +643,36 @@ async function handleShopInteraction(interaction) {
         return;
       }
       
+      // Trap quantity buttons
+      if (customId.startsWith('trap_qty_')) {
+        if (!session.selectedTrap) {
+          await interaction.reply({
+            content: "Please select a trap type first!"
+          });
+          return;
+        }
+        
+        // Parse the quantity
+        let quantity = 1;
+        try {
+          const quantityStr = customId.replace('trap_qty_', '');
+          quantity = parseInt(quantityStr, 10);
+          if (isNaN(quantity) || quantity <= 0) {
+            quantity = 1;
+          }
+        } catch (error) {
+          console.error('Error parsing trap quantity:', error);
+        }
+        
+        await buyTrap(interaction, session.selectedTrap, quantity);
+        return;
+      }
+      
       // Fish selling buttons
       if (customId === 'sell_qty_1') {
         if (!session.selectedFish) {
           await interaction.reply({
-            content: "Please select a fish type first!",
-            ephemeral: true
+            content: "Please select a fish type first!"
           });
           return;
         }
@@ -651,8 +684,7 @@ async function handleShopInteraction(interaction) {
       if (customId === 'sell_all') {
         if (!session.selectedFish) {
           await interaction.reply({
-            content: "Please select a fish type first!",
-            ephemeral: true
+            content: "Please select a fish type first!"
           });
           return;
         }
@@ -683,8 +715,21 @@ async function handleShopInteraction(interaction) {
       });
       
       await interaction.reply({
-        content: `Selected ${selectedValue}. Now choose a quantity to buy.`,
-        ephemeral: true
+        content: `Selected ${selectedValue}. Now choose a quantity to buy.`
+      });
+      return;
+    }
+
+    if (customId === 'shop_select_trap') {
+      // Store selected trap for quantity buttons
+      interaction.client.shopSessions.set(interaction.user.id, { 
+        selectedTrap: selectedValue,
+        ownerId: interaction.user.id,
+        timestamp: Date.now()
+      });
+      
+      await interaction.reply({
+        content: `Selected ${selectedValue}. Now choose a quantity to buy.`
       });
       return;
     }
@@ -698,8 +743,7 @@ async function handleShopInteraction(interaction) {
       });
       
       await interaction.reply({
-        content: `Selected ${selectedValue}. Now choose whether to sell one or all.`,
-        ephemeral: true
+        content: `Selected ${selectedValue}. Now choose whether to sell one or all.`
       });
       return;
     }
@@ -708,8 +752,7 @@ async function handleShopInteraction(interaction) {
     console.error('Error handling shop interaction:', error);
     try {
       const response = {
-        content: 'Sorry, there was an error with the shop. Please try again.',
-        ephemeral: true
+        content: 'Sorry, there was an error with the shop. Please try again.'
       };
       
       if (interaction.deferred || interaction.replied) {
@@ -723,7 +766,164 @@ async function handleShopInteraction(interaction) {
   }
 }
 
+/**
+ * Show fish trap buying menu
+ * @param {Object} interaction - Discord interaction
+ */
+async function showBuyTraps(interaction) {
+  const userId = interaction.user.id;
+  
+  // Get user profile
+  const userProfile = await userManager.getUser(userId);
+  
+  // Create shop embed
+  const trapsEmbed = new EmbedBuilder()
+    .setTitle('🪤 Fish Traps')
+    .setDescription('Select a trap to purchase:')
+    .addFields({ name: 'Your Gold', value: `${userProfile.money} 💰` })
+    .setColor(0x9B59B6);
+  
+  // Count owned traps
+  const trapCounts = {};
+  (userProfile.inventory.traps || []).forEach(trapName => {
+    trapCounts[trapName] = (trapCounts[trapName] || 0) + 1;
+  });
+  
+  // Add all available traps to the embed
+  traps.forEach(trap => {
+    const owned = trapCounts[trap.name] || 0;
+    trapsEmbed.addFields({
+      name: `${trap.name} - ${trap.price} gold`,
+      value: `Capacity: ${trap.capacity} bait | Catch rate: ${Math.round(trap.catchRate * 100)}%\n${trap.description}\nYou own: ${owned}`
+    });
+  });
+  
+  // Create select menu for buying traps
+  const trapOptions = traps.map(trap => ({
+    label: trap.name,
+    description: `Price: ${trap.price} gold | Capacity: ${trap.capacity}`,
+    value: trap.name
+  }));
+  
+  const selectMenu = new StringSelectMenuBuilder()
+    .setCustomId('shop_select_trap')
+    .setPlaceholder('Choose a trap to buy...')
+    .addOptions(trapOptions);
+  
+  // Create quantity buttons
+  const qty1Button = new ButtonBuilder()
+    .setCustomId('trap_qty_1')
+    .setLabel('Buy 1')
+    .setStyle(ButtonStyle.Primary);
+    
+  const qty3Button = new ButtonBuilder()
+    .setCustomId('trap_qty_3')
+    .setLabel('Buy 3')
+    .setStyle(ButtonStyle.Primary);
+  
+  // Back button
+  const backButton = new ButtonBuilder()
+    .setCustomId('shop_main')
+    .setLabel('Back to Shop')
+    .setStyle(ButtonStyle.Secondary);
+  
+  // Add components to rows
+  const selectRow = new ActionRowBuilder().addComponents(selectMenu);
+  const buttonRow = new ActionRowBuilder().addComponents(qty1Button, qty3Button, backButton);
+  
+  // Send the trap menu
+  await interaction.update({
+    embeds: [trapsEmbed],
+    components: [selectRow, buttonRow]
+  });
+}
+
+/**
+ * Buy a fish trap
+ * @param {Object} interaction - Discord interaction
+ * @param {string} trapName - Name of trap to buy
+ * @param {number} quantity - Quantity to buy
+ */
+async function buyTrap(interaction, trapName, quantity = 1) {
+  const userId = interaction.user.id;
+  
+  // Get user profile
+  const userProfile = await userManager.getUser(userId);
+  
+  // Find the selected trap
+  const selectedTrap = traps.find(trap => trap.name === trapName);
+  
+  if (!selectedTrap) {
+    const backButton = new ButtonBuilder()
+      .setCustomId('shop_buy_traps')
+      .setLabel('Back to Fish Traps')
+      .setStyle(ButtonStyle.Primary);
+    
+    const row = new ActionRowBuilder().addComponents(backButton);
+    
+    await interaction.update({
+      content: "Trap not found. Please try again.",
+      components: [row]
+    });
+    return;
+  }
+  
+  // Calculate total cost
+  const totalCost = selectedTrap.price * quantity;
+  
+  // Check if user has enough money
+  if (userProfile.money < totalCost) {
+    const backButton = new ButtonBuilder()
+      .setCustomId('shop_buy_traps')
+      .setLabel('Back to Fish Traps')
+      .setStyle(ButtonStyle.Primary);
+    
+    const row = new ActionRowBuilder().addComponents(backButton);
+    
+    await interaction.update({
+      content: `You don't have enough gold to buy ${quantity} ${trapName}. You need ${totalCost} gold but only have ${userProfile.money}.`,
+      components: [row]
+    });
+    return;
+  }
+  
+  // Purchase the trap
+  userProfile.money -= totalCost;
+  
+  // Initialize traps array if needed
+  if (!userProfile.inventory.traps) {
+    userProfile.inventory.traps = [];
+  }
+  
+  // Add traps to inventory
+  for (let i = 0; i < quantity; i++) {
+    userProfile.inventory.traps.push(trapName);
+  }
+  
+  await userManager.updateUser(userId, userProfile);
+  
+  // Clean up session after successful purchase
+  if (interaction.client.shopSessions?.has(userId)) {
+    interaction.client.shopSessions.delete(userId);
+  }
+  
+  // Confirm purchase with a button to go back to the shop
+  const backButton = new ButtonBuilder()
+    .setCustomId('shop_buy_traps')
+    .setLabel('Back to Fish Traps')
+    .setStyle(ButtonStyle.Primary);
+  
+  const row = new ActionRowBuilder().addComponents(backButton);
+  
+  await interaction.update({
+    content: `You purchased ${quantity} ${trapName} for ${totalCost} gold! Your new balance is ${userProfile.money} gold.`,
+    components: [row]
+  });
+}
+
 module.exports = {
   handleShopInteraction,
-  showShop
+  showShop,
+  showBuyTraps,
+  buyTrap
 };

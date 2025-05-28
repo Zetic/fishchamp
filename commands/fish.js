@@ -3,7 +3,7 @@
  * Starts the fishing process
  * Now accessible via slash command: /fish
  */
-const { EmbedBuilder } = require('discord.js');
+const { EmbedBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle } = require('discord.js');
 const userManager = require('../database/userManager');
 const areas = require('../data/areas');
 const baits = require('../data/baits');
@@ -101,20 +101,43 @@ async function executeSlashCommand(interaction) {
     if (!userProfile) {
       await interaction.reply({
         content: "You haven't started your fishing adventure yet! Use `/start` to begin.",
-        ephemeral: true
-      });
+        });
       return;
     }
     
-    // Start fishing directly
-    await fishingInteraction.startFishing(interaction);
+    // Create fishing and trap buttons
+    const fishButton = new ButtonBuilder()
+      .setCustomId('start_fishing')
+      .setLabel('Go Fishing')
+      .setStyle(ButtonStyle.Primary);
+    
+    const trapButton = new ButtonBuilder()
+      .setCustomId('open_traps')
+      .setLabel('Manage Traps')
+      .setStyle(ButtonStyle.Secondary);
+    
+    const row = new ActionRowBuilder().addComponents(fishButton, trapButton);
+    
+    // Find the current area
+    const currentArea = areas.find(area => area.name === userProfile.area);
+    
+    // Create area embed
+    const areaEmbed = new EmbedBuilder()
+      .setTitle(`🌊 ${currentArea.name} Area`)
+      .setDescription('What would you like to do?')
+      .setColor(0x3498DB);
+    
+    await interaction.reply({
+      embeds: [areaEmbed],
+      components: [row]
+    });
   } catch (error) {
     console.error('Error handling fish command:', error);
     await interaction.reply({
       content: 'Sorry, there was an error starting your fishing session. Please try again.',
-      ephemeral: true
-    });
+      });
   }
+}
 }
 
 module.exports = {

@@ -88,11 +88,13 @@ function createDefaultUserProfile() {
     inventory: {
       rods: ['Basic Rod'],
       bait: { Worm: 10 },
-      fish: []
+      fish: [],
+      traps: []
     },
     equippedRod: 'Basic Rod',
     equippedBait: 'Worm',
-    money: 100
+    money: 100,
+    placedTraps: []
   };
 }
 

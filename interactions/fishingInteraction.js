@@ -24,8 +24,7 @@ async function startFishingWithEdit(interaction) {
   if (activeFishing.has(userId)) {
     await interaction.reply({ 
       content: "You're already fishing! Wait for a bite or reel in.", 
-      ephemeral: true 
-    });
+      });
     return;
   }
   
@@ -133,8 +132,7 @@ async function startFishingWithEdit(interaction) {
       userProfile.equippedBait = availableBaits[0][0]; // Use the first available bait
       await interaction.followUp({
         content: `You're out of ${previousBait}. Automatically switched to ${userProfile.equippedBait}!`,
-        ephemeral: true
-      });
+        });
     }
   }
   await userManager.updateUser(userId, userProfile);
@@ -185,8 +183,7 @@ async function startFishing(interaction) {
   if (activeFishing.has(userId)) {
     await interaction.reply({ 
       content: "You're already fishing! Wait for a bite or reel in.", 
-      ephemeral: true 
-    });
+      });
     return;
   }
   
@@ -197,16 +194,14 @@ async function startFishing(interaction) {
   if (!userProfile.equippedRod) {
     await interaction.reply({
       content: "You need to equip a fishing rod first!",
-      ephemeral: true
-    });
+      });
     return;
   }
   
   if (!userProfile.equippedBait) {
     await interaction.reply({
       content: "You need to equip some bait first!",
-      ephemeral: true
-    });
+      });
     return;
   }
   
@@ -236,7 +231,6 @@ async function startFishing(interaction) {
         
         await interaction.reply({
           content: `You've run out of your equipped bait. Switched to ${userProfile.equippedBait}!`,
-          ephemeral: true,
           components: [row]
         });
         return;
@@ -268,8 +262,7 @@ async function startFishing(interaction) {
   if (!currentArea) {
     await interaction.reply({
       content: "Error finding your current area. Please try again.",
-      ephemeral: true
-    });
+      });
     return;
   }
   
@@ -290,8 +283,7 @@ async function startFishing(interaction) {
       userProfile.equippedBait = availableBaits[0][0]; // Use the first available bait
       await interaction.followUp({
         content: `You're out of ${previousBait}. Automatically switched to ${userProfile.equippedBait}!`,
-        ephemeral: true
-      });
+        });
     }
   }
   await userManager.updateUser(userId, userProfile);
@@ -463,8 +455,7 @@ async function useRodAbility(interaction) {
   if (!session || session.stage !== 'taming') {
     await interaction.reply({
       content: "You don't have an active taming session.",
-      ephemeral: true
-    });
+      });
     return;
   }
   
@@ -581,8 +572,7 @@ async function reelFishing(interaction) {
   if (!userProfile) {
     await interaction.reply({
       content: "Error retrieving your profile. Please try again.",
-      ephemeral: true
-    });
+      });
     activeFishing.delete(userId);
     return;
   }
@@ -713,8 +703,7 @@ async function digForWorms(interaction) {
     const remainingTime = Math.ceil((userProfile.lastWormDig + cooldownTime - now) / 1000 / 60);
     await interaction.reply({
       content: `You're tired from digging. Try again in ${remainingTime} minutes.`,
-      ephemeral: true
-    });
+      });
     return;
   }
   
@@ -799,8 +788,7 @@ async function handleFishingInteraction(interaction) {
       if (!session || (session.ownerId !== userId)) {
         await interaction.reply({
           content: session ? "You can't interact with another user's fishing session." : "You don't have an active fishing session.",
-          ephemeral: true
-        });
+          });
         return;
       }
       
@@ -814,8 +802,7 @@ async function handleFishingInteraction(interaction) {
     console.error('Error handling fishing interaction:', error);
     await interaction.reply({
       content: 'Sorry, there was an error processing your fishing action. Please try again.',
-      ephemeral: true
-    }).catch(err => {
+      }).catch(err => {
       console.error('Error sending error response:', err);
     });
   }

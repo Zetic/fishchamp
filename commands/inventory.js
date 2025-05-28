@@ -56,8 +56,7 @@ async function executeSlashCommand(interaction) {
     if (!userProfile) {
       await interaction.reply({
         content: "You haven't started your fishing adventure yet! Use `/start` to begin.",
-        ephemeral: true
-      });
+        });
       return;
     }
     
@@ -71,14 +70,12 @@ async function executeSlashCommand(interaction) {
     await interaction.reply({ 
       embeds: [inventoryEmbed],
       components: rows,
-      ephemeral: true
-    });
+      });
   } catch (error) {
     console.error('Error handling inventory command:', error);
     await interaction.reply({
       content: 'Sorry, there was an error showing your inventory. Please try again.',
-      ephemeral: true
-    });
+      });
   }
 }
 
@@ -191,8 +188,7 @@ async function handleEquipmentSelection(interaction) {
       if (!userProfile) {
         await interaction.reply({
           content: "Error retrieving your profile. Please try again.",
-          ephemeral: true
-        });
+          });
         return;
       }
       if (customId === 'equip_rod') {
@@ -200,8 +196,7 @@ async function handleEquipmentSelection(interaction) {
         if (!userProfile.inventory.rods.includes(selectedValue)) {
           await interaction.reply({
             content: "You don't have that rod in your inventory.",
-            ephemeral: true
-          });
+            });
           return;
         }
         // Equip the rod
@@ -209,8 +204,7 @@ async function handleEquipmentSelection(interaction) {
         await userManager.updateUser(userId, userProfile);
         await interaction.reply({
           content: `Equipped the ${selectedValue}!`,
-          ephemeral: true
-        });
+          });
         return;
       }
       if (customId === 'equip_bait') {
@@ -218,8 +212,7 @@ async function handleEquipmentSelection(interaction) {
         if (!userProfile.inventory.bait[selectedValue] || userProfile.inventory.bait[selectedValue] <= 0) {
           await interaction.reply({
             content: "You don't have that bait in your inventory.",
-            ephemeral: true
-          });
+            });
           return;
         }
         // Equip the bait
@@ -227,8 +220,7 @@ async function handleEquipmentSelection(interaction) {
         await userManager.updateUser(userId, userProfile);
         await interaction.reply({
           content: `Equipped the ${selectedValue}!`,
-          ephemeral: true
-        });
+          });
         return;
       }
     } catch (error) {
@@ -236,8 +228,7 @@ async function handleEquipmentSelection(interaction) {
       try {
         const response = {
           content: 'Sorry, there was an error updating your equipment. Please try again.',
-          ephemeral: true
-        };
+          };
         if (interaction.deferred || interaction.replied) {
           await interaction.followUp(response);
         } else {
