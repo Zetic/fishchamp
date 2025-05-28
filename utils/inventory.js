@@ -6,12 +6,12 @@ const fish = require('../data/fish');
 /**
  * Add item to inventory
  * @param {Object} userProfile - User profile object
- * @param {string} itemType - Type of item ('fish', 'rods', or 'bait')
- * @param {string} itemName - Name of the item
+ * @param {string} itemType - Type of item ('fish', 'rods', 'bait', 'aquarium', 'decoration')
+ * @param {string|Object} item - Name of the item, or fish object with properties
  * @param {number} [quantity=1] - Quantity to add
  * @returns {Object} - Updated user profile
  */
-function addItem(userProfile, itemType, itemName, quantity = 1) {
+function addItem(userProfile, itemType, item, quantity = 1) {
   if (!userProfile || !userProfile.inventory) return userProfile;
 
   if (itemType === 'fish') {
@@ -19,9 +19,20 @@ function addItem(userProfile, itemType, itemName, quantity = 1) {
       userProfile.inventory.fish = [];
     }
     
-    // Add fish to inventory
-    for (let i = 0; i < quantity; i++) {
-      userProfile.inventory.fish.push(itemName);
+    // Handle fish as either string (name) or object (with properties)
+    if (typeof item === 'string') {
+      // Legacy support: Add fish by name only
+      for (let i = 0; i < quantity; i++) {
+        userProfile.inventory.fish.push({
+          name: item,
+          value: fish.find(f => f.name === item)?.value || 0
+        });
+      }
+    } else if (typeof item === 'object') {
+      // Add fish with all properties (size, rarity, etc.)
+      for (let i = 0; i < quantity; i++) {
+        userProfile.inventory.fish.push({...item});
+      }
     }
   } else if (itemType === 'rods') {
     if (!userProfile.inventory.rods) {
@@ -29,8 +40,8 @@ function addItem(userProfile, itemType, itemName, quantity = 1) {
     }
     
     // Add rod if not already in inventory
-    if (!userProfile.inventory.rods.includes(itemName)) {
-      userProfile.inventory.rods.push(itemName);
+    if (!userProfile.inventory.rods.includes(item)) {
+      userProfile.inventory.rods.push(item);
     }
   } else if (itemType === 'bait') {
     if (!userProfile.inventory.bait) {
@@ -38,7 +49,23 @@ function addItem(userProfile, itemType, itemName, quantity = 1) {
     }
     
     // Add or update bait quantity
-    userProfile.inventory.bait[itemName] = (userProfile.inventory.bait[itemName] || 0) + quantity;
+    userProfile.inventory.bait[item] = (userProfile.inventory.bait[item] || 0) + quantity;
+  } else if (itemType === 'aquariums') {
+    if (!userProfile.inventory.aquariums) {
+      userProfile.inventory.aquariums = [];
+    }
+    
+    // Add aquarium if not already in inventory
+    if (!userProfile.inventory.aquariums.includes(item)) {
+      userProfile.inventory.aquariums.push(item);
+    }
+  } else if (itemType === 'decorations') {
+    if (!userProfile.inventory.decorations) {
+      userProfile.inventory.decorations = {};
+    }
+    
+    // Add or update decoration quantity
+    userProfile.inventory.decorations[item] = (userProfile.inventory.decorations[item] || 0) + quantity;
   }
 
   return userProfile;
@@ -47,43 +74,62 @@ function addItem(userProfile, itemType, itemName, quantity = 1) {
 /**
  * Remove item from inventory
  * @param {Object} userProfile - User profile object
- * @param {string} itemType - Type of item ('fish', 'rods', or 'bait')
- * @param {string} itemName - Name of the item
+ * @param {string} itemType - Type of item ('fish', 'rods', 'bait', 'aquarium', 'decoration')
+ * @param {string|Object} item - Name of the item, or for fish can be an object with name property
  * @param {number} [quantity=1] - Quantity to remove
  * @returns {Object} - Updated user profile
  */
-function removeItem(userProfile, itemType, itemName, quantity = 1) {
+function removeItem(userProfile, itemType, item, quantity = 1) {
   if (!userProfile || !userProfile.inventory) return userProfile;
 
   if (itemType === 'fish' && userProfile.inventory.fish) {
-    // Filter out the specified quantity of this fish
-    const updatedFish = [...userProfile.inventory.fish];
-    let removed = 0;
+    const itemName = typeof item === 'string' ? item : item.name;
     
-    for (let i = updatedFish.length - 1; i >= 0 && removed < quantity; i--) {
-      if (updatedFish[i] === itemName) {
-        updatedFish.splice(i, 1);
-        removed++;
+    // Filter out the specified quantity of this fish
+    const fishToRemove = [];
+    const remainingFish = [];
+    
+    // First, collect all matching fish
+    for (const fishItem of userProfile.inventory.fish) {
+      const fishName = typeof fishItem === 'string' ? fishItem : fishItem.name;
+      if (fishName === itemName) {
+        fishToRemove.push(fishItem);
+      } else {
+        remainingFish.push(fishItem);
       }
     }
     
-    userProfile.inventory.fish = updatedFish;
+    // Add back any excess matching fish that we don't need to remove
+    const excessFish = fishToRemove.slice(quantity);
+    userProfile.inventory.fish = [...remainingFish, ...excessFish];
   } else if (itemType === 'rods' && userProfile.inventory.rods) {
     // Remove rod if not equipped
-    if (userProfile.equippedRod !== itemName) {
-      userProfile.inventory.rods = userProfile.inventory.rods.filter(rod => rod !== itemName);
+    if (userProfile.equippedRod !== item) {
+      userProfile.inventory.rods = userProfile.inventory.rods.filter(rod => rod !== item);
     }
-  } else if (itemType === 'bait' && userProfile.inventory.bait && userProfile.inventory.bait[itemName]) {
+  } else if (itemType === 'bait' && userProfile.inventory.bait && userProfile.inventory.bait[item]) {
     // Reduce bait quantity or remove if zero
-    userProfile.inventory.bait[itemName] -= quantity;
+    userProfile.inventory.bait[item] -= quantity;
     
-    if (userProfile.inventory.bait[itemName] <= 0) {
-      delete userProfile.inventory.bait[itemName];
+    if (userProfile.inventory.bait[item] <= 0) {
+      delete userProfile.inventory.bait[item];
       
       // If equipped bait was removed, unequip it
-      if (userProfile.equippedBait === itemName) {
+      if (userProfile.equippedBait === item) {
         userProfile.equippedBait = null;
       }
+    }
+  } else if (itemType === 'aquariums' && userProfile.inventory.aquariums) {
+    // Remove aquarium if not active
+    if (!userProfile.activeAquarium || userProfile.activeAquarium !== item) {
+      userProfile.inventory.aquariums = userProfile.inventory.aquariums.filter(aq => aq !== item);
+    }
+  } else if (itemType === 'decorations' && userProfile.inventory.decorations && userProfile.inventory.decorations[item]) {
+    // Reduce decoration quantity or remove if zero
+    userProfile.inventory.decorations[item] -= quantity;
+    
+    if (userProfile.inventory.decorations[item] <= 0) {
+      delete userProfile.inventory.decorations[item];
     }
   }
 
@@ -98,9 +144,15 @@ function removeItem(userProfile, itemType, itemName, quantity = 1) {
 function calculateFishValue(userProfile) {
   if (!userProfile?.inventory?.fish) return 0;
   
-  return userProfile.inventory.fish.reduce((total, fishName) => {
-    const fishData = fish.find(f => f.name === fishName);
-    return total + (fishData ? fishData.value : 0);
+  return userProfile.inventory.fish.reduce((total, fishItem) => {
+    // Handle both string-based and object-based fish items
+    if (typeof fishItem === 'string') {
+      const fishData = fish.find(f => f.name === fishItem);
+      return total + (fishData ? fishData.value : 0);
+    } else if (fishItem && typeof fishItem === 'object') {
+      return total + (fishItem.value || 0);
+    }
+    return total;
   }, 0);
 }
 
@@ -112,10 +164,11 @@ function calculateFishValue(userProfile) {
 function getInventorySummary(userProfile) {
   if (!userProfile || !userProfile.inventory) return 'No inventory data.';
   
-  // Fish counts
+  // Fish counts by name
   const fishCounts = {};
   if (userProfile.inventory.fish) {
-    userProfile.inventory.fish.forEach(fishName => {
+    userProfile.inventory.fish.forEach(fishItem => {
+      const fishName = typeof fishItem === 'string' ? fishItem : fishItem.name;
       fishCounts[fishName] = (fishCounts[fishName] || 0) + 1;
     });
   }
@@ -131,8 +184,16 @@ function getInventorySummary(userProfile) {
   const baitText = Object.entries(userProfile.inventory.bait || {})
     .map(([name, count]) => `${name} (×${count})`)
     .join(', ') || 'None';
+    
+  // Aquariums
+  const aquariumsText = userProfile.inventory.aquariums?.join(', ') || 'None';
   
-  return `**Fish:** ${fishText}\n**Rods:** ${rodsText}\n**Bait:** ${baitText}`;
+  // Decorations
+  const decorationsText = Object.entries(userProfile.inventory.decorations || {})
+    .map(([name, count]) => `${name} (×${count})`)
+    .join(', ') || 'None';
+  
+  return `**Fish:** ${fishText}\n**Rods:** ${rodsText}\n**Bait:** ${baitText}\n**Aquariums:** ${aquariumsText}\n**Decorations:** ${decorationsText}`;
 }
 
 module.exports = {

@@ -1,0 +1,54 @@
+/**
+ * Fishing game aquarium decorations data
+ * Each decoration increases fish happiness by a certain amount
+ */
+module.exports = [
+  { 
+    name: 'Small Plant', 
+    price: 50, 
+    happinessBonus: 5, 
+    description: 'A small plant that adds a bit of greenery to your aquarium.'
+  },
+  { 
+    name: 'Coral Fragment', 
+    price: 100, 
+    happinessBonus: 8, 
+    description: 'A colorful piece of coral that fish love to hide in.'
+  },
+  { 
+    name: 'Fish Castle', 
+    price: 150, 
+    happinessBonus: 10, 
+    description: 'A whimsical castle for your fish to explore.'
+  },
+  { 
+    name: 'Bubbler', 
+    price: 200, 
+    happinessBonus: 15, 
+    description: 'A device that adds oxygen and fun bubbles to your tank.'
+  },
+  { 
+    name: 'Colorful Rocks', 
+    price: 75, 
+    happinessBonus: 7, 
+    description: 'Decorative rocks that add color and interest.'
+  },
+  { 
+    name: 'Sunken Ship', 
+    price: 300, 
+    happinessBonus: 20, 
+    description: 'A detailed model of a sunken ship for fish to explore.'
+  },
+  { 
+    name: 'Treasure Chest', 
+    price: 250, 
+    happinessBonus: 18, 
+    description: 'A treasure chest that opens and closes, releasing bubbles.'
+  },
+  { 
+    name: 'LED Lights', 
+    price: 350, 
+    happinessBonus: 25, 
+    description: 'Color-changing lights that create a magical atmosphere.'
+  },
+];

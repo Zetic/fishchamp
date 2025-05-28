@@ -1,6 +1,7 @@
 /**
  * Fishing game fish data
  * Each fish has a name, difficulty level, value, and optional required ability
+ * Fish now also support size and rarity, which are generated on catch
  */
 module.exports = [
   // Lake fish
