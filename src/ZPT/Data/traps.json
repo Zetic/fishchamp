@@ -1,0 +1,26 @@
+[
+  {
+    "name": "Basic Trap",
+    "price": 50,
+    "duration": 60,
+    "successRate": 0.1,
+    "description": "A simple fish trap that can hold a small amount of bait.",
+    "availableAreas": ["Lake", "River"]
+  },
+  {
+    "name": "Standard Trap",
+    "price": 150,
+    "duration": 90,
+    "successRate": 0.15,
+    "description": "A moderately sized trap with improved fish catch rate.",
+    "availableAreas": ["Lake", "River", "Ocean"]
+  },
+  {
+    "name": "Premium Trap",
+    "price": 300,
+    "duration": 120,
+    "successRate": 0.2,
+    "description": "A large trap that can hold substantial amounts of bait and catches fish efficiently.",
+    "availableAreas": ["Lake", "River", "Ocean", "Deep Sea"]
+  }
+]

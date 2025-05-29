@@ -26,6 +26,7 @@ public class Program
             .ConfigureServices((context, services) =>
             {
                 // Add application services
+                services.AddSingleton<GameDataService>();
                 services.AddSingleton<UserManagerService>();
                 services.AddSingleton<GameLogicService>();
                 services.AddSingleton<OpenAIService>();
