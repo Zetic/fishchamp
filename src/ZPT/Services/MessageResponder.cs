@@ -72,8 +72,8 @@ public class MessageResponder : IResponder<IMessageCreate>
                 "sell" => await HandleSellCommand(message.Author.ID.Value, args),
                 "buy" => await HandleBuyCommand(message.Author.ID.Value, args),
                 "dig" => await HandleDigCommand(message.Author.ID.Value),
-                "traps" => await HandleTrapsCommand(message.Author.ID.Value),
-                "aquarium" => await HandleAquariumCommand(message.Author.ID.Value),
+                "traps" => await HandleTrapsCommand(message.Author.ID.Value, args),
+                "aquarium" => await HandleAquariumCommand(message.Author.ID.Value, args),
                 "areas" => await HandleAreasCommand(),
                 "help" => await HandleHelpCommand(),
                 _ => "Unknown command. Type `!help` for a list of available commands."
@@ -361,9 +361,9 @@ public class MessageResponder : IResponder<IMessageCreate>
                "• Insects: 6 🪙 each (High success rate)\n" +
                "• Trap Bait: 1 🪙 for 50 (For fish traps only)\n\n" +
                "🪤 **Fish Traps:**\n" +
-               "• Basic Trap: 50 🪙 (20 bait capacity, 2%/hour)\n" +
-               "• Steel Trap: 150 🪙 (50 bait capacity, 4%/hour)\n" +
-               "• Pro Trap: 300 🪙 (100 bait capacity, 6%/hour)\n\n" +
+               "• Basic Trap: 50 🪙 (20 bait capacity, 5%/hour)\n" +
+               "• Steel Trap: 150 🪙 (50 bait capacity, 8%/hour)\n" +
+               "• Pro Trap: 300 🪙 (100 bait capacity, 12%/hour)\n\n" +
                "🐠 **Aquariums:**\n" +
                "• Basic Aquarium: 200 🪙 (10 fish capacity)\n" +
                "• Large Aquarium: 500 🪙 (25 fish capacity)\n" +
@@ -633,9 +633,9 @@ public class MessageResponder : IResponder<IMessageCreate>
 
         var trapDetails = trapName switch
         {
-            "Basic Trap" => "20 bait capacity, 2% catch rate/hour",
-            "Steel Trap" => "50 bait capacity, 4% catch rate/hour", 
-            "Pro Trap" => "100 bait capacity, 6% catch rate/hour",
+            "Basic Trap" => "20 bait capacity, 5% catch rate/hour",
+            "Steel Trap" => "50 bait capacity, 8% catch rate/hour", 
+            "Pro Trap" => "100 bait capacity, 12% catch rate/hour",
             _ => "Unknown specifications"
         };
 
@@ -733,25 +733,298 @@ public class MessageResponder : IResponder<IMessageCreate>
         }
     }
 
-    private async Task<string> HandleTrapsCommand(ulong userId)
+    private async Task<string> HandleTrapsCommand(ulong userId, string[] args)
     {
         var userProfile = await _userManager.GetOrCreateUserAsync(userId.ToString());
         
-        return $"🪤 **Fish Traps System**\n\n" +
-               $"📍 Current Area: {userProfile.Area}\n" +
-               $"🪤 Active Traps: {userProfile.Traps.Sum(t => t.Value)}\n\n" +
-               "**Available Trap Commands:**\n" +
-               "• `!traps place <trap_name>` - Place a trap in current area\n" +
-               "• `!traps check` - Check all your active traps\n" +
-               "• `!traps collect` - Collect fish from ready traps\n\n" +
-               "**Available Traps:**\n" +
-               "• Basic Trap: 50 🪙 (holds 20 bait, 2% catch rate/hour)\n" +
-               "• Steel Trap: 150 🪙 (holds 50 bait, 4% catch rate/hour)\n" +
-               "• Pro Trap: 300 🪙 (holds 100 bait, 6% catch rate/hour)\n\n" +
-               "💡 Traps are a passive way to catch fish while you're away!";
+        if (args.Length == 0)
+        {
+            return $"🪤 **Fish Traps System**\n\n" +
+                   $"📍 Current Area: {userProfile.Area}\n" +
+                   $"🪤 Owned Traps: {userProfile.Traps.Sum(t => t.Value)}\n\n" +
+                   "**Trap Commands:**\n" +
+                   "• `!traps place <trap_name>` - Place a trap in current area\n" +
+                   "• `!traps check` - Check all your active traps\n" +
+                   "• `!traps collect` - Collect fish from ready traps\n" +
+                   "• `!traps status` - Show trap statistics\n\n" +
+                   "**Available Traps:**\n" +
+                   "• Basic Trap: 50 🪙 (holds 20 bait, 5% catch rate/hour)\n" +
+                   "• Steel Trap: 150 🪙 (holds 50 bait, 8% catch rate/hour)\n" +
+                   "• Pro Trap: 300 🪙 (holds 100 bait, 12% catch rate/hour)\n\n" +
+                   "💡 Traps are a passive way to catch fish while you're away!";
+        }
+
+        var subCommand = args[0].ToLower();
+        
+        return subCommand switch
+        {
+            "place" => await HandleTrapPlace(userProfile, userId, args.Skip(1).ToArray()),
+            "check" => await HandleTrapCheck(userProfile, userId),
+            "collect" => await HandleTrapCollect(userProfile, userId),
+            "status" => await HandleTrapStatus(userProfile, userId),
+            _ => "❌ Unknown trap command. Use `!traps` to see available commands."
+        };
     }
 
-    private async Task<string> HandleAquariumCommand(ulong userId)
+    private async Task<string> HandleTrapPlace(UserProfile userProfile, ulong userId, string[] args)
+    {
+        if (args.Length == 0)
+        {
+            return "❌ Please specify which trap to place. Example: `!traps place basic trap`";
+        }
+
+        var trapName = string.Join(" ", args).ToLower() switch
+        {
+            "basic" or "basic trap" => "Basic Trap",
+            "steel" or "steel trap" => "Steel Trap", 
+            "pro" or "pro trap" => "Pro Trap",
+            _ => null
+        };
+
+        if (trapName == null)
+        {
+            return "❌ Invalid trap name. Available: basic trap, steel trap, pro trap";
+        }
+
+        // Check if user owns this trap
+        if (!userProfile.Traps.ContainsKey(trapName) || userProfile.Traps[trapName] <= 0)
+        {
+            return $"❌ You don't own any {trapName}. Visit the shop to buy one!";
+        }
+
+        // Check if user has trap bait
+        if (!userProfile.Inventory.ContainsKey("Trap Bait") || userProfile.Inventory["Trap Bait"] <= 0)
+        {
+            return "❌ You need Trap Bait to use fish traps. Buy some from the shop!";
+        }
+
+        // Initialize placed traps if not exists
+        if (!userProfile.Equipment.ContainsKey("PlacedTraps"))
+        {
+            userProfile.Equipment["PlacedTraps"] = 0;
+        }
+
+        // Place the trap
+        userProfile.Traps[trapName]--;
+        userProfile.Equipment["PlacedTraps"]++;
+
+        // Calculate bait capacity and use it
+        var baitCapacity = trapName switch
+        {
+            "Basic Trap" => 20,
+            "Steel Trap" => 50,
+            "Pro Trap" => 100,
+            _ => 20
+        };
+
+        var baitToUse = Math.Min(baitCapacity, userProfile.Inventory["Trap Bait"]);
+        userProfile.Inventory["Trap Bait"] -= baitToUse;
+
+        // Store trap placement data 
+        var trapKey = $"trap_{userProfile.Area}_{DateTime.UtcNow.Ticks}";
+        userProfile.Equipment[trapKey] = baitToUse; // Store bait amount
+        userProfile.Equipment[$"{trapKey}_type"] = trapName switch
+        {
+            "Basic Trap" => 1,
+            "Steel Trap" => 2,
+            "Pro Trap" => 3,
+            _ => 1
+        };
+        userProfile.Equipment[$"{trapKey}_placed"] = (int)DateTimeOffset.UtcNow.ToUnixTimeSeconds();
+
+        await _userManager.UpdateUserAsync(userId.ToString(), userProfile);
+
+        return $"✅ **{trapName} placed successfully!**\n\n" +
+               $"📍 Location: {userProfile.Area}\n" +
+               $"🪱 Bait loaded: {baitToUse}\n" +
+               $"⏰ Placed at: {DateTime.UtcNow:HH:mm UTC}\n\n" +
+               $"🎣 The trap will passively catch fish over time!\n" +
+               $"Use `!traps check` to monitor progress.";
+    }
+
+    private async Task<string> HandleTrapCheck(UserProfile userProfile, ulong userId)
+    {
+        var placedTraps = userProfile.Equipment
+            .Where(kv => kv.Key.StartsWith("trap_") && !kv.Key.Contains("_type") && !kv.Key.Contains("_placed"))
+            .ToList();
+
+        if (!placedTraps.Any())
+        {
+            return "🪤 You don't have any active traps placed.\n\n" +
+                   "💡 Use `!traps place <trap_name>` to deploy a trap!";
+        }
+
+        var result = "🪤 **Active Traps Status:**\n\n";
+        
+        foreach (var trap in placedTraps)
+        {
+            var trapKey = trap.Key;
+            var baitRemaining = trap.Value;
+            var trapTypeKey = $"{trapKey}_type";
+            var trapPlacedKey = $"{trapKey}_placed";
+
+            if (!userProfile.Equipment.ContainsKey(trapTypeKey) || !userProfile.Equipment.ContainsKey(trapPlacedKey))
+                continue;
+
+            var trapType = userProfile.Equipment[trapTypeKey] switch
+            {
+                1 => "Basic Trap",
+                2 => "Steel Trap", 
+                3 => "Pro Trap",
+                _ => "Unknown Trap"
+            };
+
+            var placedTime = DateTimeOffset.FromUnixTimeSeconds(userProfile.Equipment[trapPlacedKey]).DateTime;
+            var timeElapsed = DateTime.UtcNow - placedTime;
+            var location = trapKey.Split('_')[1];
+
+            // Calculate potential catches
+            var catchRate = userProfile.Equipment[trapTypeKey] switch
+            {
+                1 => 0.05, // 5% per hour
+                2 => 0.08, // 8% per hour  
+                3 => 0.12, // 12% per hour
+                _ => 0.05
+            };
+
+            var hoursElapsed = timeElapsed.TotalHours;
+            var potentialCatches = (int)(hoursElapsed * catchRate * baitRemaining);
+
+            result += $"🎣 **{trapType}** in {location}\n" +
+                     $"   ⏰ Running for: {timeElapsed.Hours}h {timeElapsed.Minutes}m\n" +
+                     $"   🪱 Bait: {baitRemaining}\n" +
+                     $"   🐟 Potential catches: ~{potentialCatches}\n\n";
+        }
+
+        result += "💡 Use `!traps collect` to gather fish from all traps!";
+        return result;
+    }
+
+    private async Task<string> HandleTrapCollect(UserProfile userProfile, ulong userId)
+    {
+        var placedTraps = userProfile.Equipment
+            .Where(kv => kv.Key.StartsWith("trap_") && !kv.Key.Contains("_type") && !kv.Key.Contains("_placed"))
+            .ToList();
+
+        if (!placedTraps.Any())
+        {
+            return "🪤 You don't have any active traps to collect from.\n\n" +
+                   "💡 Use `!traps place <trap_name>` to deploy a trap!";
+        }
+
+        var totalFishCaught = 0;
+        var totalGoldEarned = 0;
+        var collectionReport = "🎣 **Trap Collection Results:**\n\n";
+        var random = new Random();
+        var currentArea = _gameData.GetArea(userProfile.Area);
+
+        foreach (var trap in placedTraps.ToList()) // ToList to avoid modification during iteration
+        {
+            var trapKey = trap.Key;
+            var baitRemaining = trap.Value;
+            var trapTypeKey = $"{trapKey}_type";
+            var trapPlacedKey = $"{trapKey}_placed";
+
+            if (!userProfile.Equipment.ContainsKey(trapTypeKey) || !userProfile.Equipment.ContainsKey(trapPlacedKey))
+                continue;
+
+            var trapType = userProfile.Equipment[trapTypeKey];
+            var placedTime = DateTimeOffset.FromUnixTimeSeconds(userProfile.Equipment[trapPlacedKey]).DateTime;
+            var timeElapsed = DateTime.UtcNow - placedTime;
+            var location = trapKey.Split('_')[1];
+
+            // Calculate actual catches
+            var catchRate = trapType switch
+            {
+                1 => 0.05, // 5% per hour
+                2 => 0.08, // 8% per hour
+                3 => 0.12, // 12% per hour
+                _ => 0.05
+            };
+
+            var hoursElapsed = timeElapsed.TotalHours;
+            var baseCatches = hoursElapsed * catchRate;
+            var actualCatches = 0;
+
+            // Roll for each potential catch
+            for (int i = 0; i < baitRemaining; i++)
+            {
+                if (random.NextDouble() < baseCatches / baitRemaining)
+                {
+                    actualCatches++;
+                }
+            }
+
+            if (actualCatches > 0)
+            {
+                // Generate fish from trap location area
+                var trapArea = _gameData.GetAreaByName(location) ?? currentArea;
+                for (int i = 0; i < actualCatches; i++)
+                {
+                    var fishName = trapArea.Fish[random.Next(trapArea.Fish.Count)];
+                    var fishData = _gameData.GetFishByName(fishName);
+                    
+                    if (fishData != null)
+                    {
+                        // Add to inventory
+                        if (!userProfile.Fish.ContainsKey(fishName))
+                            userProfile.Fish[fishName] = 0;
+                        userProfile.Fish[fishName]++;
+                        
+                        // Calculate value (traps give slightly less value)
+                        var value = (int)(fishData.BaseValue * 0.8); // 80% of normal value
+                        totalGoldEarned += value;
+                    }
+                }
+                totalFishCaught += actualCatches;
+            }
+
+            var trapTypeName = trapType switch
+            {
+                1 => "Basic Trap",
+                2 => "Steel Trap",
+                3 => "Pro Trap", 
+                _ => "Unknown Trap"
+            };
+
+            collectionReport += $"🪤 {trapTypeName} ({location}): {actualCatches} fish\n";
+
+            // Remove the trap (it's been collected)
+            userProfile.Equipment.Remove(trapKey);
+            userProfile.Equipment.Remove(trapTypeKey);
+            userProfile.Equipment.Remove(trapPlacedKey);
+            userProfile.Equipment["PlacedTraps"]--;
+        }
+
+        userProfile.Gold += totalGoldEarned;
+        await _userManager.UpdateUserAsync(userId.ToString(), userProfile);
+
+        collectionReport += $"\n🎣 **Total Results:**\n" +
+                           $"🐟 Fish caught: {totalFishCaught}\n" +
+                           $"💰 Gold earned: {totalGoldEarned}\n" +
+                           $"🪙 New balance: {userProfile.Gold}\n\n" +
+                           "✅ All traps have been collected and need to be placed again.";
+
+        return collectionReport;
+    }
+
+    private async Task<string> HandleTrapStatus(UserProfile userProfile, ulong userId)
+    {
+        var activeTrapCount = userProfile.Equipment.ContainsKey("PlacedTraps") ? 
+            userProfile.Equipment["PlacedTraps"] : 0;
+
+        return $"📊 **Trap Statistics:**\n\n" +
+               $"🪤 Active traps: {activeTrapCount}\n" +
+               $"📦 Owned traps: {userProfile.Traps.Sum(t => t.Value)}\n" +
+               $"🪱 Trap bait: {(userProfile.Inventory.ContainsKey("Trap Bait") ? userProfile.Inventory["Trap Bait"] : 0)}\n\n" +
+               "**Trap Efficiency:**\n" +
+               "• Basic Trap: 5% catch rate per hour\n" +
+               "• Steel Trap: 8% catch rate per hour\n" +
+               "• Pro Trap: 12% catch rate per hour\n\n" +
+               "💡 Traps give 80% of normal fish value but work passively!";
+    }
+
+    private async Task<string> HandleAquariumCommand(ulong userId, string[] args)
     {
         var userProfile = await _userManager.GetOrCreateUserAsync(userId.ToString());
         
@@ -770,27 +1043,389 @@ public class MessageResponder : IResponder<IMessageCreate>
                    "💡 Happy fish in aquariums can breed rare variants!";
         }
         
-        // Show current aquarium status
-        var activeAquarium = userProfile.Aquariums.FirstOrDefault();
-        if (activeAquarium == null)
+        // Process aquarium maintenance first
+        await ProcessAquariumMaintenance(userProfile, userId);
+        
+        if (args.Length == 0)
         {
-            return "❌ Error with aquarium data. Please try again.";
+            // Show current aquarium status
+            return await ShowAquariumStatus(userProfile);
         }
+
+        var subCommand = args[0].ToLower();
         
-        var fishCount = activeAquarium.Fish?.Count ?? 0;
-        var capacity = 10; // Default capacity
+        return subCommand switch
+        {
+            "feed" => await HandleAquariumFeed(userProfile, userId),
+            "clean" => await HandleAquariumClean(userProfile, userId),
+            "add" => await HandleAquariumAdd(userProfile, userId, args.Skip(1).ToArray()),
+            "remove" => await HandleAquariumRemove(userProfile, userId, args.Skip(1).ToArray()),
+            "view" or "list" => await HandleAquariumView(userProfile),
+            "name" => await HandleAquariumName(userProfile, userId, args.Skip(1).ToArray()),
+            "status" => await ShowAquariumStatus(userProfile),
+            _ => "❌ Unknown aquarium command. Available: feed, clean, add, remove, view, name, status"
+        };
+    }
+
+    private async Task ProcessAquariumMaintenance(UserProfile userProfile, ulong userId)
+    {
+        var aquarium = userProfile.Aquariums.FirstOrDefault();
+        if (aquarium == null) return;
+
+        var timeSinceLastMaintenance = DateTime.UtcNow - aquarium.LastMaintenance;
+        var hoursSince = timeSinceLastMaintenance.TotalHours;
+
+        if (hoursSince > 0)
+        {
+            // Degrade water quality over time (1% per hour)
+            aquarium.WaterQuality = Math.Max(0, aquarium.WaterQuality - (int)(hoursSince * 1));
+            
+            // Fish get hungrier over time (2% per hour)
+            foreach (var fish in aquarium.Fish)
+            {
+                fish.Hunger = Math.Min(100, fish.Hunger + (int)(hoursSince * 2));
+                
+                // Happiness decreases if hungry or poor water quality
+                if (fish.Hunger > 70 || aquarium.WaterQuality < 50)
+                {
+                    fish.Happiness = Math.Max(0, fish.Happiness - (int)(hoursSince * 3));
+                }
+                else if (fish.Hunger < 30 && aquarium.WaterQuality > 80)
+                {
+                    fish.Happiness = Math.Min(100, fish.Happiness + (int)(hoursSince * 1));
+                }
+            }
+
+            aquarium.LastMaintenance = DateTime.UtcNow;
+            await _userManager.UpdateUserAsync(userId.ToString(), userProfile);
+        }
+    }
+
+    private async Task<string> ShowAquariumStatus(UserProfile userProfile)
+    {
+        var aquarium = userProfile.Aquariums.FirstOrDefault();
+        if (aquarium == null) return "❌ No aquarium found.";
         
-        return $"🐠 **Your Aquarium**\n\n" +
-               $"🏠 Fish: {fishCount}/{capacity}\n" +
-               $"💧 Water Quality: {activeAquarium.WaterQuality}%\n" +
-               $"🌡️ Temperature: {activeAquarium.Temperature}%\n" +
-               $"😊 Average Happiness: {CalculateAverageHappiness(activeAquarium)}%\n\n" +
-               "**Aquarium Commands:**\n" +
-               "• `!aquarium feed` - Feed all fish\n" +
-               "• `!aquarium clean` - Clean the water\n" +
-               "• `!aquarium add <fish_name>` - Add fish from inventory\n" +
-               "• `!aquarium view` - View all fish details\n\n" +
-               "💡 Keep your fish happy for breeding chances!";
+        var fishCount = aquarium.Fish?.Count ?? 0;
+        var capacity = aquarium.Name switch
+        {
+            "Basic Aquarium" => 10,
+            "Large Aquarium" => 25, 
+            "Deluxe Aquarium" => 50,
+            _ => 10
+        };
+
+        var avgHappiness = CalculateAverageHappiness(aquarium);
+        var avgHunger = aquarium.Fish.Any() ? (int)aquarium.Fish.Average(f => f.Hunger) : 0;
+
+        var status = $"🐠 **{aquarium.Name}**\n\n" +
+                    $"🏠 Fish: {fishCount}/{capacity}\n" +
+                    $"💧 Water Quality: {GetStatusIcon(aquarium.WaterQuality)} {aquarium.WaterQuality}%\n" +
+                    $"😊 Average Happiness: {GetStatusIcon(avgHappiness)} {avgHappiness}%\n" +
+                    $"🍽️ Average Hunger: {GetHungerIcon(avgHunger)} {avgHunger}%\n\n";
+
+        if (fishCount > 0)
+        {
+            status += "🐟 **Recent Fish:**\n";
+            foreach (var fish in aquarium.Fish.Take(3))
+            {
+                var displayName = !string.IsNullOrEmpty(fish.CustomName) ? fish.CustomName : fish.Name;
+                status += $"  • {displayName} - {GetStatusIcon(fish.Happiness)} {fish.Happiness}% happy\n";
+            }
+            if (fishCount > 3)
+            {
+                status += $"  ... and {fishCount - 3} more\n";
+            }
+            status += "\n";
+        }
+
+        status += "**Commands:**\n" +
+                 "• `!aquarium feed` - Feed all fish\n" +
+                 "• `!aquarium clean` - Clean the water\n" +
+                 "• `!aquarium add <fish_name>` - Add fish from inventory\n" +
+                 "• `!aquarium view` - View all fish details\n\n";
+
+        // Maintenance alerts
+        if (aquarium.WaterQuality < 50)
+        {
+            status += "⚠️ **Alert:** Water quality is poor! Use `!aquarium clean`\n";
+        }
+        if (avgHunger > 70)
+        {
+            status += "⚠️ **Alert:** Fish are hungry! Use `!aquarium feed`\n";
+        }
+        if (avgHappiness > 80 && fishCount >= 2)
+        {
+            status += "💝 **Breeding possible!** Happy fish may produce offspring!\n";
+        }
+
+        return status;
+    }
+
+    private string GetStatusIcon(int value)
+    {
+        return value switch
+        {
+            >= 80 => "🟢",
+            >= 60 => "🟡", 
+            >= 40 => "🟠",
+            _ => "🔴"
+        };
+    }
+
+    private string GetHungerIcon(int hunger)
+    {
+        return hunger switch
+        {
+            <= 30 => "🟢", // Well fed
+            <= 60 => "🟡", // Getting hungry
+            <= 80 => "🟠", // Hungry
+            _ => "🔴" // Very hungry
+        };
+    }
+
+    private async Task<string> HandleAquariumFeed(UserProfile userProfile, ulong userId)
+    {
+        var aquarium = userProfile.Aquariums.FirstOrDefault();
+        if (aquarium == null) return "❌ No aquarium found.";
+        
+        if (!aquarium.Fish.Any())
+        {
+            return "🐠 Your aquarium doesn't have any fish to feed!";
+        }
+
+        // Check if user has fish food (use worms as fish food)
+        if (!userProfile.Inventory.ContainsKey("Worms") || userProfile.Inventory["Worms"] <= 0)
+        {
+            return "❌ You don't have any fish food! Use worms to feed your fish.\n\n" +
+                   "💡 Buy worms from the shop or use `!dig` to find free ones.";
+        }
+
+        // Feed fish (costs 1 worm per 2 fish)
+        var foodNeeded = Math.Max(1, aquarium.Fish.Count / 2);
+        if (userProfile.Inventory["Worms"] < foodNeeded)
+        {
+            return $"❌ You need {foodNeeded} worms to feed all your fish. You have {userProfile.Inventory["Worms"]}.";
+        }
+
+        userProfile.Inventory["Worms"] -= foodNeeded;
+
+        // Reset hunger and boost happiness
+        foreach (var fish in aquarium.Fish)
+        {
+            fish.Hunger = 0;
+            fish.Happiness = Math.Min(100, fish.Happiness + 10);
+            fish.LastFed = DateTime.UtcNow;
+        }
+
+        aquarium.LastFed = DateTime.UtcNow;
+        await _userManager.UpdateUserAsync(userId.ToString(), userProfile);
+
+        return $"🍽️ **Fed all fish!**\n\n" +
+               $"🪱 Food used: {foodNeeded} worms\n" +
+               $"😊 All fish happiness increased by 10%\n" +
+               $"🪱 Worms remaining: {userProfile.Inventory["Worms"]}\n\n" +
+               "💡 Well-fed fish are happier and more likely to breed!";
+    }
+
+    private async Task<string> HandleAquariumClean(UserProfile userProfile, ulong userId)
+    {
+        var aquarium = userProfile.Aquariums.FirstOrDefault();
+        if (aquarium == null) return "❌ No aquarium found.";
+
+        if (aquarium.WaterQuality >= 90)
+        {
+            return "💧 Your aquarium water is already very clean! (90%+)";
+        }
+
+        // Cleaning costs gold
+        var cleaningCost = 5;
+        if (userProfile.Gold < cleaningCost)
+        {
+            return $"❌ You need {cleaningCost} gold to clean the aquarium. You have {userProfile.Gold} gold.";
+        }
+
+        userProfile.Gold -= cleaningCost;
+        aquarium.WaterQuality = 100;
+        aquarium.LastCleaned = DateTime.UtcNow;
+
+        // Happy fish from clean water
+        foreach (var fish in aquarium.Fish)
+        {
+            fish.Happiness = Math.Min(100, fish.Happiness + 5);
+        }
+
+        await _userManager.UpdateUserAsync(userId.ToString(), userProfile);
+
+        return $"💧 **Aquarium cleaned!**\n\n" +
+               $"💰 Cost: {cleaningCost} gold\n" +
+               $"💧 Water quality: 100% (pristine)\n" +
+               $"😊 All fish happiness increased by 5%\n" +
+               $"🪙 Gold remaining: {userProfile.Gold}\n\n" +
+               "✨ Your fish love the clean water!";
+    }
+
+    private async Task<string> HandleAquariumAdd(UserProfile userProfile, ulong userId, string[] args)
+    {
+        if (args.Length == 0)
+        {
+            return "❌ Please specify which fish to add. Example: `!aquarium add carp`";
+        }
+
+        var aquarium = userProfile.Aquariums.FirstOrDefault();
+        if (aquarium == null) return "❌ No aquarium found.";
+
+        var capacity = aquarium.Name switch
+        {
+            "Basic Aquarium" => 10,
+            "Large Aquarium" => 25,
+            "Deluxe Aquarium" => 50,
+            _ => 10
+        };
+
+        if (aquarium.Fish.Count >= capacity)
+        {
+            return $"❌ Your aquarium is full! ({aquarium.Fish.Count}/{capacity})\n\n" +
+                   "💡 Consider upgrading to a larger aquarium.";
+        }
+
+        var fishName = string.Join(" ", args);
+        var fishKey = userProfile.Fish.Keys.FirstOrDefault(f => 
+            f.Equals(fishName, StringComparison.OrdinalIgnoreCase));
+
+        if (fishKey == null || userProfile.Fish[fishKey] <= 0)
+        {
+            return $"❌ You don't have any {fishName} to add!\n\n" +
+                   "💡 Catch fish first using `!fish` command.";
+        }
+
+        // Remove from inventory and add to aquarium
+        userProfile.Fish[fishKey]--;
+        if (userProfile.Fish[fishKey] <= 0)
+        {
+            userProfile.Fish.Remove(fishKey);
+        }
+
+        var newAquariumFish = new AquariumFish
+        {
+            Name = fishKey,
+            Happiness = 70, // Starting happiness
+            Hunger = 20,    // Slightly hungry
+            AddedAt = DateTime.UtcNow,
+            Size = "Normal"
+        };
+
+        aquarium.Fish.Add(newAquariumFish);
+        await _userManager.UpdateUserAsync(userId.ToString(), userProfile);
+
+        return $"🐠 **Added {fishKey} to aquarium!**\n\n" +
+               $"🏠 Aquarium space: {aquarium.Fish.Count}/{capacity}\n" +
+               $"😊 Starting happiness: 70%\n" +
+               $"📅 Added on: {DateTime.UtcNow:MM/dd HH:mm}\n\n" +
+               "💡 Use `!aquarium name {fishKey}` to give it a custom name!";
+    }
+
+    private async Task<string> HandleAquariumView(UserProfile userProfile)
+    {
+        var aquarium = userProfile.Aquariums.FirstOrDefault();
+        if (aquarium == null) return "❌ No aquarium found.";
+
+        if (!aquarium.Fish.Any())
+        {
+            return "🐠 Your aquarium is empty!\n\n" +
+                   "💡 Use `!aquarium add <fish_name>` to add fish from your collection.";
+        }
+
+        var result = $"🐠 **All Fish in {aquarium.Name}:**\n\n";
+        
+        for (int i = 0; i < aquarium.Fish.Count; i++)
+        {
+            var fish = aquarium.Fish[i];
+            var displayName = !string.IsNullOrEmpty(fish.CustomName) ? 
+                $"{fish.CustomName} ({fish.Name})" : fish.Name;
+            
+            var age = DateTime.UtcNow - fish.AddedAt;
+            var ageText = age.TotalDays >= 1 ? $"{age.Days}d" : $"{age.Hours}h";
+            
+            result += $"{i + 1}. **{displayName}**\n" +
+                     $"   😊 Happiness: {GetStatusIcon(fish.Happiness)} {fish.Happiness}%\n" +
+                     $"   🍽️ Hunger: {GetHungerIcon(fish.Hunger)} {fish.Hunger}%\n" +
+                     $"   📏 Size: {fish.Size}\n" +
+                     $"   📅 Age: {ageText}\n\n";
+        }
+
+        result += $"**Total: {aquarium.Fish.Count} fish**\n\n" +
+                 "💡 Use `!aquarium name <number> <new_name>` to rename fish!";
+
+        return result;
+    }
+
+    private async Task<string> HandleAquariumName(UserProfile userProfile, ulong userId, string[] args)
+    {
+        if (args.Length < 2)
+        {
+            return "❌ Usage: `!aquarium name <fish_number> <new_name>`\n\n" +
+                   "Example: `!aquarium name 1 Goldie`\n" +
+                   "Use `!aquarium view` to see fish numbers.";
+        }
+
+        var aquarium = userProfile.Aquariums.FirstOrDefault();
+        if (aquarium == null) return "❌ No aquarium found.";
+
+        if (!int.TryParse(args[0], out int fishIndex) || fishIndex < 1 || fishIndex > aquarium.Fish.Count)
+        {
+            return $"❌ Invalid fish number. Use a number between 1 and {aquarium.Fish.Count}.";
+        }
+
+        var newName = string.Join(" ", args.Skip(1));
+        if (newName.Length > 20)
+        {
+            return "❌ Fish name must be 20 characters or less.";
+        }
+
+        var fish = aquarium.Fish[fishIndex - 1];
+        var oldName = !string.IsNullOrEmpty(fish.CustomName) ? fish.CustomName : fish.Name;
+        fish.CustomName = newName;
+
+        await _userManager.UpdateUserAsync(userId.ToString(), userProfile);
+
+        return $"✅ **Fish renamed!**\n\n" +
+               $"Old name: {oldName}\n" +
+               $"New name: {newName}\n\n" +
+               "🐠 Your fish loves its new name!";
+    }
+
+    private async Task<string> HandleAquariumRemove(UserProfile userProfile, ulong userId, string[] args)
+    {
+        if (args.Length == 0)
+        {
+            return "❌ Usage: `!aquarium remove <fish_number>`\n\n" +
+                   "Use `!aquarium view` to see fish numbers.";
+        }
+
+        var aquarium = userProfile.Aquariums.FirstOrDefault();
+        if (aquarium == null) return "❌ No aquarium found.";
+
+        if (!int.TryParse(args[0], out int fishIndex) || fishIndex < 1 || fishIndex > aquarium.Fish.Count)
+        {
+            return $"❌ Invalid fish number. Use a number between 1 and {aquarium.Fish.Count}.";
+        }
+
+        var fish = aquarium.Fish[fishIndex - 1];
+        var displayName = !string.IsNullOrEmpty(fish.CustomName) ? 
+            $"{fish.CustomName} ({fish.Name})" : fish.Name;
+        
+        // Return fish to inventory
+        if (!userProfile.Fish.ContainsKey(fish.Name))
+            userProfile.Fish[fish.Name] = 0;
+        userProfile.Fish[fish.Name]++;
+
+        aquarium.Fish.RemoveAt(fishIndex - 1);
+        await _userManager.UpdateUserAsync(userId.ToString(), userProfile);
+
+        return $"🐠 **Removed {displayName} from aquarium!**\n\n" +
+               $"The fish has been returned to your collection.\n" +
+               $"🏠 Aquarium space: {aquarium.Fish.Count}/{(aquarium.Name switch { "Basic Aquarium" => 10, "Large Aquarium" => 25, "Deluxe Aquarium" => 50, _ => 10 })}";
     }
 
     private int CalculateAverageHappiness(Aquarium aquarium)
