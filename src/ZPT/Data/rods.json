@@ -1,0 +1,53 @@
+[
+  {
+    "name": "Basic Rod",
+    "price": 0,
+    "durability": 100,
+    "successRate": 0.5,
+    "description": "A simple fishing rod for beginners.",
+    "requiredLevel": 1
+  },
+  {
+    "name": "Steel Rod",
+    "price": 150,
+    "durability": 150,
+    "successRate": 0.6,
+    "description": "A sturdy steel rod with improved catch rate.",
+    "requiredLevel": 2
+  },
+  {
+    "name": "Pro Rod",
+    "price": 300,
+    "durability": 200,
+    "successRate": 0.7,
+    "description": "A professional-grade rod for serious anglers.",
+    "requiredLevel": 3
+  },
+  {
+    "name": "Ice Rod",
+    "price": 450,
+    "durability": 175,
+    "successRate": 0.7,
+    "description": "A magical rod that can freeze fish in place.",
+    "requiredLevel": 4,
+    "specialAbility": "freeze"
+  },
+  {
+    "name": "Lightning Rod",
+    "price": 600,
+    "durability": 200,
+    "successRate": 0.8,
+    "description": "An electrified rod that can shock fish into submission.",
+    "requiredLevel": 5,
+    "specialAbility": "shock"
+  },
+  {
+    "name": "Mystic Rod",
+    "price": 750,
+    "durability": 225,
+    "successRate": 0.8,
+    "description": "A mystical rod that charms even the most elusive fish.",
+    "requiredLevel": 6,
+    "specialAbility": "charm"
+  }
+]
