@@ -2,6 +2,7 @@ using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Configuration;
+using Remora.Discord.Gateway;
 
 namespace ZPT.Services;
 
@@ -9,13 +10,13 @@ public class BotService : BackgroundService
 {
     private readonly ILogger<BotService> _logger;
     private readonly IServiceProvider _services;
-    private readonly IConfiguration _configuration;
+    private readonly DiscordGatewayClient _gatewayClient;
 
-    public BotService(ILogger<BotService> logger, IServiceProvider services, IConfiguration configuration)
+    public BotService(ILogger<BotService> logger, IServiceProvider services, DiscordGatewayClient gatewayClient)
     {
         _logger = logger;
         _services = services;
-        _configuration = configuration;
+        _gatewayClient = gatewayClient;
     }
 
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
@@ -24,20 +25,15 @@ public class BotService : BackgroundService
 
         // Test services
         using var scope = _services.CreateScope();
+        var gameData = scope.ServiceProvider.GetRequiredService<GameDataService>();
+        _logger.LogInformation("Loaded {AreaCount} areas and {FishCount} fish species", 
+            gameData.Areas.Count, gameData.Fish.Count);
         
-        var token = _configuration["DISCORD_TOKEN"] ?? Environment.GetEnvironmentVariable("DISCORD_TOKEN");
-        if (string.IsNullOrEmpty(token))
+        // Run the gateway client
+        var result = await _gatewayClient.RunAsync(stoppingToken);
+        if (!result.IsSuccess)
         {
-            _logger.LogError("DISCORD_TOKEN not found in configuration or environment variables");
-            return;
-        }
-        
-        _logger.LogInformation("ZPT Discord Bot started successfully");
-        
-        // Keep the service running
-        while (!stoppingToken.IsCancellationRequested)
-        {
-            await Task.Delay(5000, stoppingToken);
+            _logger.LogError("Failed to run Discord gateway: {Error}", result.Error);
         }
     }
 
