@@ -3,6 +3,17 @@ node_modules/
 npm-debug.log
 package-lock.json
 
+# .NET
+bin/
+obj/
+*.user
+*.suo
+*.cache
+*.docstates
+*.swp
+*.swo
+*~
+
 # Environment variables
 .env
 
@@ -13,3 +24,23 @@ logs/
 # OS specific files
 .DS_Store
 Thumbs.db
+
+# Visual Studio / Rider
+.vs/
+.idea/
+*.rsuser
+
+# Build results
+[Dd]ebug/
+[Dd]ebugPublic/
+[Rr]elease/
+[Rr]eleases/
+x64/
+x86/
+[Aa][Rr][Mm]/
+[Aa][Rr][Mm]64/
+bld/
+[Bb]in/
+[Oo]bj/
+[Ll]og/
+[Ll]ogs/
