@@ -2,6 +2,7 @@ using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.DependencyInjection;
 using ZPT.Services;
+using ZPT.Tests;
 
 namespace ZPT.Services;
 
@@ -22,17 +23,16 @@ public class BotService : BackgroundService
 
         // Test services
         using var scope = _services.CreateScope();
-        var gameData = scope.ServiceProvider.GetRequiredService<GameDataService>();
-        var userManager = scope.ServiceProvider.GetRequiredService<UserManagerService>();
         
-        _logger.LogInformation("Services initialized successfully");
-        _logger.LogInformation("Game areas loaded: {Count}", gameData.Areas.Count);
-        _logger.LogInformation("Fish species loaded: {Count}", gameData.Fish.Count);
+        // Run integration tests
+        await ServiceIntegrationTest.RunTestAsync(scope.ServiceProvider);
+        
+        _logger.LogInformation("ZPT Discord Bot initialization complete - ready for Discord integration");
         
         // Keep the service running
         while (!stoppingToken.IsCancellationRequested)
         {
-            await Task.Delay(1000, stoppingToken);
+            await Task.Delay(5000, stoppingToken);
         }
     }
 

@@ -1,6 +1,75 @@
 # ZPT Discord Bot
 
-A Discord bot that utilizes OpenAI's capabilities to generate speech from text and respond to direct mentions.
+A Discord bot featuring OpenAI integration and a comprehensive fishing game, **now rewritten in C# with Remora Discord**.
+
+> **🎉 New C# Version Available!** This project has been rewritten in C# for better performance, type safety, and maintainability. See [README_CSHARP.md](README_CSHARP.md) for the C# version documentation.
+
+## Quick Start (C# Version)
+
+1. **Prerequisites**: .NET 8.0 SDK
+2. **Clone and Build**:
+   ```bash
+   git clone https://github.com/Zetic/zpt.git
+   cd zpt
+   dotnet build
+   ```
+3. **Configure**:
+   ```bash
+   export DISCORD_TOKEN="your_discord_bot_token"
+   export OPENAI_API_KEY="your_openai_api_key"
+   ```
+4. **Run**:
+   ```bash
+   cd src/ZPT
+   dotnet run
+   ```
+
+## Features
+
+- **Text-to-Speech**: Generate speech from text using OpenAI's TTS API with multiple voice options
+- **AI Responses**: Get intelligent responses to questions via direct mentions  
+- **Fishing Game**: Complete fishing adventure with:
+  - Multiple fishing areas (Lake, River, Ocean, Deep Sea)
+  - 18+ fish species with different rarities and special effects
+  - Equipment system (6 rods, 4 baits, 3 traps)
+  - Inventory and shop management
+  - Aquarium system with decorations
+  - User progression and experience system
+
+## Architecture
+
+### C# Version (Recommended)
+- **Framework**: .NET 8.0 with Remora Discord
+- **Architecture**: Clean dependency injection with service-oriented design
+- **Data**: JSON-based game content with strongly-typed models
+- **Persistence**: File-based user profile storage
+- **Logging**: Structured logging with Microsoft.Extensions.Logging
+
+### Legacy Node.js Version
+The original Node.js implementation remains available for reference but is no longer actively maintained.
+
+## Development
+
+Both implementations maintain feature parity, but the C# version offers:
+- **Type Safety**: Compile-time error checking
+- **Performance**: Better memory management and faster execution
+- **Maintainability**: Cleaner code structure with dependency injection
+- **Tooling**: Rich IDE support and debugging capabilities
+
+## Documentation
+
+- **[C# Implementation Guide](README_CSHARP.md)** - Complete setup and development guide
+- **[Legacy Node.js Docs](#legacy-nodejs-documentation)** - Original implementation docs
+
+## Migration from Node.js
+
+The C# version maintains full compatibility with existing user data and game mechanics. All features from the Node.js version have been ported to C# with enhanced type safety and performance.
+
+---
+
+## Legacy Node.js Documentation
+
+*The following documentation is for the original Node.js implementation.*
 
 ## Features
 
