@@ -41,6 +41,10 @@ public class GameDataService
     public Bait? GetBaitByName(string name) => 
         _baits.FirstOrDefault(b => b.Name.Equals(name, StringComparison.OrdinalIgnoreCase));
 
+    // Convenience methods for commands
+    public FishingArea? GetArea(string name) => GetAreaByName(name);
+    public List<FishingArea> GetAreas() => _areas;
+
     private void LoadGameData()
     {
         try

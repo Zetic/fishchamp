@@ -1,8 +1,7 @@
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.DependencyInjection;
-using ZPT.Services;
-using ZPT.Tests;
+using Microsoft.Extensions.Configuration;
 
 namespace ZPT.Services;
 
@@ -10,11 +9,13 @@ public class BotService : BackgroundService
 {
     private readonly ILogger<BotService> _logger;
     private readonly IServiceProvider _services;
+    private readonly IConfiguration _configuration;
 
-    public BotService(ILogger<BotService> logger, IServiceProvider services)
+    public BotService(ILogger<BotService> logger, IServiceProvider services, IConfiguration configuration)
     {
         _logger = logger;
         _services = services;
+        _configuration = configuration;
     }
 
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
@@ -24,10 +25,14 @@ public class BotService : BackgroundService
         // Test services
         using var scope = _services.CreateScope();
         
-        // Run integration tests
-        await ServiceIntegrationTest.RunTestAsync(scope.ServiceProvider);
+        var token = _configuration["DISCORD_TOKEN"] ?? Environment.GetEnvironmentVariable("DISCORD_TOKEN");
+        if (string.IsNullOrEmpty(token))
+        {
+            _logger.LogError("DISCORD_TOKEN not found in configuration or environment variables");
+            return;
+        }
         
-        _logger.LogInformation("ZPT Discord Bot initialization complete - ready for Discord integration");
+        _logger.LogInformation("ZPT Discord Bot started successfully");
         
         // Keep the service running
         while (!stoppingToken.IsCancellationRequested)

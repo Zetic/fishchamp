@@ -57,6 +57,12 @@ public class UserManagerService
         }
     }
 
+    public async Task<UserProfile> GetOrCreateUserAsync(string userId)
+    {
+        var user = await GetUserAsync(userId, true);
+        return user!; // Will never be null since createIfNotExists is true
+    }
+
     public async Task UpdateUserAsync(string userId, UserProfile user)
     {
         await _fileLock.WaitAsync();
