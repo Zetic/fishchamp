@@ -215,6 +215,11 @@ async function showBuyBait(interaction) {
     .setCustomId('bait_qty_10')
     .setLabel('Buy 10')
     .setStyle(ButtonStyle.Primary);
+
+  const qty50Button = new ButtonBuilder()
+    .setCustomId('bait_qty_50')
+    .setLabel('Buy 50')
+    .setStyle(ButtonStyle.Primary);
   
   // Back button
   const backButton = new ButtonBuilder()
@@ -230,7 +235,7 @@ async function showBuyBait(interaction) {
 
   // Add components to rows
   const selectRow = new ActionRowBuilder().addComponents(selectMenu);
-  const buttonRow = new ActionRowBuilder().addComponents(qty1Button, qty5Button, qty10Button, backButton, homeButton);
+  const buttonRow = new ActionRowBuilder().addComponents(qty1Button, qty5Button, qty10Button, qty50Button, backButton);
   
   // Send the bait menu
   await interaction.update({

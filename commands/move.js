@@ -90,16 +90,6 @@ async function executeSlashCommand(interaction) {
       });
   }
 } 
-      embeds: [moveEmbed],
-      components: [row],
-      });
-  } catch (error) {
-    console.error('Error handling move command:', error);
-    await interaction.reply({
-      content: 'Sorry, there was an error showing area selection. Please try again.',
-      });
-  }
-}
 
 /**
  * Handle area selection interaction

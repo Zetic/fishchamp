@@ -118,7 +118,6 @@ async function executeSlashCommand(interaction) {
       });
   }
 }
-}
 
 module.exports = {
   executeMessageCommand,
