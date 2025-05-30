@@ -17,7 +17,7 @@ namespace FishChamp.Modules;
 
 [Group("inventory")]
 [Description("Inventory management commands")]
-public class InventoryModule(IInteractionContext context,
+public class InventoryCommandGroup(IInteractionContext context,
     IPlayerRepository playerRepository, IInventoryRepository inventoryRepository, 
     FeedbackService feedbackService) : CommandGroup
 {

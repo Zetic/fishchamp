@@ -42,7 +42,7 @@ public class AreaFishSpotAutocompleteProvider(IInteractionContext context,
         string userInput, 
         CancellationToken ct = default)
     {
-        if (!(context.Interaction.Member.TryGet(out var member) && member.User.TryGet(out var user)))
+        if (!context.Interaction.Member.TryGet(out var member) || !member.User.TryGet(out var user))
         {
             return await ValueTask.FromException<IReadOnlyList<IApplicationCommandOptionChoice>>(new InvalidOperationException("User not found"));
         }

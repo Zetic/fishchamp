@@ -18,7 +18,7 @@ namespace FishChamp.Modules;
 
 [Group("map")]
 [Description("Map and navigation commands")]
-public class MapModule(IInteractionContext context,
+public class MapCommandGroup(IInteractionContext context,
     IPlayerRepository playerRepository, IAreaRepository areaRepository, FeedbackService feedbackService) : CommandGroup
 {
     [Command("current")]

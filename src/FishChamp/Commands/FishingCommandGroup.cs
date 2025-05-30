@@ -15,18 +15,23 @@ using Remora.Discord.Gateway.Responders;
 using Remora.Discord.Commands.Responders;
 using Remora.Discord.Commands.Feedback.Services;
 using Remora.Discord.Commands.Attributes;
+using FishChamp.Providers;
+using FishChamp.Helpers;
 
 namespace FishChamp.Modules;
 
 [Group("fishing")]
 [Description("Fishing-related commands")]
-public class FishingModule(IInteractionCommandContext context,
+public class FishingCommandGroup(IInteractionCommandContext context, IDiscordRestChannelAPI channelAPI,
     IPlayerRepository playerRepository, IInventoryRepository inventoryRepository,
-    IAreaRepository areaRepository, FeedbackService feedbackService) : CommandGroup
+    IAreaRepository areaRepository, DiscordHelper discordHelper, FeedbackService feedbackService) : CommandGroup
 {
     [Command("cast")]
     [Description("Cast your fishing line")]
-    public async Task<IResult> CastLineAsync()
+    public async Task<IResult> CastLineAsync(
+        [AutocompleteProvider(AreaFishSpotAutocompleteProvider.ID)]
+        [Description("Spot you would like to fish at in your area")]
+        string fishSpot)
     {
         if (!(context.Interaction.Member.TryGet(out var member) && member.User.TryGet(out var user)))
         {
@@ -38,20 +43,31 @@ public class FishingModule(IInteractionCommandContext context,
         var currentArea = await areaRepository.GetAreaAsync(player.CurrentArea);
         if (currentArea == null)
         {
-            return await feedbackService.SendContextualContentAsync("🚫 Current area not found! Try using `/map` to navigate.", Color.Red);
+            return await discordHelper.ErrorInteractionEphemeral(context.Interaction, ":map: Current area not found! Try using `/map` to navigate.");
         }
 
         if (currentArea.FishingSpots.Count == 0)
         {
-            return await feedbackService.SendContextualContentAsync("🚫 No fishing spots available in this area!", Color.Red);
+            return await discordHelper.ErrorInteractionEphemeral(context.Interaction, ":fishing_pole_and_fish: No fishing spots available in this area!");
         }
 
-        var fishingSpot = currentArea.FishingSpots.First();
+        var fishingSpot = currentArea.FishingSpots.FirstOrDefault(f => f.SpotId.Equals(fishSpot, StringComparison.OrdinalIgnoreCase));
+
+        if (fishingSpot == null)
+        {
+            return await discordHelper.ErrorInteractionEphemeral(context.Interaction, "🚫 Failed to find specified fish spot!");
+        }
+
+        if (fishingSpot.Type == FishingSpotType.Water)
+        {
+            return await discordHelper.ErrorInteractionEphemeral(context.Interaction, ":sailboat: Only boats are allowed to fish here.");
+        }
+
         var availableFish = fishingSpot.AvailableFish;
 
         if (availableFish.Count == 0)
         {
-            return await feedbackService.SendContextualContentAsync("🚫 No fish available in this spot!", Color.Red);
+            return await discordHelper.ErrorInteractionEphemeral(context.Interaction, "🚫:fish: No fish available in this spot!");
         }
 
         // Simple fishing simulation

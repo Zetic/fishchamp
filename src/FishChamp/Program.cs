@@ -12,6 +12,7 @@ using Remora.Discord.Commands.Services;
 using FishChamp.Providers;
 using Remora.Discord.Gateway.Extensions;
 using FishChamp.Responders;
+using FishChamp.Helpers;
 
 namespace FishChamp;
 
@@ -56,12 +57,13 @@ public class Program
                     .AddResponder<SlashCommandConfigurator>()
                     .AddAutocompleteProvider<AreaFishSpotAutocompleteProvider>()
                     .AddCommandTree()
-                        .WithCommandGroup<FishingModule>()
-                        .WithCommandGroup<MapModule>()
-                        .WithCommandGroup<InventoryModule>()
+                        .WithCommandGroup<FishingCommandGroup>()
+                        .WithCommandGroup<MapCommandGroup>()
+                        .WithCommandGroup<InventoryCommandGroup>()
                             .Finish();
 
                 // Repositories and Services
+                services.AddSingleton<DiscordHelper>();
                 services.AddSingleton<IPlayerRepository, JsonPlayerRepository>();
                 services.AddSingleton<IInventoryRepository, JsonInventoryRepository>();
                 services.AddSingleton<IAreaRepository, JsonAreaRepository>();
