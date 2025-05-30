@@ -17,7 +17,7 @@ namespace FishChamp.Modules;
 
 [Group("inventory")]
 [Description("Inventory management commands")]
-public class InventoryModule(IDiscordRestChannelAPI channelAPI, ICommandContext context,
+public class InventoryModule(IDiscordRestChannelAPI channelAPI, IInteractionContext context,
     IPlayerRepository playerRepository, IInventoryRepository inventoryRepository, IDiscordRestUserAPI userAPI, 
     FeedbackService feedbackService) : CommandGroup
 {
@@ -25,20 +25,13 @@ public class InventoryModule(IDiscordRestChannelAPI channelAPI, ICommandContext 
     [Description("View your inventory")]
     public async Task<IResult> ViewInventoryAsync()
     {
-        if (!context.TryGetUserID(out var userId))
-        {
-            return Result.FromError(new NotFoundError("Failed to get user id from context"));
-        }
-
-        var userResult = await userAPI.GetUserAsync(userId);
-
-        if (!userResult.IsSuccess)
+        if (!(context.Interaction.Member.TryGet(out var member) && member.User.TryGet(out var user)))
         {
             return Result.FromError(new NotFoundError("Failed to get user"));
         }
 
-        var player = await GetOrCreatePlayerAsync(userId.Value, userResult.Entity.Username);
-        var inventory = await inventoryRepository.GetInventoryAsync(userId.Value);
+        var player = await GetOrCreatePlayerAsync(user.ID.Value, user.Username);
+        var inventory = await inventoryRepository.GetInventoryAsync(user.ID.Value);
 
         if (inventory == null || inventory.Items.Count == 0)
         {
@@ -77,20 +70,13 @@ public class InventoryModule(IDiscordRestChannelAPI channelAPI, ICommandContext 
     [Description("View only your fish collection")]
     public async Task<IResult> ViewFishAsync()
     {
-        if (!context.TryGetUserID(out var userId))
-        {
-            return Result.FromError(new NotFoundError("Failed to get user id from context"));
-        }
-
-        var userResult = await userAPI.GetUserAsync(userId);
-
-        if (!userResult.IsSuccess)
+        if (!(context.Interaction.Member.TryGet(out var member) && member.User.TryGet(out var user)))
         {
             return Result.FromError(new NotFoundError("Failed to get user"));
         }
 
-        var player = await GetOrCreatePlayerAsync(userId.Value, userResult.Entity.Username);
-        var inventory = await inventoryRepository.GetInventoryAsync(userId.Value);
+        var player = await GetOrCreatePlayerAsync(user.ID.Value, user.Username);
+        var inventory = await inventoryRepository.GetInventoryAsync(user.ID.Value);
 
         if (inventory == null)
         {

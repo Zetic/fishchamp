@@ -14,12 +14,13 @@ using Remora.Discord.Commands.Extensions;
 using Remora.Discord.Gateway.Responders;
 using Remora.Discord.Commands.Responders;
 using Remora.Discord.Commands.Feedback.Services;
+using Remora.Discord.Commands.Attributes;
 
 namespace FishChamp.Modules;
 
 [Group("fishing")]
 [Description("Fishing-related commands")]
-public class FishingModule(IDiscordRestChannelAPI channelAPI, ICommandContext context,
+public class FishingModule(IDiscordRestChannelAPI channelAPI, IInteractionCommandContext context,
     IPlayerRepository playerRepository, IInventoryRepository inventoryRepository,
     IAreaRepository areaRepository, IDiscordRestUserAPI userAPI, FeedbackService feedbackService) : CommandGroup
 {
@@ -27,19 +28,12 @@ public class FishingModule(IDiscordRestChannelAPI channelAPI, ICommandContext co
     [Description("Cast your fishing line")]
     public async Task<IResult> CastLineAsync()
     {
-        if (!context.TryGetUserID(out var userId))
-        {
-            return Result.FromError(new NotFoundError("Failed to get user id from context"));
-        }
-
-        var userResult = await userAPI.GetUserAsync(userId);
-
-        if (!userResult.IsSuccess)
+        if (!(context.Interaction.Member.TryGet(out var member) && member.User.TryGet(out var user)))
         {
             return Result.FromError(new NotFoundError("Failed to get user"));
         }
 
-        var player = await GetOrCreatePlayerAsync(userId.Value, userResult.Entity.Username);
+        var player = await GetOrCreatePlayerAsync(user.ID.Value, user.Username);
         
         var currentArea = await areaRepository.GetAreaAsync(player.CurrentArea);
         if (currentArea == null)
@@ -76,7 +70,7 @@ public class FishingModule(IDiscordRestChannelAPI channelAPI, ICommandContext co
                 Properties = new() { ["size"] = random.Next(10, 50), ["rarity"] = "common" }
             };
 
-            await inventoryRepository.AddItemAsync(userId.Value, fishItem);
+            await inventoryRepository.AddItemAsync(user.ID.Value, fishItem);
             
             player.Experience += 10;
             player.LastActive = DateTime.UtcNow;
@@ -95,20 +89,13 @@ public class FishingModule(IDiscordRestChannelAPI channelAPI, ICommandContext co
     [Description("View your fishing profile")]
     public async Task<IResult> ViewProfileAsync()
     {
-        if (!context.TryGetUserID(out var userId))
-        {
-            return Result.FromError(new NotFoundError("Failed to get user id from context"));
-        }
-
-        var userResult = await userAPI.GetUserAsync(userId);
-
-        if (!userResult.IsSuccess)
+        if (!(context.Interaction.Member.TryGet(out var member) && member.User.TryGet(out var user)))
         {
             return Result.FromError(new NotFoundError("Failed to get user"));
         }
 
-        var player = await GetOrCreatePlayerAsync(userId.Value, userResult.Entity.Username);
-        var inventory = await inventoryRepository.GetInventoryAsync(userId.Value);
+        var player = await GetOrCreatePlayerAsync(user.ID.Value, user.Username);
+        var inventory = await inventoryRepository.GetInventoryAsync(user.ID.Value);
 
         var fishCount = inventory?.Items.Count(i => i.ItemType == "Fish") ?? 0;
         var totalFish = inventory?.Items.Where(i => i.ItemType == "Fish").Sum(i => i.Quantity) ?? 0;

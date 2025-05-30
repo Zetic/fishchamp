@@ -18,26 +18,19 @@ namespace FishChamp.Modules;
 
 [Group("map")]
 [Description("Map and navigation commands")]
-public class MapModule(IDiscordRestChannelAPI channelAPI, IDiscordRestUserAPI userAPI, ICommandContext context,
+public class MapModule(IDiscordRestChannelAPI channelAPI, IDiscordRestUserAPI userAPI, IInteractionContext context,
     IPlayerRepository playerRepository, IAreaRepository areaRepository, FeedbackService feedbackService) : CommandGroup
 {
     [Command("current")]
     [Description("View your current area")]
     public async Task<IResult> ViewCurrentAreaAsync()
     {
-        if (!context.TryGetUserID(out var userId))
-        {
-            return Result.FromError(new NotFoundError("Failed to get user id from context"));
-        }
-
-        var userResult = await userAPI.GetUserAsync(userId);
-
-        if (!userResult.IsSuccess)
+        if (!(context.Interaction.Member.TryGet(out var member) && member.User.TryGet(out var user)))
         {
             return Result.FromError(new NotFoundError("Failed to get user"));
         }
 
-        var player = await GetOrCreatePlayerAsync(userId.Value, userResult.Entity.Username);
+        var player = await GetOrCreatePlayerAsync(user.ID.Value, user.Username);
         var currentArea = await areaRepository.GetAreaAsync(player.CurrentArea);
 
         if (currentArea == null)
@@ -77,19 +70,12 @@ public class MapModule(IDiscordRestChannelAPI channelAPI, IDiscordRestUserAPI us
     [Description("Travel to a connected area")]
     public async Task<IResult> TravelToAreaAsync([Description("Area to travel to")] string targetAreaName)
     {
-        if (!context.TryGetUserID(out var userId))
-        {
-            return Result.FromError(new NotFoundError("Failed to get user id from context"));
-        }
-
-        var userResult = await userAPI.GetUserAsync(userId);
-
-        if (!userResult.IsSuccess)
+        if (!(context.Interaction.Member.TryGet(out var member) && member.User.TryGet(out var user)))
         {
             return Result.FromError(new NotFoundError("Failed to get user"));
         }
 
-        var player = await GetOrCreatePlayerAsync(userId.Value, userResult.Entity.Username);
+        var player = await GetOrCreatePlayerAsync(user.ID.Value, user.Username);
         var currentArea = await areaRepository.GetAreaAsync(player.CurrentArea);
 
         if (currentArea == null)
@@ -129,19 +115,12 @@ public class MapModule(IDiscordRestChannelAPI channelAPI, IDiscordRestUserAPI us
     [Description("List all available areas")]
     public async Task<IResult> ListAreasAsync()
     {
-        if (!context.TryGetUserID(out var userId))
-        {
-            return Result.FromError(new NotFoundError("Failed to get user id from context"));
-        }
-
-        var userResult = await userAPI.GetUserAsync(userId);
-
-        if (!userResult.IsSuccess)
+        if (!(context.Interaction.Member.TryGet(out var member) && member.User.TryGet(out var user)))
         {
             return Result.FromError(new NotFoundError("Failed to get user"));
         }
 
-        var player = await GetOrCreatePlayerAsync(userId.Value, userResult.Entity.Username);
+        var player = await GetOrCreatePlayerAsync(user.ID.Value, user.Username);
         var allAreas = await areaRepository.GetAllAreasAsync();
 
         var areasText = string.Join("\n", allAreas.Select(area =>
