@@ -31,7 +31,8 @@ public class FishingCommandGroup(IInteractionCommandContext context, IDiscordRes
     public async Task<IResult> CastLineAsync(
         [AutocompleteProvider(AreaFishSpotAutocompleteProvider.ID)]
         [Description("Spot you would like to fish at in your area")]
-        string fishSpot)
+        string fishSpot,
+        [Description("Use quick cast (no minigame)")] bool quickCast = true)
     {
         if (!(context.Interaction.Member.TryGet(out var member) && member.User.TryGet(out var user)))
         {
@@ -76,6 +77,14 @@ public class FishingCommandGroup(IInteractionCommandContext context, IDiscordRes
         var equippedBait = !string.IsNullOrEmpty(player.EquippedBait) ? 
                           inventory?.Items.FirstOrDefault(i => i.ItemId == player.EquippedBait && i.ItemType == "Bait") : null;
 
+        // Get rod abilities (if any)
+        RodAbility rodAbilities = RodAbility.None;
+        if (equippedRod?.Properties.TryGetValue("abilities", out var abilitiesObj) == true && 
+            abilitiesObj is int abilitiesValue)
+        {
+            rodAbilities = (RodAbility)abilitiesValue;
+        }
+
         // Calculate success chance based on rod and bait
         var random = new Random();
         double baseSuccessRate = 0.7; // 70% base success rate
@@ -85,42 +94,75 @@ public class FishingCommandGroup(IInteractionCommandContext context, IDiscordRes
 
         double successRate = Math.Min(0.95, baseSuccessRate + rodBonus + baitBonus); // Cap at 95%
         
-        // Fishing simulation
-        var success = random.NextDouble() <= successRate;
-
-        if (success)
+        // Fishing simulation - first we'll determine the fish that might be caught
+        var potentialCatch = availableFish[random.Next(availableFish.Count)];
+        
+        // Determine fish rarity based on rod and bait
+        var rarityRoll = random.NextDouble();
+        string rarity;
+        
+        if (equippedRod != null && equippedBait != null)
         {
-            // Determine fish rarity based on rod and bait
-            var rarityRoll = random.NextDouble();
-            string rarity;
+            // Better chance for rare fish with both rod and bait
+            if (rarityRoll < 0.6) rarity = "common";
+            else if (rarityRoll < 0.85) rarity = "uncommon";
+            else if (rarityRoll < 0.95) rarity = "rare";
+            else if (rarityRoll < 0.99) rarity = "epic";
+            else rarity = "legendary";
+        }
+        else if (equippedRod != null)
+        {
+            // Decent chance for uncommon with rod only
+            if (rarityRoll < 0.7) rarity = "common";
+            else if (rarityRoll < 0.9) rarity = "uncommon";
+            else if (rarityRoll < 0.98) rarity = "rare";
+            else rarity = "epic";
+        }
+        else
+        {
+            // Basic chances without rod
+            if (rarityRoll < 0.8) rarity = "common";
+            else if (rarityRoll < 0.95) rarity = "uncommon";
+            else rarity = "rare";
+        }
+        
+        // Randomly assign traits based on rarity
+        var fishTraits = DetermineFishTraits(rarity, random);
+        
+        // Apply trait effects on success rate
+        if ((fishTraits & FishTrait.Evasive) != 0)
+        {
+            // Evasive trait reduces catch chance by 20% unless countered by Precision rod
+            if ((rodAbilities & RodAbility.Precision) == 0)
+            {
+                successRate *= 0.8;
+            }
+        }
+        
+        if ((fishTraits & FishTrait.Camouflage) != 0)
+        {
+            // Camouflage trait reduces catch chance by 20% unless countered by FishFinder rod
+            if ((rodAbilities & RodAbility.FishFinder) == 0)
+            {
+                successRate *= 0.8;
+            }
+        }
+        
+        // Check for success
+        var success = random.NextDouble() <= successRate;
+        
+        // Special handling for slippery trait - fish might escape after being caught
+        if (success && (fishTraits & FishTrait.Slippery) != 0)
+        {
+            // 50% chance of slipping away unless countered by SharpHook
+            if ((rodAbilities & RodAbility.SharpHook) == 0 && random.NextDouble() < 0.5)
+            {
+                success = false;
+            }
+        }
             
-            if (equippedRod != null && equippedBait != null)
-            {
-                // Better chance for rare fish with both rod and bait
-                if (rarityRoll < 0.6) rarity = "common";
-                else if (rarityRoll < 0.85) rarity = "uncommon";
-                else if (rarityRoll < 0.95) rarity = "rare";
-                else if (rarityRoll < 0.99) rarity = "epic";
-                else rarity = "legendary";
-            }
-            else if (equippedRod != null)
-            {
-                // Decent chance for uncommon with rod only
-                if (rarityRoll < 0.7) rarity = "common";
-                else if (rarityRoll < 0.9) rarity = "uncommon";
-                else if (rarityRoll < 0.98) rarity = "rare";
-                else rarity = "epic";
-            }
-            else
-            {
-                // Basic chances without rod
-                if (rarityRoll < 0.8) rarity = "common";
-                else if (rarityRoll < 0.95) rarity = "uncommon";
-                else rarity = "rare";
-            }
-            
-            // Select random fish from available fish
-            var caughtFish = availableFish[random.Next(availableFish.Count)];
+            // Select caught fish
+            var caughtFish = potentialCatch;
             
             // Determine fish size based on rarity
             int minSize = 10;
@@ -136,13 +178,36 @@ public class FishingCommandGroup(IInteractionCommandContext context, IDiscordRes
             
             var fishSize = random.Next(minSize, maxSize + 1);
             
+            // Calculate fish weight based on size and rarity (weight in grams)
+            double weightMultiplier = rarity switch
+            {
+                "common" => 1.0,
+                "uncommon" => 1.2,
+                "rare" => 1.5,
+                "epic" => 1.8,
+                "legendary" => 2.2,
+                _ => 1.0
+            };
+            
+            // Weight formula: size^1.5 * multiplier (approximates fish volume to weight)
+            var fishWeight = Math.Round(Math.Pow(fishSize, 1.5) * weightMultiplier, 1);
+            
+            // Randomly assign fish traits based on rarity
+            var fishTraits = DetermineFishTraits(rarity, random);
+            
             var fishItem = new InventoryItem
             {
                 ItemId = caughtFish,
                 ItemType = "Fish",
                 Name = FormatFishName(caughtFish),
                 Quantity = 1,
-                Properties = new() { ["size"] = fishSize, ["rarity"] = rarity }
+                Properties = new() 
+                { 
+                    ["size"] = fishSize, 
+                    ["weight"] = fishWeight,
+                    ["rarity"] = rarity,
+                    ["traits"] = (int)fishTraits
+                }
             };
 
             await inventoryRepository.AddItemAsync(user.ID.Value, fishItem);
@@ -186,9 +251,25 @@ public class FishingCommandGroup(IInteractionCommandContext context, IDiscordRes
                 _ => "⚪"
             };
             
+            // Get fish traits display
+            string traitsDisplay = "";
+            if (fishTraits != FishTrait.None)
+            {
+                var traitsList = new List<string>();
+                if ((fishTraits & FishTrait.Evasive) != 0) traitsList.Add("Evasive");
+                if ((fishTraits & FishTrait.Slippery) != 0) traitsList.Add("Slippery");
+                if ((fishTraits & FishTrait.Magnetic) != 0) traitsList.Add("Magnetic");
+                if ((fishTraits & FishTrait.Camouflage) != 0) traitsList.Add("Camouflage");
+                
+                if (traitsList.Count > 0)
+                {
+                    traitsDisplay = $"\nTraits: {string.Join(", ", traitsList)}";
+                }
+            }
+            
             return await feedbackService.SendContextualContentAsync(
                 $"🎣 **Success!** You caught a {rarityEmoji} {fishItem.Name}!\n" +
-                $"Size: {fishItem.Properties["size"]}cm (+{xpGained} XP)", Color.Green);
+                $"Size: {fishItem.Properties["size"]}cm | Weight: {fishItem.Properties["weight"]}g (+{xpGained} XP){traitsDisplay}", Color.Green);
         }
         else
         {
@@ -362,6 +443,83 @@ public class FishingCommandGroup(IInteractionCommandContext context, IDiscordRes
         return await feedbackService.SendContextualContentAsync($"🪱 You equipped **{bait.Name}** (x{bait.Quantity} remaining)!", Color.Green);
     }
 
+    [Command("fishdex")]
+    [Description("View your fish collection catalog")]
+    public async Task<IResult> ViewFishDexAsync()
+    {
+        if (!(context.Interaction.Member.TryGet(out var member) && member.User.TryGet(out var user)))
+        {
+            return Result.FromError(new NotFoundError("Failed to get user"));
+        }
+
+        var player = await GetOrCreatePlayerAsync(user.ID.Value, user.Username);
+        var inventory = await inventoryRepository.GetInventoryAsync(user.ID.Value);
+
+        if (inventory == null || !inventory.Items.Any(i => i.ItemType == "Fish"))
+        {
+            return await feedbackService.SendContextualContentAsync("📖 Your FishDex is empty! Catch some fish to fill it.", Color.Yellow);
+        }
+
+        // Get all fish species the player has caught
+        var fishSpecies = inventory.Items
+            .Where(i => i.ItemType == "Fish")
+            .GroupBy(i => i.ItemId)
+            .Select(g => g.OrderByDescending(f => 
+                f.Properties.TryGetValue("size", out var size) ? Convert.ToInt32(size) : 0).First())
+            .ToList();
+
+        var totalSpecies = fishSpecies.Count;
+        
+        // Create a formatted list of fish with their stats and traits
+        var fishEntries = new List<string>();
+        foreach (var fish in fishSpecies)
+        {
+            var size = fish.Properties.TryGetValue("size", out var propSize) ? Convert.ToInt32(propSize) : 0;
+            var weight = fish.Properties.TryGetValue("weight", out var propWeight) ? Convert.ToDouble(propWeight) : 0;
+            var rarity = fish.Properties.TryGetValue("rarity", out var propRarity) ? propRarity.ToString() : "common";
+            var rarityEmoji = GetRarityEmoji(rarity);
+            
+            // Get traits if any
+            string traitsText = "";
+            if (fish.Properties.TryGetValue("traits", out var propTraits) && propTraits is int traitsValue)
+            {
+                var fishTraits = (FishTrait)traitsValue;
+                if (fishTraits != FishTrait.None)
+                {
+                    var traitsList = new List<string>();
+                    if ((fishTraits & FishTrait.Evasive) != 0) traitsList.Add("Evasive");
+                    if ((fishTraits & FishTrait.Slippery) != 0) traitsList.Add("Slippery");
+                    if ((fishTraits & FishTrait.Magnetic) != 0) traitsList.Add("Magnetic");
+                    if ((fishTraits & FishTrait.Camouflage) != 0) traitsList.Add("Camouflage");
+                    
+                    if (traitsList.Count > 0)
+                    {
+                        traitsText = $" | Traits: {string.Join(", ", traitsList)}";
+                    }
+                }
+            }
+            
+            fishEntries.Add($"{rarityEmoji} **{fish.Name}** - Size: {size}cm | Weight: {weight}g{traitsText}");
+        }
+
+        // Calculate progress percentage
+        int estimatedTotalSpecies = 50; // This would ideally come from a repository of all available fish
+        double completionPercentage = Math.Round((double)totalSpecies / estimatedTotalSpecies * 100, 1);
+        
+        // Create embed with paginated fish entries (10 per page)
+        var embed = new Embed
+        {
+            Title = $"📖 {player.Username}'s FishDex",
+            Description = $"You've discovered {totalSpecies} fish species ({completionPercentage}% complete)\n\n" +
+                          string.Join("\n", fishEntries),
+            Colour = Color.Gold,
+            Footer = new EmbedFooter("Catch more fish to complete your FishDex!"),
+            Timestamp = DateTimeOffset.UtcNow
+        };
+
+        return await feedbackService.SendContextualEmbedAsync(embed);
+    }
+
     private async Task<PlayerProfile> GetOrCreatePlayerAsync(ulong userId, string username)
     {
         var player = await playerRepository.GetPlayerAsync(userId);
@@ -376,6 +534,50 @@ public class FishingCommandGroup(IInteractionCommandContext context, IDiscordRes
     private static string FormatFishName(string fishId)
     {
         return fishId.Replace("_", " ").ToTitleCase();
+    }
+
+    private static string GetRarityEmoji(string rarity)
+    {
+        return rarity.ToLower() switch
+        {
+            "common" => "⚪",
+            "uncommon" => "🟢",
+            "rare" => "🔵",
+            "epic" => "🟣",
+            "legendary" => "🟡",
+            _ => "⚪"
+        };
+    }
+
+    private static FishTrait DetermineFishTraits(string rarity, Random random)
+    {
+        // Higher rarity fish have more chance of having traits
+        double traitChance = rarity switch
+        {
+            "common" => 0.1,    // 10% chance for any trait
+            "uncommon" => 0.2,  // 20% chance for any trait
+            "rare" => 0.4,      // 40% chance for any trait
+            "epic" => 0.6,      // 60% chance for any trait
+            "legendary" => 0.8, // 80% chance for any trait
+            _ => 0.1
+        };
+
+        FishTrait traits = FishTrait.None;
+
+        // Check for each trait
+        if (random.NextDouble() < traitChance)
+            traits |= FishTrait.Evasive;
+        
+        if (random.NextDouble() < traitChance)
+            traits |= FishTrait.Slippery;
+        
+        if (random.NextDouble() < traitChance)
+            traits |= FishTrait.Magnetic;
+        
+        if (random.NextDouble() < traitChance)
+            traits |= FishTrait.Camouflage;
+
+        return traits;
     }
 }
 
