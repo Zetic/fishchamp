@@ -11,13 +11,15 @@ using Remora.Rest.Core;
 using FishChamp.Data.Repositories;
 using FishChamp.Data.Models;
 using Remora.Discord.Commands.Extensions;
+using Remora.Discord.Commands.Feedback.Services;
 
 namespace FishChamp.Modules;
 
 [Group("inventory")]
 [Description("Inventory management commands")]
 public class InventoryModule(IDiscordRestChannelAPI channelAPI, ICommandContext context,
-    IPlayerRepository playerRepository, IInventoryRepository inventoryRepository, IDiscordRestUserAPI userAPI) : CommandGroup
+    IPlayerRepository playerRepository, IInventoryRepository inventoryRepository, IDiscordRestUserAPI userAPI, 
+    FeedbackService feedbackService) : CommandGroup
 {
     [Command("view")]
     [Description("View your inventory")]
@@ -40,7 +42,7 @@ public class InventoryModule(IDiscordRestChannelAPI channelAPI, ICommandContext 
 
         if (inventory == null || inventory.Items.Count == 0)
         {
-            return await RespondAsync("🎒 Your inventory is empty! Try fishing to get some items.");
+            return await feedbackService.SendContextualContentAsync("🎒 Your inventory is empty! Try fishing to get some items.", Color.Yellow);
         }
 
         var groupedItems = inventory.Items.GroupBy(i => i.ItemType);
@@ -68,7 +70,7 @@ public class InventoryModule(IDiscordRestChannelAPI channelAPI, ICommandContext 
             Timestamp = DateTimeOffset.UtcNow
         };
 
-        return await RespondAsync(embeds: [embed]);
+        return await feedbackService.SendContextualEmbedAsync(embed);
     }
 
     [Command("fish")]
@@ -92,13 +94,13 @@ public class InventoryModule(IDiscordRestChannelAPI channelAPI, ICommandContext 
 
         if (inventory == null)
         {
-            return await RespondAsync("🐟 You haven't caught any fish yet! Use `/fishing cast` to start fishing.");
+            return await feedbackService.SendContextualContentAsync("🐟 You haven't caught any fish yet! Use `/fishing cast` to start fishing.", Color.Yellow);
         }
 
         var fish = inventory.Items.Where(i => i.ItemType == "Fish").ToList();
         if (fish.Count == 0)
         {
-            return await RespondAsync("🐟 You haven't caught any fish yet! Use `/fishing cast` to start fishing.");
+            return await feedbackService.SendContextualContentAsync("🐟 You haven't caught any fish yet! Use `/fishing cast` to start fishing.", Color.Red);
         }
 
         var fishText = string.Join("\n", fish.Select(f =>
@@ -124,7 +126,7 @@ public class InventoryModule(IDiscordRestChannelAPI channelAPI, ICommandContext 
             Timestamp = DateTimeOffset.UtcNow
         };
 
-        return await RespondAsync(embeds: [embed]);
+        return await feedbackService.SendContextualEmbedAsync(embed);
     }
 
     private async Task<PlayerProfile> GetOrCreatePlayerAsync(ulong userId, string username)
@@ -161,18 +163,5 @@ public class InventoryModule(IDiscordRestChannelAPI channelAPI, ICommandContext 
             "legendary" => "🟡",
             _ => "⚪"
         };
-    }
-
-    private async Task<IResult> RespondAsync(string content = "", IReadOnlyList<Embed>? embeds = null)
-    {
-        var embedsParam = embeds != null ? new Optional<IReadOnlyList<IEmbed>>(embeds.Cast<IEmbed>().ToList()) : default;
-
-        if (!context.TryGetChannelID(out var channelID))
-        {
-            return Result.FromError(new NotFoundError("Failed to get channel id from context"));
-        }
-
-        await channelAPI.CreateMessageAsync(channelID, content, embeds: embedsParam);
-        return Result.FromSuccess();
     }
 }

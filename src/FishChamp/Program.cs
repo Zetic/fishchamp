@@ -2,18 +2,21 @@ using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
-using Remora.Discord.Gateway.Extensions;
 using Remora.Commands.Extensions;
 using FishChamp.Configuration;
 using FishChamp.Services;
 using FishChamp.Modules;
 using FishChamp.Data.Repositories;
-using FishChamp.Data.Models;
+using Remora.Discord.Hosting.Extensions;
+using Remora.Discord.Commands.Extensions;
+using Remora.Discord.Commands.Services;
 
 namespace FishChamp;
 
 public class Program
 {
+    private static IConfiguration configuration;
+
     public static async Task Main(string[] args)
     {
         var host = CreateHostBuilder(args).Build();
@@ -26,22 +29,26 @@ public class Program
             {
                 config.AddJsonFile("appsettings.json", optional: false);
                 config.AddEnvironmentVariables();
+
+                configuration = config.Build();
+            })
+            .AddDiscordService((context) =>
+            {
+                var token = configuration["Discord:Token"];
+                return token;
             })
             .ConfigureServices((context, services) =>
             {
                 // Configuration
-                services.Configure<DiscordConfiguration>(context.Configuration.GetSection("Discord"));
+                services.Configure<DatabaseConfiguration>(context.Configuration.GetSection("Discord"));
                 services.Configure<DatabaseConfiguration>(context.Configuration.GetSection("Database"));
 
                 // Discord Bot
-                var discordConfig = context.Configuration.GetSection("Discord").Get<DiscordConfiguration>();
-                services
-                    .AddDiscordGateway(_ => discordConfig?.Token ?? throw new InvalidOperationException("Discord token not configured"))
-                    .AddCommands()
-                    .AddCommandTree()
-                        .WithCommandGroup<FishingModule>()
-                        .WithCommandGroup<MapModule>()
-                        .WithCommandGroup<InventoryModule>()
+                services.AddDiscordCommands(true);
+                services.AddCommandTree()
+                    .WithCommandGroup<FishingModule>()
+                    .WithCommandGroup<MapModule>()
+                    .WithCommandGroup<InventoryModule>()
                     .Finish();
 
                 // Repositories and Services

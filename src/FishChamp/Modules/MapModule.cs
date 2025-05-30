@@ -12,13 +12,14 @@ using FishChamp.Data.Repositories;
 using FishChamp.Data.Models;
 using Remora.Discord.Commands.Extensions;
 using Polly;
+using Remora.Discord.Commands.Feedback.Services;
 
 namespace FishChamp.Modules;
 
 [Group("map")]
 [Description("Map and navigation commands")]
 public class MapModule(IDiscordRestChannelAPI channelAPI, IDiscordRestUserAPI userAPI, ICommandContext context,
-    IPlayerRepository playerRepository, IAreaRepository areaRepository) : CommandGroup
+    IPlayerRepository playerRepository, IAreaRepository areaRepository, FeedbackService feedbackService) : CommandGroup
 {
     [Command("current")]
     [Description("View your current area")]
@@ -41,7 +42,7 @@ public class MapModule(IDiscordRestChannelAPI channelAPI, IDiscordRestUserAPI us
 
         if (currentArea == null)
         {
-            return await RespondAsync("🚫 Current area not found!");
+            return await feedbackService.SendContextualContentAsync("🚫 Current area not found!", Color.Red);
         }
 
         var spotsText = string.Join("\n", currentArea.FishingSpots.Select(spot => 
@@ -69,7 +70,7 @@ public class MapModule(IDiscordRestChannelAPI channelAPI, IDiscordRestUserAPI us
             Timestamp = DateTimeOffset.UtcNow
         };
 
-        return await RespondAsync(embeds: [embed]);
+        return await feedbackService.SendContextualEmbedAsync(embed);
     }
 
     [Command("travel")]
@@ -93,7 +94,7 @@ public class MapModule(IDiscordRestChannelAPI channelAPI, IDiscordRestUserAPI us
 
         if (currentArea == null)
         {
-            return await RespondAsync("🚫 Current area not found!");
+            return await feedbackService.SendContextualContentAsync("🚫 Current area not found!", Color.Red);
         }
 
         var allAreas = await areaRepository.GetAllAreasAsync();
@@ -103,25 +104,25 @@ public class MapModule(IDiscordRestChannelAPI channelAPI, IDiscordRestUserAPI us
 
         if (targetArea == null)
         {
-            return await RespondAsync($"🚫 Area '{targetAreaName}' not found!");
+            return await feedbackService.SendContextualContentAsync($"🚫 Area '{targetAreaName}' not found!", Color.Red);
         }
 
         if (!currentArea.ConnectedAreas.Contains(targetArea.AreaId))
         {
-            return await RespondAsync($"🚫 You cannot travel to {targetArea.Name} from your current location!");
+            return await feedbackService.SendContextualContentAsync($"🚫 You cannot travel to {targetArea.Name} from your current location!", Color.Red);
         }
 
         if (!targetArea.IsUnlocked)
         {
-            return await RespondAsync($"🔒 {targetArea.Name} is locked! Requirement: {targetArea.UnlockRequirement}");
+            return await feedbackService.SendContextualContentAsync($"🔒 {targetArea.Name} is locked! Requirement: {targetArea.UnlockRequirement}", Color.Red);
         }
 
         player.CurrentArea = targetArea.AreaId;
         player.LastActive = DateTime.UtcNow;
         await playerRepository.UpdatePlayerAsync(player);
 
-        return await RespondAsync($"🚶‍♂️ You have traveled to **{targetArea.Name}**!\n\n" +
-                                $"*{targetArea.Description}*");
+        return await feedbackService.SendContextualContentAsync($"🚶‍♂️ You have traveled to **{targetArea.Name}**!\n\n" +
+                                $"*{targetArea.Description}*", Color.Green);
     }
 
     [Command("areas")]
@@ -159,24 +160,11 @@ public class MapModule(IDiscordRestChannelAPI channelAPI, IDiscordRestUserAPI us
             Timestamp = DateTimeOffset.UtcNow
         };
 
-        return await RespondAsync(embeds: [embed]);
+        return await feedbackService.SendContextualEmbedAsync(embed);
     }
 
     private async Task<PlayerProfile> GetOrCreatePlayerAsync(ulong userId, string username)
     {
         return await playerRepository.GetPlayerAsync(userId) ?? await playerRepository.CreatePlayerAsync(userId, username);
-    }
-
-    private async Task<IResult> RespondAsync(string content = "", IReadOnlyList<Embed>? embeds = null)
-    {
-        var embedsParam = embeds != null ? new Optional<IReadOnlyList<IEmbed>>(embeds.Cast<IEmbed>().ToList()) : default;
-
-        if (!context.TryGetChannelID(out var channelID))
-        {
-            return Result.FromError(new NotFoundError("Failed to get channel id from context"));
-        }
-
-        await channelAPI.CreateMessageAsync(channelID, content, embeds: embedsParam);
-        return Result.FromSuccess();
     }
 }

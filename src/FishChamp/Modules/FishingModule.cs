@@ -11,6 +11,9 @@ using Remora.Rest.Core;
 using FishChamp.Data.Repositories;
 using FishChamp.Data.Models;
 using Remora.Discord.Commands.Extensions;
+using Remora.Discord.Gateway.Responders;
+using Remora.Discord.Commands.Responders;
+using Remora.Discord.Commands.Feedback.Services;
 
 namespace FishChamp.Modules;
 
@@ -18,7 +21,7 @@ namespace FishChamp.Modules;
 [Description("Fishing-related commands")]
 public class FishingModule(IDiscordRestChannelAPI channelAPI, ICommandContext context,
     IPlayerRepository playerRepository, IInventoryRepository inventoryRepository,
-    IAreaRepository areaRepository, IDiscordRestUserAPI userAPI) : CommandGroup
+    IAreaRepository areaRepository, IDiscordRestUserAPI userAPI, FeedbackService feedbackService) : CommandGroup
 {
     [Command("cast")]
     [Description("Cast your fishing line")]
@@ -41,12 +44,12 @@ public class FishingModule(IDiscordRestChannelAPI channelAPI, ICommandContext co
         var currentArea = await areaRepository.GetAreaAsync(player.CurrentArea);
         if (currentArea == null)
         {
-            return await RespondAsync("🚫 Current area not found! Try using `/map` to navigate.");
+            return await feedbackService.SendContextualContentAsync("🚫 Current area not found! Try using `/map` to navigate.", Color.Red);
         }
 
         if (currentArea.FishingSpots.Count == 0)
         {
-            return await RespondAsync("🚫 No fishing spots available in this area!");
+            return await feedbackService.SendContextualContentAsync("🚫 No fishing spots available in this area!", Color.Red);
         }
 
         var fishingSpot = currentArea.FishingSpots.First();
@@ -54,7 +57,7 @@ public class FishingModule(IDiscordRestChannelAPI channelAPI, ICommandContext co
 
         if (availableFish.Count == 0)
         {
-            return await RespondAsync("🚫 No fish available in this spot!");
+            return await feedbackService.SendContextualContentAsync("🚫 No fish available in this spot!", Color.Red);
         }
 
         // Simple fishing simulation
@@ -79,12 +82,12 @@ public class FishingModule(IDiscordRestChannelAPI channelAPI, ICommandContext co
             player.LastActive = DateTime.UtcNow;
             await playerRepository.UpdatePlayerAsync(player);
 
-            return await RespondAsync($"🎣 **Success!** You caught a {fishItem.Name}! " +
-                                    $"Size: {fishItem.Properties["size"]}cm (+10 XP)");
+            return await feedbackService.SendContextualContentAsync($"🎣 **Success!** You caught a {fishItem.Name}! " +
+                                    $"Size: {fishItem.Properties["size"]}cm (+10 XP)", Color.Green);
         }
         else
         {
-            return await RespondAsync("🎣 Your line comes up empty... Try again!");
+            return await feedbackService.SendContextualContentAsync("🎣 Your line comes up empty... Try again!", Color.Red);
         }
     }
 
@@ -127,7 +130,7 @@ public class FishingModule(IDiscordRestChannelAPI channelAPI, ICommandContext co
             Timestamp = DateTimeOffset.UtcNow
         };
 
-        return await RespondAsync(embeds: [embed]);
+        return await feedbackService.SendContextualEmbedAsync(embed);
     }
 
     private async Task<PlayerProfile> GetOrCreatePlayerAsync(ulong userId, string username)
@@ -144,19 +147,6 @@ public class FishingModule(IDiscordRestChannelAPI channelAPI, ICommandContext co
     private static string FormatFishName(string fishId)
     {
         return fishId.Replace("_", " ").ToTitleCase();
-    }
-
-    private async Task<IResult> RespondAsync(string content = "", IReadOnlyList<Embed>? embeds = null)
-    {
-        var embedsParam = embeds != null ? new Optional<IReadOnlyList<IEmbed>>(embeds.Cast<IEmbed>().ToList()) : default;
-
-        if (!context.TryGetChannelID(out var channelID))
-        {
-            return Result.FromError(new NotFoundError("Failed to get channel id from context"));
-        }
-
-        await channelAPI.CreateMessageAsync(channelID, content, embeds: embedsParam);
-        return Result.FromSuccess();
     }
 }
 
