@@ -28,6 +28,7 @@ public class FishingRod
     public int Durability { get; set; } = 100; // Decreases with use
     public ItemRarity Rarity { get; set; } = ItemRarity.Common;
     public List<string> CompatibleBaits { get; set; } = new(); // Optional, if we want to restrict bait types
+    public RodAbility Abilities { get; set; } = RodAbility.None; // Counter abilities for fish traits
 }
 
 public class Bait

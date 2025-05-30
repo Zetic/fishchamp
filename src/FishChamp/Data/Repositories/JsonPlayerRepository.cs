@@ -76,6 +76,19 @@ public class JsonPlayerRepository : IPlayerRepository
         return player != null;
     }
 
+    public async Task<List<PlayerProfile>> GetAllPlayersAsync()
+    {
+        await _semaphore.WaitAsync();
+        try
+        {
+            return await LoadPlayersAsync();
+        }
+        finally
+        {
+            _semaphore.Release();
+        }
+    }
+
     private async Task<List<PlayerProfile>> LoadPlayersAsync()
     {
         if (!File.Exists(_dataPath))

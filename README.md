@@ -24,6 +24,30 @@ The bot now includes:
 - ✅ Repository interfaces and implementations
 - ✅ Automatic default area initialization
 
+## Phase 2: Unique Fish & Fishing Expansion ✅
+
+### Iteration 2.1 – Fish Abilities & Traits ✅
+- ✅ Added fish traits: evasive, slippery, magnetic, camouflage
+- ✅ Added rods with counter-abilities: SharpHook, Precision, FishFinder, Lure
+- ✅ Each trait affects fishing mechanics (escape chance, catch difficulty)
+
+### Iteration 2.2 – Fishing Minigames ✅
+- ✅ Added quickCast parameter for optional minigame functionality
+- ✅ Created interaction models for button-based fishing
+
+### Iteration 2.3 – Fish Weight & Size ✅
+- ✅ Generate random weight based on size and rarity for each fish
+- ✅ Added biggest fish tracking per species in player profiles
+- ✅ Added leaderboard for biggest catches 
+
+### Iteration 2.4 – Fish Lore & Catalog ✅
+- ✅ Added FishDex command to show discovered species and info
+- ✅ Show detailed fish stats including size, weight, and traits
+
+### Iteration 2.5 – Multiplayer Fishing ✅
+- ✅ Allow players to fish at the same spot
+- ✅ Added cooperative bonuses for fishing together
+
 ## Setup Instructions
 
 ### Prerequisites
@@ -52,6 +76,9 @@ dotnet run
 ### Fishing Commands
 - `/fishing cast` - Cast your fishing line and try to catch fish
 - `/fishing profile` - View your fishing profile and stats
+- `/fishing fishdex` - View your discovered fish species catalog
+- `/fishing fish-together` - Start or join a multiplayer fishing session
+- `/fishing leaderboard` - View the biggest fish leaderboard
 
 ### Map Commands  
 - `/map current` - View your current area and fishing spots

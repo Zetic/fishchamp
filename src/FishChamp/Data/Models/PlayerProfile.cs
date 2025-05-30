@@ -12,4 +12,6 @@ public class PlayerProfile
     public int Experience { get; set; } = 0;
     public string EquippedRod { get; set; } = "basic_rod";
     public string EquippedBait { get; set; } = string.Empty;
+    public string CurrentFishingSpot { get; set; } = string.Empty;
+    public Dictionary<string, double> BiggestCatch { get; set; } = new(); // Fish type -> weight
 }
