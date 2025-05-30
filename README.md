@@ -1,0 +1,100 @@
+# FishChamp Discord Bot
+
+A Discord fishing game bot built with C# and Remora.Discord, featuring modular commands, exploration, and persistent player data.
+
+## Phase 0: Foundational Setup ✅
+
+The bot now includes:
+
+### Iteration 0.1 - Remora Setup ✅
+- ✅ C# project with .NET 8.0 and Remora.Discord
+- ✅ Basic bot scaffolding with dependency injection
+- ✅ Configuration management for bot token and database
+
+### Iteration 0.2 - Command Router & Module System ✅
+- ✅ Modular command system with separate modules:
+  - **FishingModule**: `/fishing cast`, `/fishing profile`
+  - **MapModule**: `/map current`, `/map travel`, `/map areas`
+  - **InventoryModule**: `/inventory view`, `/inventory fish`
+- ✅ Abstract command handling with proper error handling
+
+### Iteration 0.3 - Persistence Layer ✅
+- ✅ JSON-based repository pattern for easy database swapping
+- ✅ Data models: `PlayerProfile`, `Inventory`, `AreaState`
+- ✅ Repository interfaces and implementations
+- ✅ Automatic default area initialization
+
+## Setup Instructions
+
+### Prerequisites
+- .NET 8.0 SDK
+- Discord Bot Token
+
+### Configuration
+1. Clone the repository
+2. Copy `appsettings.json` and update the Discord token:
+```json
+{
+  "Discord": {
+    "Token": "YOUR_BOT_TOKEN_HERE"
+  }
+}
+```
+
+### Running the Bot
+```bash
+cd src/FishChamp
+dotnet run
+```
+
+## Available Commands
+
+### Fishing Commands
+- `/fishing cast` - Cast your fishing line and try to catch fish
+- `/fishing profile` - View your fishing profile and stats
+
+### Map Commands  
+- `/map current` - View your current area and fishing spots
+- `/map travel <area>` - Travel to a connected area
+- `/map areas` - List all available areas
+
+### Inventory Commands
+- `/inventory view` - View your complete inventory
+- `/inventory fish` - View only your fish collection
+
+## Game Features
+
+### Areas System
+- **Starter Lake**: Perfect for beginners with common fish
+- **Mystic Lake**: Mysterious waters with rare fish (unlockable)
+
+### Fishing System
+- Simple RNG-based fishing with 70% success rate
+- Different fish species in different areas
+- Experience points and leveling system
+
+### Persistence
+- Player profiles with levels, experience, and currency
+- Inventory management with fish collection
+- Area states with unlockable content
+
+## Architecture
+
+### Modular Design
+- Clean separation of concerns with modules
+- Repository pattern for data persistence
+- Dependency injection for loose coupling
+
+### Extensible Framework
+- Easy to add new command modules
+- Swappable persistence layer (JSON → PostgreSQL)
+- Configurable game mechanics
+
+## Next Steps
+
+Future iterations will add:
+- Interactive fishing minigames
+- Fish traps and passive fishing
+- Aquarium management
+- Farming and crafting systems
+- Social features and trading
