@@ -13,7 +13,7 @@ The bot now includes:
 
 ### Iteration 0.2 - Command Router & Module System ✅
 - ✅ Modular command system with separate modules:
-  - **FishingModule**: `/fishing cast`, `/fishing profile`
+  - **FishingModule**: `/fishing cast`, `/fishing profile`, `/fish`
   - **MapModule**: `/map current`, `/map travel`, `/map areas`
   - **InventoryModule**: `/inventory view`, `/inventory fish`
 - ✅ Abstract command handling with proper error handling
@@ -74,7 +74,8 @@ dotnet run
 ## Available Commands
 
 ### Fishing Commands
-- `/fishing cast` - Cast your fishing line and try to catch fish
+- `/fish` - Quick fishing at your current fishing spot
+- `/fishing cast` - Cast your fishing line at your current spot (requires being at a fishing spot)
 - `/fishing profile` - View your fishing profile and stats
 - `/fishing fishdex` - View your discovered fish species catalog
 - `/fishing fish-together` - Start or join a multiplayer fishing session
@@ -82,6 +83,7 @@ dotnet run
 
 ### Map Commands  
 - `/map current` - View your current area and fishing spots
+- `/map goto <fishing spot>` - Go to a specific fishing spot in your area
 - `/map travel <area>` - Travel to a connected area
 - `/map areas` - List all available areas
 

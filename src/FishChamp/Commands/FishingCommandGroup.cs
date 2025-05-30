@@ -350,7 +350,8 @@ public class FishingCommandGroup(IInteractionCommandContext context, IDiscordRes
             Colour = Color.Green,
             Fields = new List<EmbedField>
             {
-                new("Getting Started", "• Use `/fishing cast <spot>` to start fishing\n" + 
+                new("Getting Started", "• Use `/map goto <spot>` to go to a fishing spot\n" +
+                                      "• Use `/fish` to start fishing\n" + 
                                       "• Use `/map current` to see your current area\n" +
                                       "• Use `/inventory view` to check your inventory\n" +
                                       "• Use `/shop browse` to find shops in your area", false),

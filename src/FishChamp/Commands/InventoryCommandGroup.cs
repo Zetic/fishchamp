@@ -107,13 +107,13 @@ public class InventoryCommandGroup(IInteractionContext context,
 
         if (inventory == null)
         {
-            return await feedbackService.SendContextualContentAsync("🐟 You haven't caught any fish yet! Use `/fishing cast` to start fishing.", Color.Yellow);
+            return await feedbackService.SendContextualContentAsync("🐟 You haven't caught any fish yet! Use `/fish` to start fishing.", Color.Yellow);
         }
 
         var fish = inventory.Items.Where(i => i.ItemType == "Fish").ToList();
         if (fish.Count == 0)
         {
-            return await feedbackService.SendContextualContentAsync("🐟 You haven't caught any fish yet! Use `/fishing cast` to start fishing.", Color.Red);
+            return await feedbackService.SendContextualContentAsync("🐟 You haven't caught any fish yet! Use `/fish` to start fishing.", Color.Red);
         }
 
         var fishText = string.Join("\n", fish.Select(f =>

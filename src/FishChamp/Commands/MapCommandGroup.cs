@@ -76,7 +76,7 @@ public class MapCommandGroup(IInteractionContext context,
                 new("🏪 Shops", shopsText, false),
                 new("🧭 Connected Areas", connectedAreasText, false)
             },
-            Footer = new EmbedFooter("Use /map travel <area> to move between areas"),
+            Footer = new EmbedFooter("Use /map travel <area> to move or /map goto <spot> to go to fishing spots"),
             Timestamp = DateTimeOffset.UtcNow
         };
 

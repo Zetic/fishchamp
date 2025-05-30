@@ -7,6 +7,7 @@ using Remora.Discord.Gateway.Responders;
 using Remora.Results;
 using FishChamp.Data.Repositories;
 using FishChamp.Data.Models;
+using FishChamp.Modules;
 using System.Text.Json;
 
 namespace FishChamp.Responders;
@@ -356,24 +357,5 @@ public class FishingInteractionResponder : IResponder<IInteractionCreate>
     {
         if (obj is not JsonElement element) return default;
         return JsonSerializer.Deserialize<T>(element);
-    }
-}
-
-public static class StringExtensions
-{
-    public static string ToTitleCase(this string input)
-    {
-        if (string.IsNullOrEmpty(input))
-            return input;
-
-        var words = input.Split(' ');
-        for (int i = 0; i < words.Length; i++)
-        {
-            if (words[i].Length > 0)
-            {
-                words[i] = char.ToUpper(words[i][0]) + words[i][1..].ToLower();
-            }
-        }
-        return string.Join(' ', words);
     }
 }
