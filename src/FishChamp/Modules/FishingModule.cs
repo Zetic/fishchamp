@@ -10,6 +10,7 @@ using Remora.Results;
 using Remora.Rest.Core;
 using FishChamp.Data.Repositories;
 using FishChamp.Data.Models;
+using FishChamp.Services;
 
 namespace FishChamp.Modules;
 
@@ -22,16 +23,18 @@ public class FishingModule : CommandGroup
     private readonly IPlayerRepository _playerRepository;
     private readonly IInventoryRepository _inventoryRepository;
     private readonly IAreaRepository _areaRepository;
+    private readonly IFishDataService _fishDataService;
 
     public FishingModule(IDiscordRestChannelAPI channelAPI, ICommandContext context,
         IPlayerRepository playerRepository, IInventoryRepository inventoryRepository,
-        IAreaRepository areaRepository)
+        IAreaRepository areaRepository, IFishDataService fishDataService)
     {
         _channelAPI = channelAPI;
         _context = context;
         _playerRepository = playerRepository;
         _inventoryRepository = inventoryRepository;
         _areaRepository = areaRepository;
+        _fishDataService = fishDataService;
     }
 
     [Command("cast")]
@@ -60,35 +63,103 @@ public class FishingModule : CommandGroup
             return await RespondAsync("🚫 No fish available in this spot!");
         }
 
-        // Simple fishing simulation
+        // Improved fishing simulation with fish data
         var random = new Random();
-        var success = random.NextDouble() > 0.3; // 70% success rate
+        var allFishData = await _fishDataService.GetAllFishDataAsync();
+        
+        // Calculate weighted catch chances
+        var weightedFish = new List<(string fishId, double weight)>();
+        
+        foreach (var fishId in availableFish)
+        {
+            var fishData = allFishData.TryGetValue(fishId, out var data) ? data : null;
+            var catchChance = fishData?.CatchChance ?? 0.5;
+            weightedFish.Add((fishId, catchChance));
+        }
+
+        // Overall success rate based on best available fish
+        var maxCatchChance = weightedFish.Max(f => f.weight);
+        var success = random.NextDouble() < maxCatchChance;
 
         if (success)
         {
-            var caughtFish = availableFish[random.Next(availableFish.Count)];
+            // Select fish based on weighted probabilities
+            var totalWeight = weightedFish.Sum(f => f.weight);
+            var randomValue = random.NextDouble() * totalWeight;
+            var currentWeight = 0.0;
+            
+            string caughtFishId = availableFish.First(); // fallback
+            foreach (var (fishId, weight) in weightedFish)
+            {
+                currentWeight += weight;
+                if (randomValue <= currentWeight)
+                {
+                    caughtFishId = fishId;
+                    break;
+                }
+            }
+
+            var fishData = allFishData.TryGetValue(caughtFishId, out var data) ? data : null;
+            var fishName = fishData?.Name ?? FormatFishName(caughtFishId);
+            var rarity = fishData?.Rarity ?? "common";
+            var size = random.Next(fishData?.MinSize ?? 10, fishData?.MaxSize ?? 50);
+            
             var fishItem = new InventoryItem
             {
-                ItemId = caughtFish,
+                ItemId = caughtFishId,
                 ItemType = "Fish",
-                Name = FormatFishName(caughtFish),
+                Name = fishName,
                 Quantity = 1,
-                Properties = new() { ["size"] = random.Next(10, 50), ["rarity"] = "common" }
+                Properties = new() { ["size"] = size, ["rarity"] = rarity, ["value"] = fishData?.BaseValue ?? 1 }
             };
 
             await _inventoryRepository.AddItemAsync(userId, fishItem);
             
-            player.Experience += 10;
+            player.Experience += GetExperienceForRarity(rarity);
             player.LastActive = DateTime.UtcNow;
             await _playerRepository.UpdatePlayerAsync(player);
 
-            return await RespondAsync($"🎣 **Success!** You caught a {fishItem.Name}! " +
-                                    $"Size: {fishItem.Properties["size"]}cm (+10 XP)");
+            var rarityEmoji = GetRarityEmoji(rarity);
+            return await RespondAsync($"🎣 **Success!** You caught a {rarityEmoji} {fishItem.Name}! " +
+                                    $"Size: {size}cm (+{GetExperienceForRarity(rarity)} XP)");
         }
         else
         {
             return await RespondAsync("🎣 Your line comes up empty... Try again!");
         }
+    }
+
+    [Command("register")]
+    [Description("Register as a new player")]
+    public async Task<IResult> RegisterAsync()
+    {
+        var userId = _context.User.ID.Value;
+        var existingPlayer = await _playerRepository.GetPlayerAsync(userId);
+        
+        if (existingPlayer != null)
+        {
+            return await RespondAsync($"🎣 You're already registered! Welcome back, {existingPlayer.Username}!");
+        }
+
+        var player = await _playerRepository.CreatePlayerAsync(userId, _context.User.Username);
+        await _inventoryRepository.CreateInventoryAsync(userId);
+
+        var embed = new Embed
+        {
+            Title = "🎉 Welcome to FishChamp!",
+            Description = $"Welcome, **{player.Username}**! You've been registered as a new angler.",
+            Colour = Color.Green,
+            Fields = new List<EmbedField>
+            {
+                new("Starting Location", "Starter Lake", true),
+                new("Starting Coins", "100 🪙", true),
+                new("Starting Equipment", "Basic Fishing Rod", true)
+            },
+            Footer = new EmbedFooter("Use `/fishing cast` to start fishing!"),
+            Timestamp = DateTimeOffset.UtcNow
+        };
+
+        return await RespondAsync(embeds: new[] { embed });
     }
 
     [Command("profile")]
@@ -121,6 +192,98 @@ public class FishingModule : CommandGroup
 
         return await RespondAsync(embeds: new[] { embed });
     }
+    [Command("equip-rod")]
+    [Description("Equip a fishing rod")]
+    public async Task<IResult> EquipRodAsync([Description("Rod name to equip")] string rodName)
+    {
+        var userId = _context.User.ID.Value;
+        var player = await GetOrCreatePlayerAsync(userId, _context.User.Username);
+        var inventory = await _inventoryRepository.GetInventoryAsync(userId);
+
+        if (inventory == null)
+        {
+            return await RespondAsync("🚫 You don't have an inventory!");
+        }
+
+        var rod = inventory.Items.FirstOrDefault(i => 
+            i.ItemType == "Rod" && 
+            (i.Name.Equals(rodName, StringComparison.OrdinalIgnoreCase) || 
+             i.ItemId.Equals(rodName.Replace(" ", "_").ToLower(), StringComparison.OrdinalIgnoreCase)));
+
+        if (rod == null)
+        {
+            return await RespondAsync($"🚫 You don't have a rod called '{rodName}'!");
+        }
+
+        player.EquippedRod = rod.ItemId;
+        player.LastActive = DateTime.UtcNow;
+        await _playerRepository.UpdatePlayerAsync(player);
+
+        return await RespondAsync($"🎣 Equipped **{rod.Name}**!");
+    }
+
+    [Command("equip-bait")]
+    [Description("Equip bait for fishing")]
+    public async Task<IResult> EquipBaitAsync([Description("Bait name to equip")] string baitName)
+    {
+        var userId = _context.User.ID.Value;
+        var player = await GetOrCreatePlayerAsync(userId, _context.User.Username);
+        var inventory = await _inventoryRepository.GetInventoryAsync(userId);
+
+        if (inventory == null)
+        {
+            return await RespondAsync("🚫 You don't have an inventory!");
+        }
+
+        var bait = inventory.Items.FirstOrDefault(i => 
+            i.ItemType == "Bait" && 
+            (i.Name.Equals(baitName, StringComparison.OrdinalIgnoreCase) || 
+             i.ItemId.Equals(baitName.Replace(" ", "_").ToLower(), StringComparison.OrdinalIgnoreCase)));
+
+        if (bait == null)
+        {
+            return await RespondAsync($"🚫 You don't have bait called '{baitName}'!");
+        }
+
+        if (bait.Quantity <= 0)
+        {
+            return await RespondAsync($"🚫 You're out of {bait.Name}!");
+        }
+
+        player.EquippedBait = bait.ItemId;
+        player.LastActive = DateTime.UtcNow;
+        await _playerRepository.UpdatePlayerAsync(player);
+
+        return await RespondAsync($"🪱 Equipped **{bait.Name}**!");
+    }
+
+    [Command("equipment")]
+    [Description("View your current equipment")]
+    public async Task<IResult> ViewEquipmentAsync()
+    {
+        var userId = _context.User.ID.Value;
+        var player = await GetOrCreatePlayerAsync(userId, _context.User.Username);
+        var inventory = await _inventoryRepository.GetInventoryAsync(userId);
+
+        var equippedRod = inventory?.Items.FirstOrDefault(i => i.ItemId == player.EquippedRod);
+        var equippedBait = !string.IsNullOrEmpty(player.EquippedBait) 
+            ? inventory?.Items.FirstOrDefault(i => i.ItemId == player.EquippedBait) 
+            : null;
+
+        var embed = new Embed
+        {
+            Title = $"🎣 {player.Username}'s Equipment",
+            Colour = Color.Gold,
+            Fields = new List<EmbedField>
+            {
+                new("🎣 Equipped Rod", equippedRod?.Name ?? "None", true),
+                new("🪱 Equipped Bait", equippedBait?.Name ?? "None", true)
+            },
+            Timestamp = DateTimeOffset.UtcNow
+        };
+
+        return await RespondAsync(embeds: new[] { embed });
+    }
 
     private async Task<PlayerProfile> GetOrCreatePlayerAsync(ulong userId, string username)
     {
@@ -136,6 +299,32 @@ public class FishingModule : CommandGroup
     private static string FormatFishName(string fishId)
     {
         return fishId.Replace("_", " ").ToTitleCase();
+    }
+
+    private static int GetExperienceForRarity(string rarity)
+    {
+        return rarity.ToLower() switch
+        {
+            "common" => 10,
+            "uncommon" => 15,
+            "rare" => 25,
+            "epic" => 50,
+            "legendary" => 100,
+            _ => 10
+        };
+    }
+
+    private static string GetRarityEmoji(string rarity)
+    {
+        return rarity.ToLower() switch
+        {
+            "common" => "⚪",
+            "uncommon" => "🟢", 
+            "rare" => "🔵",
+            "epic" => "🟣",
+            "legendary" => "🟡",
+            _ => "⚪"
+        };
     }
 
     private async Task<IResult> RespondAsync(string content = "", IReadOnlyList<Embed>? embeds = null)

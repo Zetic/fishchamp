@@ -90,6 +90,20 @@ public class JsonAreaRepository : IAreaRepository
 
     private async Task<List<AreaState>> InitializeDefaultAreasAsync()
     {
+        // Try to load from MapData.json first
+        var mapDataPath = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "data", "MapData.json");
+        if (File.Exists(mapDataPath))
+        {
+            var mapDataJson = await File.ReadAllTextAsync(mapDataPath);
+            var mapDataAreas = JsonConvert.DeserializeObject<List<AreaState>>(mapDataJson);
+            if (mapDataAreas != null && mapDataAreas.Count > 0)
+            {
+                await SaveAreasAsync(mapDataAreas);
+                return mapDataAreas;
+            }
+        }
+
+        // Fallback to hardcoded areas if MapData.json doesn't exist
         var defaultAreas = new List<AreaState>
         {
             new()
@@ -114,6 +128,7 @@ public class JsonAreaRepository : IAreaRepository
                         AvailableFish = new List<string> { "minnow", "sunfish" }
                     }
                 },
+                FarmSpots = new List<FarmSpot>(),
                 ConnectedAreas = new List<string> { "mystic_lake" },
                 IsUnlocked = true
             },
@@ -132,6 +147,7 @@ public class JsonAreaRepository : IAreaRepository
                         AvailableFish = new List<string> { "rainbow_trout", "pike", "mysterious_eel" }
                     }
                 },
+                FarmSpots = new List<FarmSpot>(),
                 ConnectedAreas = new List<string> { "starter_lake" },
                 IsUnlocked = false,
                 UnlockRequirement = "Catch 5 different fish species"

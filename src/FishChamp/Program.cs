@@ -42,12 +42,14 @@ public class Program
                         .WithCommandGroup<FishingModule>()
                         .WithCommandGroup<MapModule>()
                         .WithCommandGroup<InventoryModule>()
+                        .WithCommandGroup<ShopModule>()
                     .Finish();
 
                 // Repositories and Services
                 services.AddSingleton<IPlayerRepository, JsonPlayerRepository>();
                 services.AddSingleton<IInventoryRepository, JsonInventoryRepository>();
                 services.AddSingleton<IAreaRepository, JsonAreaRepository>();
+                services.AddSingleton<IFishDataService, FishDataService>();
                 services.AddSingleton<BotService>();
 
                 // Ensure data directory exists

@@ -45,7 +45,16 @@ public class MapModule : CommandGroup
         }
 
         var spotsText = string.Join("\n", currentArea.FishingSpots.Select(spot => 
-            $"• **{spot.Name}** ({spot.Type}) - {spot.AvailableFish.Count} fish species"));
+            $"🎣 **{spot.Name}** ({spot.Type}) - {spot.AvailableFish.Count} fish species"));
+
+        var farmSpotsText = string.Join("\n", currentArea.FarmSpots.Select(spot => 
+            $"🌱 **{spot.Name}** ({spot.Type}) - {spot.AvailableCrops.Count} crop types"));
+
+        var allSpotsText = spotsText;
+        if (!string.IsNullOrEmpty(farmSpotsText))
+        {
+            allSpotsText = string.IsNullOrEmpty(spotsText) ? farmSpotsText : $"{spotsText}\n{farmSpotsText}";
+        }
 
         var connectedAreasText = "None";
         if (currentArea.ConnectedAreas.Count > 0)
@@ -63,7 +72,7 @@ public class MapModule : CommandGroup
             Colour = Color.Green,
             Fields = new List<EmbedField>
             {
-                new("Fishing Spots", spotsText.Length > 0 ? spotsText : "None", false),
+                new("Available Spots", allSpotsText.Length > 0 ? allSpotsText : "None", false),
                 new("Connected Areas", connectedAreasText, false)
             },
             Timestamp = DateTimeOffset.UtcNow
