@@ -103,14 +103,21 @@ public class JsonAreaRepository : IAreaRepository
                     {
                         SpotId = "dock",
                         Name = "Wooden Dock",
-                        Type = "water",
+                        Type = FishingSpotType.Land,
                         AvailableFish = ["common_carp", "bluegill", "bass"]
+                    },
+                    new()
+                    {
+                        SpotId = "dock_end",
+                        Name = "End of the Dock",
+                        Type = FishingSpotType.Water,
+                        AvailableFish = ["bluegill", "bass", "catfish"]
                     },
                     new()
                     {
                         SpotId = "shore",
                         Name = "Rocky Shore",
-                        Type = "land",
+                        Type = FishingSpotType.Land,
                         AvailableFish = ["minnow", "sunfish"]
                     }
                 ],
@@ -128,7 +135,7 @@ public class JsonAreaRepository : IAreaRepository
                     {
                         SpotId = "deep_waters",
                         Name = "Deep Waters",
-                        Type = "water",
+                        Type = FishingSpotType.Water,
                         AvailableFish = ["rainbow_trout", "pike", "mysterious_eel"]
                     }
                 ],
