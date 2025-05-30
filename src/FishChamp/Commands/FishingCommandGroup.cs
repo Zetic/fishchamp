@@ -29,11 +29,8 @@ public class FishingCommandGroup(IInteractionCommandContext context, IDiscordRes
     IAreaRepository areaRepository, DiscordHelper discordHelper, FeedbackService feedbackService) : CommandGroup
 {
     [Command("cast")]
-    [Description("Cast your fishing line")]
-    public async Task<IResult> CastLineAsync(
-        [AutocompleteProvider(AreaFishSpotAutocompleteProvider.ID)]
-        [Description("Spot you would like to fish at in your area")]
-        string fishSpot)
+    [Description("Cast your fishing line at your current fishing spot")]
+    public async Task<IResult> CastLineAsync()
     {
         if (!(context.Interaction.Member.TryGet(out var member) && member.User.TryGet(out var user)))
         {
@@ -42,22 +39,30 @@ public class FishingCommandGroup(IInteractionCommandContext context, IDiscordRes
 
         var player = await GetOrCreatePlayerAsync(user.ID.Value, user.Username);
 
+        // Check if player is at a fishing spot
+        if (string.IsNullOrEmpty(player.CurrentFishingSpot))
+        {
+            return await discordHelper.ErrorInteractionEphemeral(context.Interaction, 
+                "🎣 You need to be at a fishing spot first! Use `/map goto <fishing spot>` to go to one.");
+        }
+
         var currentArea = await areaRepository.GetAreaAsync(player.CurrentArea);
         if (currentArea == null)
         {
             return await discordHelper.ErrorInteractionEphemeral(context.Interaction, ":map: Current area not found! Try using `/map` to navigate.");
         }
 
-        if (currentArea.FishingSpots.Count == 0)
-        {
-            return await discordHelper.ErrorInteractionEphemeral(context.Interaction, ":fishing_pole_and_fish: No fishing spots available in this area!");
-        }
-
-        var fishingSpot = currentArea.FishingSpots.FirstOrDefault(f => f.SpotId.Equals(fishSpot, StringComparison.OrdinalIgnoreCase));
+        // Find the fishing spot the player is at
+        var fishingSpot = currentArea.FishingSpots.FirstOrDefault(f => 
+            f.SpotId.Equals(player.CurrentFishingSpot, StringComparison.OrdinalIgnoreCase));
 
         if (fishingSpot == null)
         {
-            return await discordHelper.ErrorInteractionEphemeral(context.Interaction, "🚫 Failed to find specified fish spot!");
+            // Player's fishing spot is invalid, clear it
+            player.CurrentFishingSpot = string.Empty;
+            await playerRepository.UpdatePlayerAsync(player);
+            return await discordHelper.ErrorInteractionEphemeral(context.Interaction, 
+                "🚫 Your current fishing spot is no longer available. Use `/map goto <fishing spot>` to go to a new one.");
         }
 
         if (fishingSpot.Type == FishingSpotType.Water)
@@ -345,7 +350,8 @@ public class FishingCommandGroup(IInteractionCommandContext context, IDiscordRes
             Colour = Color.Green,
             Fields = new List<EmbedField>
             {
-                new("Getting Started", "• Use `/fishing cast <spot>` to start fishing\n" + 
+                new("Getting Started", "• Use `/map goto <spot>` to go to a fishing spot\n" +
+                                      "• Use `/fish` to start fishing\n" + 
                                       "• Use `/map current` to see your current area\n" +
                                       "• Use `/inventory view` to check your inventory\n" +
                                       "• Use `/shop browse` to find shops in your area", false),
@@ -568,56 +574,54 @@ public class FishingCommandGroup(IInteractionCommandContext context, IDiscordRes
 
         var player = await GetOrCreatePlayerAsync(user.ID.Value, user.Username);
         
+        // Check if player is at a fishing spot
+        if (string.IsNullOrEmpty(player.CurrentFishingSpot))
+        {
+            return await discordHelper.ErrorInteractionEphemeral(context.Interaction, 
+                "🎣 You need to be at a fishing spot first! Use `/map goto <fishing spot>` to go to one.");
+        }
+        
         var currentArea = await areaRepository.GetAreaAsync(player.CurrentArea);
         if (currentArea == null)
         {
             return await discordHelper.ErrorInteractionEphemeral(context.Interaction, ":map: Current area not found! Try using `/map` to navigate.");
         }
 
-        if (currentArea.FishingSpots.Count == 0)
+        // Verify the fishing spot exists
+        var fishingSpot = currentArea.FishingSpots.FirstOrDefault(f => 
+            f.SpotId.Equals(player.CurrentFishingSpot, StringComparison.OrdinalIgnoreCase));
+
+        if (fishingSpot == null)
         {
-            return await discordHelper.ErrorInteractionEphemeral(context.Interaction, ":fishing_pole_and_fish: No fishing spots available in this area for multiplayer fishing!");
+            // Player's fishing spot is invalid, clear it
+            player.CurrentFishingSpot = string.Empty;
+            await playerRepository.UpdatePlayerAsync(player);
+            return await discordHelper.ErrorInteractionEphemeral(context.Interaction, 
+                "🚫 Your current fishing spot is no longer available. Use `/map goto <fishing spot>` to go to a new one.");
         }
 
-        // Find other players in the same area and spot
+        // Find other players in the same area and at the same spot
         var allPlayers = await playerRepository.GetAllPlayersAsync();
-        var playersInArea = allPlayers
+        var playersAtSameSpot = allPlayers
             .Where(p => p.UserId != player.UserId) // Not the current player
             .Where(p => p.CurrentArea == player.CurrentArea) // In the same area
-            .Where(p => !string.IsNullOrEmpty(p.CurrentFishingSpot)) // Currently at a fishing spot
+            .Where(p => p.CurrentFishingSpot == player.CurrentFishingSpot) // At the same fishing spot
             .Where(p => p.LastActive > DateTime.UtcNow.AddMinutes(-5)) // Active in the last 5 minutes
             .ToList();
 
-        if (!playersInArea.Any())
+        if (playersAtSameSpot.Any())
         {
-            // No other players fishing in this area, set up the spot for others to join
-            var availableSpots = currentArea.FishingSpots
-                .Where(s => s.Type != FishingSpotType.Water)
-                .Select(s => s.SpotId)
-                .ToList();
-                
-            if (!availableSpots.Any())
-            {
-                return await discordHelper.ErrorInteractionEphemeral(context.Interaction, "🚫 No suitable fishing spots in this area for multiplayer fishing.");
-            }
-
-            // Select a random spot if the player isn't already at one
-            var spotToUse = !string.IsNullOrEmpty(player.CurrentFishingSpot) && 
-                            availableSpots.Contains(player.CurrentFishingSpot) 
-                ? player.CurrentFishingSpot 
-                : availableSpots[new Random().Next(availableSpots.Count)];
-                
-            player.CurrentFishingSpot = spotToUse;
-            await playerRepository.UpdatePlayerAsync(player);
-
             var embed = new Embed
             {
                 Title = "🎣 Multiplayer Fishing",
-                Description = $"You've started a multiplayer fishing session at {spotToUse.Replace("_", " ").ToTitleCase()}!\n\n" +
-                              "Other players can join your session by using `/fishing fish-together`.\n\n" +
+                Description = $"You're now fishing together with {playersAtSameSpot.Count} other player(s) at **{fishingSpot.Name}**!\n\n" +
                               "Fishing with friends increases your chances of catching rare fish!",
                 Colour = Color.Green,
-                Footer = new EmbedFooter("Use /fishing cast to start fishing at this spot"),
+                Fields = new List<EmbedField>
+                {
+                    new EmbedField("Bonus", "• +10% catch rate\n• +15% chance for rare fish\n• Chance for bonus rewards", false)
+                },
+                Footer = new EmbedFooter("Use /fish or /fishing cast to start fishing at this spot"),
                 Timestamp = DateTimeOffset.UtcNow
             };
 
@@ -625,22 +629,14 @@ public class FishingCommandGroup(IInteractionCommandContext context, IDiscordRes
         }
         else
         {
-            // Find an existing player to join
-            var playerToJoin = playersInArea[new Random().Next(playersInArea.Count)];
-            player.CurrentFishingSpot = playerToJoin.CurrentFishingSpot;
-            await playerRepository.UpdatePlayerAsync(player);
-
             var embed = new Embed
             {
                 Title = "🎣 Multiplayer Fishing",
-                Description = $"You've joined {playerToJoin.Username}'s fishing session at {player.CurrentFishingSpot.Replace("_", " ").ToTitleCase()}!\n\n" +
+                Description = $"You've started a multiplayer fishing session at **{fishingSpot.Name}**!\n\n" +
+                              "Other players can join your session by going to the same fishing spot and using `/fishing fish-together`.\n\n" +
                               "Fishing with friends increases your chances of catching rare fish!",
                 Colour = Color.Green,
-                Fields = new List<EmbedField>
-                {
-                    new EmbedField("Bonus", "• +10% catch rate\n• +15% chance for rare fish\n• Chance for bonus rewards", false)
-                },
-                Footer = new EmbedFooter("Use /fishing cast to start fishing at this spot"),
+                Footer = new EmbedFooter("Use /fish or /fishing cast to start fishing at this spot"),
                 Timestamp = DateTimeOffset.UtcNow
             };
 
