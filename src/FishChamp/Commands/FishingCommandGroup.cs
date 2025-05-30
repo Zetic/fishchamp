@@ -64,6 +64,17 @@ public class FishingCommandGroup(IInteractionCommandContext context, IDiscordRes
             return await discordHelper.ErrorInteractionEphemeral(context.Interaction, ":sailboat: Only boats are allowed to fish here.");
         }
 
+        // If player is part of a multiplayer session, use that spot
+        if (!string.IsNullOrEmpty(player.CurrentFishingSpot))
+        {
+            // Use the shared spot if it exists
+            var sharedSpot = currentArea.FishingSpots.FirstOrDefault(f => f.SpotId.Equals(player.CurrentFishingSpot, StringComparison.OrdinalIgnoreCase));
+            if (sharedSpot != null)
+            {
+                fishingSpot = sharedSpot;
+            }
+        }
+
         var availableFish = fishingSpot.AvailableFish;
 
         if (availableFish.Count == 0)
@@ -91,8 +102,27 @@ public class FishingCommandGroup(IInteractionCommandContext context, IDiscordRes
         double rodBonus = equippedRod?.Properties.TryGetValue("power", out var power) == true ? 
                          Convert.ToDouble(power) * 0.05 : 0; // 5% per rod power level
         double baitBonus = equippedBait != null ? 0.1 : 0; // 10% bonus for having bait equipped
+        
+        // Check for multiplayer fishing bonus
+        double multiplayerBonus = 0;
+        if (!string.IsNullOrEmpty(player.CurrentFishingSpot))
+        {
+            // Count other players fishing at the same spot
+            var allPlayers = await playerRepository.GetAllPlayersAsync();
+            var otherPlayersHere = allPlayers.Count(p => 
+                p.UserId != player.UserId && 
+                p.CurrentArea == player.CurrentArea && 
+                p.CurrentFishingSpot == player.CurrentFishingSpot &&
+                p.LastActive > DateTime.UtcNow.AddMinutes(-5));
+                
+            if (otherPlayersHere > 0)
+            {
+                // 10% base bonus for multiplayer fishing plus 2% per additional player
+                multiplayerBonus = 0.1 + (Math.Min(otherPlayersHere, 5) * 0.02);
+            }
+        }
 
-        double successRate = Math.Min(0.95, baseSuccessRate + rodBonus + baitBonus); // Cap at 95%
+        double successRate = Math.Min(0.95, baseSuccessRate + rodBonus + baitBonus + multiplayerBonus); // Cap at 95%
         
         // Fishing simulation - first we'll determine the fish that might be caught
         var potentialCatch = availableFish[random.Next(availableFish.Count)];
@@ -225,6 +255,14 @@ public class FishingCommandGroup(IInteractionCommandContext context, IDiscordRes
             
             player.Experience += xpGained;
             player.LastActive = DateTime.UtcNow;
+            
+            // Check if this is the biggest fish of this type the player has caught
+            var fishWeight = Convert.ToDouble(fishItem.Properties["weight"]);
+            if (!player.BiggestCatch.TryGetValue(fishItem.ItemId, out var existingRecord) || fishWeight > existingRecord)
+            {
+                player.BiggestCatch[fishItem.ItemId] = fishWeight;
+            }
+            
             await playerRepository.UpdatePlayerAsync(player);
             
             // If bait was used, reduce its quantity
@@ -518,6 +556,194 @@ public class FishingCommandGroup(IInteractionCommandContext context, IDiscordRes
         };
 
         return await feedbackService.SendContextualEmbedAsync(embed);
+    }
+
+    [Command("fish-together")]
+    [Description("Start or join a multiplayer fishing session at your current location")]
+    public async Task<IResult> FishTogetherAsync()
+    {
+        if (!(context.Interaction.Member.TryGet(out var member) && member.User.TryGet(out var user)))
+        {
+            return Result.FromError(new NotFoundError("Failed to get user"));
+        }
+
+        var player = await GetOrCreatePlayerAsync(user.ID.Value, user.Username);
+        
+        var currentArea = await areaRepository.GetAreaAsync(player.CurrentArea);
+        if (currentArea == null)
+        {
+            return await discordHelper.ErrorInteractionEphemeral(context.Interaction, ":map: Current area not found! Try using `/map` to navigate.");
+        }
+
+        if (currentArea.FishingSpots.Count == 0)
+        {
+            return await discordHelper.ErrorInteractionEphemeral(context.Interaction, ":fishing_pole_and_fish: No fishing spots available in this area for multiplayer fishing!");
+        }
+
+        // Find other players in the same area and spot
+        var allPlayers = await playerRepository.GetAllPlayersAsync();
+        var playersInArea = allPlayers
+            .Where(p => p.UserId != player.UserId) // Not the current player
+            .Where(p => p.CurrentArea == player.CurrentArea) // In the same area
+            .Where(p => !string.IsNullOrEmpty(p.CurrentFishingSpot)) // Currently at a fishing spot
+            .Where(p => p.LastActive > DateTime.UtcNow.AddMinutes(-5)) // Active in the last 5 minutes
+            .ToList();
+
+        if (!playersInArea.Any())
+        {
+            // No other players fishing in this area, set up the spot for others to join
+            var availableSpots = currentArea.FishingSpots
+                .Where(s => s.Type != FishingSpotType.Water)
+                .Select(s => s.SpotId)
+                .ToList();
+                
+            if (!availableSpots.Any())
+            {
+                return await discordHelper.ErrorInteractionEphemeral(context.Interaction, "🚫 No suitable fishing spots in this area for multiplayer fishing.");
+            }
+
+            // Select a random spot if the player isn't already at one
+            var spotToUse = !string.IsNullOrEmpty(player.CurrentFishingSpot) && 
+                            availableSpots.Contains(player.CurrentFishingSpot) 
+                ? player.CurrentFishingSpot 
+                : availableSpots[new Random().Next(availableSpots.Count)];
+                
+            player.CurrentFishingSpot = spotToUse;
+            await playerRepository.UpdatePlayerAsync(player);
+
+            var embed = new Embed
+            {
+                Title = "🎣 Multiplayer Fishing",
+                Description = $"You've started a multiplayer fishing session at {spotToUse.Replace("_", " ").ToTitleCase()}!\n\n" +
+                              "Other players can join your session by using `/fishing fish-together`.\n\n" +
+                              "Fishing with friends increases your chances of catching rare fish!",
+                Colour = Color.Green,
+                Footer = new EmbedFooter("Use /fishing cast to start fishing at this spot"),
+                Timestamp = DateTimeOffset.UtcNow
+            };
+
+            return await feedbackService.SendContextualEmbedAsync(embed);
+        }
+        else
+        {
+            // Find an existing player to join
+            var playerToJoin = playersInArea[new Random().Next(playersInArea.Count)];
+            player.CurrentFishingSpot = playerToJoin.CurrentFishingSpot;
+            await playerRepository.UpdatePlayerAsync(player);
+
+            var embed = new Embed
+            {
+                Title = "🎣 Multiplayer Fishing",
+                Description = $"You've joined {playerToJoin.Username}'s fishing session at {player.CurrentFishingSpot.Replace("_", " ").ToTitleCase()}!\n\n" +
+                              "Fishing with friends increases your chances of catching rare fish!",
+                Colour = Color.Green,
+                Fields = new List<EmbedField>
+                {
+                    new EmbedField("Bonus", "• +10% catch rate\n• +15% chance for rare fish\n• Chance for bonus rewards", false)
+                },
+                Footer = new EmbedFooter("Use /fishing cast to start fishing at this spot"),
+                Timestamp = DateTimeOffset.UtcNow
+            };
+
+            return await feedbackService.SendContextualEmbedAsync(embed);
+        }
+    }
+    
+    [Command("leaderboard")]
+    [Description("View the fishing leaderboard for biggest catches")]
+    public async Task<IResult> ViewLeaderboardAsync(
+        [Description("Filter by specific fish type")] string fishType = "")
+    {
+        if (!(context.Interaction.Member.TryGet(out var member) && member.User.TryGet(out var user)))
+        {
+            return Result.FromError(new NotFoundError("Failed to get user"));
+        }
+
+        var allPlayers = await playerRepository.GetAllPlayersAsync();
+        
+        // Filter players with at least one fish caught
+        var fishingPlayers = allPlayers
+            .Where(p => p.BiggestCatch.Count > 0)
+            .ToList();
+            
+        if (fishingPlayers.Count == 0)
+        {
+            return await feedbackService.SendContextualContentAsync("📊 No fishing records found yet!", Color.Yellow);
+        }
+        
+        // If a specific fish type was provided, filter for that
+        if (!string.IsNullOrWhiteSpace(fishType))
+        {
+            // Find players who caught this specific fish
+            var matchingFish = fishingPlayers
+                .Where(p => p.BiggestCatch.Keys.Any(k => k.Contains(fishType, StringComparison.OrdinalIgnoreCase)))
+                .ToList();
+                
+            if (matchingFish.Count == 0)
+            {
+                return await feedbackService.SendContextualContentAsync($"📊 No records found for fish matching '{fishType}'", Color.Yellow);
+            }
+            
+            var specificFishType = matchingFish
+                .SelectMany(p => p.BiggestCatch.Keys)
+                .FirstOrDefault(k => k.Contains(fishType, StringComparison.OrdinalIgnoreCase)) ?? "";
+                
+            if (string.IsNullOrEmpty(specificFishType))
+            {
+                return await feedbackService.SendContextualContentAsync($"📊 No records found for fish matching '{fishType}'", Color.Yellow);
+            }
+            
+            // Get top 10 catches for this fish
+            var topCatches = fishingPlayers
+                .Where(p => p.BiggestCatch.ContainsKey(specificFishType))
+                .Select(p => new { Player = p, Weight = p.BiggestCatch[specificFishType] })
+                .OrderByDescending(x => x.Weight)
+                .Take(10)
+                .ToList();
+                
+            var formattedFishName = FormatFishName(specificFishType);
+            
+            var leaderboardText = string.Join("\n", topCatches.Select((x, i) => 
+                $"{i + 1}. **{x.Player.Username}**: {x.Weight}g"));
+                
+            var embed = new Embed
+            {
+                Title = $"🏆 Biggest {formattedFishName} Leaderboard",
+                Description = leaderboardText,
+                Colour = Color.Gold,
+                Footer = new EmbedFooter("Catch more fish to climb the leaderboard!"),
+                Timestamp = DateTimeOffset.UtcNow
+            };
+            
+            return await feedbackService.SendContextualEmbedAsync(embed);
+        }
+        else
+        {
+            // Find the overall biggest fish caught by each player
+            var biggestOverall = fishingPlayers
+                .Select(p => new { 
+                    Player = p, 
+                    FishType = p.BiggestCatch.OrderByDescending(x => x.Value).FirstOrDefault().Key,
+                    Weight = p.BiggestCatch.Values.Max() 
+                })
+                .OrderByDescending(x => x.Weight)
+                .Take(10)
+                .ToList();
+                
+            var leaderboardText = string.Join("\n", biggestOverall.Select((x, i) => 
+                $"{i + 1}. **{x.Player.Username}**: {FormatFishName(x.FishType)} ({x.Weight}g)"));
+                
+            var embed = new Embed
+            {
+                Title = $"🏆 Biggest Fish Leaderboard",
+                Description = leaderboardText,
+                Colour = Color.Gold,
+                Footer = new EmbedFooter("Use /fishing leaderboard <fish type> for specific fish rankings"),
+                Timestamp = DateTimeOffset.UtcNow
+            };
+            
+            return await feedbackService.SendContextualEmbedAsync(embed);
+        }
     }
 
     private async Task<PlayerProfile> GetOrCreatePlayerAsync(ulong userId, string username)

@@ -118,8 +118,30 @@ public class InventoryCommandGroup(IInteractionContext context,
         var fishText = string.Join("\n", fish.Select(f =>
         {
             var size = f.Properties.TryGetValue("size", out var propSize) ? $" ({propSize}cm)" : "";
+            var weight = f.Properties.TryGetValue("weight", out var propWeight) ? $", {propWeight}g" : "";
             var rarity = f.Properties.TryGetValue("rarity", out var propRarity) ? GetRarityEmoji(propRarity.ToString()) : "";
-            return $"{rarity} **{f.Name}** x{f.Quantity}{size}";
+            
+            // Add fish traits if any
+            string traitsText = "";
+            if (f.Properties.TryGetValue("traits", out var propTraits) && propTraits is int traitsValue)
+            {
+                var fishTraits = (FishTrait)traitsValue;
+                if (fishTraits != FishTrait.None)
+                {
+                    var traitsList = new List<string>();
+                    if ((fishTraits & FishTrait.Evasive) != 0) traitsList.Add("Evasive");
+                    if ((fishTraits & FishTrait.Slippery) != 0) traitsList.Add("Slippery");
+                    if ((fishTraits & FishTrait.Magnetic) != 0) traitsList.Add("Magnetic");
+                    if ((fishTraits & FishTrait.Camouflage) != 0) traitsList.Add("Camouflage");
+                    
+                    if (traitsList.Count > 0)
+                    {
+                        traitsText = $" | {string.Join(", ", traitsList)}";
+                    }
+                }
+            }
+            
+            return $"{rarity} **{f.Name}** x{f.Quantity}{size}{weight}{traitsText}";
         }));
 
         var totalFish = fish.Sum(f => f.Quantity);

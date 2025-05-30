@@ -8,6 +8,7 @@ public interface IPlayerRepository
     Task<PlayerProfile> CreatePlayerAsync(ulong userId, string username);
     Task UpdatePlayerAsync(PlayerProfile player);
     Task<bool> PlayerExistsAsync(ulong userId);
+    Task<List<PlayerProfile>> GetAllPlayersAsync();
 }
 
 public interface IInventoryRepository
