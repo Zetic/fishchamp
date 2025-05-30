@@ -12,6 +12,7 @@ using FishChamp.Data.Repositories;
 using FishChamp.Data.Models;
 using Remora.Discord.Commands.Extensions;
 using Remora.Discord.Commands.Feedback.Services;
+using System.Text.Json;
 
 namespace FishChamp.Modules;
 
@@ -123,9 +124,9 @@ public class InventoryCommandGroup(IInteractionContext context,
             
             // Add fish traits if any
             string traitsText = "";
-            if (f.Properties.TryGetValue("traits", out var propTraits) && propTraits is int traitsValue)
+            if (f.Properties.TryGetValue("traits", out var propTraits))
             {
-                var fishTraits = (FishTrait)traitsValue;
+                var fishTraits = (FishTrait)GetValueFromProperty<int>(propTraits);
                 if (fishTraits != FishTrait.None)
                 {
                     var traitsList = new List<string>();
@@ -146,6 +147,23 @@ public class InventoryCommandGroup(IInteractionContext context,
 
         var totalFish = fish.Sum(f => f.Quantity);
         var uniqueSpecies = fish.Count;
+
+        var embed = new Embed
+        {
+            Title = $"🐟 {player.Username}'s Fish Collection",
+            Description = fishText,
+            Colour = Color.Cyan,
+            Fields = new List<EmbedField>
+            {
+                new("Total Fish", totalFish.ToString(), true),
+                new("Unique Species", uniqueSpecies.ToString(), true)
+            },
+            Timestamp = DateTimeOffset.UtcNow
+        };
+
+        return await feedbackService.SendContextualEmbedAsync(embed);
+    }
+
     [Command("rods")]
     [Description("View your fishing rod collection")]
     public async Task<IResult> ViewRodsAsync()
@@ -233,22 +251,6 @@ public class InventoryCommandGroup(IInteractionContext context,
         return await feedbackService.SendContextualEmbedAsync(embed);
     }
 
-        var embed = new Embed
-        {
-            Title = $"🐟 {player.Username}'s Fish Collection",
-            Description = fishText,
-            Colour = Color.Cyan,
-            Fields = new List<EmbedField>
-            {
-                new("Total Fish", totalFish.ToString(), true),
-                new("Unique Species", uniqueSpecies.ToString(), true)
-            },
-            Timestamp = DateTimeOffset.UtcNow
-        };
-
-        return await feedbackService.SendContextualEmbedAsync(embed);
-    }
-
     private async Task<PlayerProfile> GetOrCreatePlayerAsync(ulong userId, string username)
     {
         var player = await playerRepository.GetPlayerAsync(userId);
@@ -283,5 +285,11 @@ public class InventoryCommandGroup(IInteractionContext context,
             "legendary" => "🟡",
             _ => "⚪"
         };
+    }
+
+    public static T GetValueFromProperty<T>(object obj)
+    {
+        if (obj is not JsonElement element) return default;
+        return JsonSerializer.Deserialize<T>(element);
     }
 }

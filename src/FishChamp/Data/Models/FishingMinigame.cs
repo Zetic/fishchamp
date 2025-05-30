@@ -23,7 +23,7 @@ public class FishingMinigame
     public static IReadOnlyList<IMessageComponent> CreateButtons(FishTrait traits)
     {
         // Create row of buttons for fishing interaction
-        var buttonStyle = ButtonStyle.Primary;
+        var buttonStyle = ButtonComponentStyle.Primary;
         var catchButton = new ButtonComponent(buttonStyle, "Catch!", new PartialEmoji(Name: "🎣"), "fishing_catch");
         
         return new List<IMessageComponent>

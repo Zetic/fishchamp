@@ -10,6 +10,7 @@ using FishChamp.Data.Repositories;
 using FishChamp.Data.Models;
 using Remora.Discord.Commands.Feedback.Services;
 using FishChamp.Helpers;
+using System.Text.Json;
 
 namespace FishChamp.Modules;
 
@@ -218,7 +219,7 @@ public class ShopCommandGroup(IInteractionContext context,
         
         // Calculate sale price based on fish rarity and size
         string rarity = fish.Properties.TryGetValue("rarity", out var propRarity) ? propRarity.ToString() : "common";
-        int fishSize = fish.Properties.TryGetValue("size", out var propSize) ? Convert.ToInt32(propSize) : 10;
+        int fishSize = fish.Properties.TryGetValue("size", out var propSize) ? GetValueFromProperty<int>(propSize) : 10;
         
         int basePrice = rarity switch
         {
@@ -264,5 +265,11 @@ public class ShopCommandGroup(IInteractionContext context,
             await inventoryRepository.CreateInventoryAsync(userId);
         }
         return player;
+    }
+
+    public static T GetValueFromProperty<T>(object obj)
+    {
+        if (obj is not JsonElement element) return default;
+        return JsonSerializer.Deserialize<T>(element);
     }
 }
