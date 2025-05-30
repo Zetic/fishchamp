@@ -1,5 +1,5 @@
 using FishChamp.Data.Models;
-using Newtonsoft.Json;
+using System.Text.Json;
 
 namespace FishChamp.Data.Repositories;
 
@@ -58,7 +58,7 @@ public class JsonAreaRepository : IAreaRepository
     public async Task<List<AreaState>> GetConnectedAreasAsync(string areaId)
     {
         var area = await GetAreaAsync(areaId);
-        if (area == null) return new List<AreaState>();
+        if (area == null) return [];
 
         var allAreas = await GetAllAreasAsync();
         return allAreas.Where(a => area.ConnectedAreas.Contains(a.AreaId)).ToList();
@@ -72,7 +72,7 @@ public class JsonAreaRepository : IAreaRepository
         }
 
         var json = await File.ReadAllTextAsync(_dataPath);
-        var areas = JsonConvert.DeserializeObject<List<AreaState>>(json) ?? new List<AreaState>();
+        var areas = JsonSerializer.Deserialize<List<AreaState>>(json) ?? [];
 
         if (areas.Count == 0)
         {
@@ -84,7 +84,7 @@ public class JsonAreaRepository : IAreaRepository
 
     private async Task SaveAreasAsync(List<AreaState> areas)
     {
-        var json = JsonConvert.SerializeObject(areas, Formatting.Indented);
+        var json = JsonSerializer.Serialize(areas, options: new JsonSerializerOptions() { WriteIndented = true });
         await File.WriteAllTextAsync(_dataPath, json);
     }
 
@@ -97,24 +97,24 @@ public class JsonAreaRepository : IAreaRepository
                 AreaId = "starter_lake",
                 Name = "Starter Lake",
                 Description = "A peaceful lake perfect for beginner anglers. The water is clear and teeming with common fish.",
-                FishingSpots = new List<FishingSpot>
-                {
+                FishingSpots =
+                [
                     new()
                     {
                         SpotId = "dock",
                         Name = "Wooden Dock",
                         Type = "water",
-                        AvailableFish = new List<string> { "common_carp", "bluegill", "bass" }
+                        AvailableFish = ["common_carp", "bluegill", "bass"]
                     },
                     new()
                     {
                         SpotId = "shore",
                         Name = "Rocky Shore",
                         Type = "land",
-                        AvailableFish = new List<string> { "minnow", "sunfish" }
+                        AvailableFish = ["minnow", "sunfish"]
                     }
-                },
-                ConnectedAreas = new List<string> { "mystic_lake" },
+                ],
+                ConnectedAreas = ["mystic_lake"],
                 IsUnlocked = true
             },
             new()
@@ -122,17 +122,17 @@ public class JsonAreaRepository : IAreaRepository
                 AreaId = "mystic_lake",
                 Name = "Mystic Lake",
                 Description = "A mysterious lake shrouded in mist. Rumors say rare fish dwell in its depths.",
-                FishingSpots = new List<FishingSpot>
-                {
+                FishingSpots =
+                [
                     new()
                     {
                         SpotId = "deep_waters",
                         Name = "Deep Waters",
                         Type = "water",
-                        AvailableFish = new List<string> { "rainbow_trout", "pike", "mysterious_eel" }
+                        AvailableFish = ["rainbow_trout", "pike", "mysterious_eel"]
                     }
-                },
-                ConnectedAreas = new List<string> { "starter_lake" },
+                ],
+                ConnectedAreas = ["starter_lake"],
                 IsUnlocked = false,
                 UnlockRequirement = "Catch 5 different fish species"
             }

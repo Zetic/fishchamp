@@ -1,5 +1,5 @@
 using FishChamp.Data.Models;
-using Newtonsoft.Json;
+using System.Text.Json;
 
 namespace FishChamp.Data.Repositories;
 
@@ -80,16 +80,16 @@ public class JsonPlayerRepository : IPlayerRepository
     {
         if (!File.Exists(_dataPath))
         {
-            return new List<PlayerProfile>();
+            return [];
         }
 
         var json = await File.ReadAllTextAsync(_dataPath);
-        return JsonConvert.DeserializeObject<List<PlayerProfile>>(json) ?? new List<PlayerProfile>();
+        return JsonSerializer.Deserialize<List<PlayerProfile>>(json) ?? [];
     }
 
     private async Task SavePlayersAsync(List<PlayerProfile> players)
     {
-        var json = JsonConvert.SerializeObject(players, Formatting.Indented);
+        var json = JsonSerializer.Serialize(players, options: new JsonSerializerOptions() { WriteIndented = true });
         await File.WriteAllTextAsync(_dataPath, json);
     }
 }

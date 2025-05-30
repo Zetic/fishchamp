@@ -4,26 +4,17 @@ using Remora.Discord.Gateway;
 
 namespace FishChamp.Services;
 
-public class BotService : BackgroundService
+public class BotService(DiscordGatewayClient gatewayClient, ILogger<BotService> logger) : BackgroundService
 {
-    private readonly DiscordGatewayClient _gatewayClient;
-    private readonly ILogger<BotService> _logger;
-
-    public BotService(DiscordGatewayClient gatewayClient, ILogger<BotService> logger)
-    {
-        _gatewayClient = gatewayClient;
-        _logger = logger;
-    }
-
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
     {
-        _logger.LogInformation("FishChamp Discord Bot starting up...");
+        logger.LogInformation("FishChamp Discord Bot starting up...");
         
-        var runResult = await _gatewayClient.RunAsync(stoppingToken);
+        var runResult = await gatewayClient.RunAsync(stoppingToken);
         
         if (!runResult.IsSuccess)
         {
-            _logger.LogError("Failed to start bot: {Error}", runResult.Error);
+            logger.LogError("Failed to start bot: {Error}", runResult.Error);
         }
     }
 }

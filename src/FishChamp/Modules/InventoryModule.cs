@@ -10,34 +10,33 @@ using Remora.Results;
 using Remora.Rest.Core;
 using FishChamp.Data.Repositories;
 using FishChamp.Data.Models;
+using Remora.Discord.Commands.Extensions;
 
 namespace FishChamp.Modules;
 
 [Group("inventory")]
 [Description("Inventory management commands")]
-public class InventoryModule : CommandGroup
+public class InventoryModule(IDiscordRestChannelAPI channelAPI, ICommandContext context,
+    IPlayerRepository playerRepository, IInventoryRepository inventoryRepository, IDiscordRestUserAPI userAPI) : CommandGroup
 {
-    private readonly IDiscordRestChannelAPI _channelAPI;
-    private readonly ICommandContext _context;
-    private readonly IPlayerRepository _playerRepository;
-    private readonly IInventoryRepository _inventoryRepository;
-
-    public InventoryModule(IDiscordRestChannelAPI channelAPI, ICommandContext context,
-        IPlayerRepository playerRepository, IInventoryRepository inventoryRepository)
-    {
-        _channelAPI = channelAPI;
-        _context = context;
-        _playerRepository = playerRepository;
-        _inventoryRepository = inventoryRepository;
-    }
-
     [Command("view")]
     [Description("View your inventory")]
     public async Task<IResult> ViewInventoryAsync()
     {
-        var userId = _context.User.ID.Value;
-        var player = await GetOrCreatePlayerAsync(userId, _context.User.Username);
-        var inventory = await _inventoryRepository.GetInventoryAsync(userId);
+        if (!context.TryGetUserID(out var userId))
+        {
+            return Result.FromError(new NotFoundError("Failed to get user id from context"));
+        }
+
+        var userResult = await userAPI.GetUserAsync(userId);
+
+        if (!userResult.IsSuccess)
+        {
+            return Result.FromError(new NotFoundError("Failed to get user"));
+        }
+
+        var player = await GetOrCreatePlayerAsync(userId.Value, userResult.Entity.Username);
+        var inventory = await inventoryRepository.GetInventoryAsync(userId.Value);
 
         if (inventory == null || inventory.Items.Count == 0)
         {
@@ -69,16 +68,27 @@ public class InventoryModule : CommandGroup
             Timestamp = DateTimeOffset.UtcNow
         };
 
-        return await RespondAsync(embeds: new[] { embed });
+        return await RespondAsync(embeds: [embed]);
     }
 
     [Command("fish")]
     [Description("View only your fish collection")]
     public async Task<IResult> ViewFishAsync()
     {
-        var userId = _context.User.ID.Value;
-        var player = await GetOrCreatePlayerAsync(userId, _context.User.Username);
-        var inventory = await _inventoryRepository.GetInventoryAsync(userId);
+        if (!context.TryGetUserID(out var userId))
+        {
+            return Result.FromError(new NotFoundError("Failed to get user id from context"));
+        }
+
+        var userResult = await userAPI.GetUserAsync(userId);
+
+        if (!userResult.IsSuccess)
+        {
+            return Result.FromError(new NotFoundError("Failed to get user"));
+        }
+
+        var player = await GetOrCreatePlayerAsync(userId.Value, userResult.Entity.Username);
+        var inventory = await inventoryRepository.GetInventoryAsync(userId.Value);
 
         if (inventory == null)
         {
@@ -93,8 +103,8 @@ public class InventoryModule : CommandGroup
 
         var fishText = string.Join("\n", fish.Select(f =>
         {
-            var size = f.Properties.ContainsKey("size") ? $" ({f.Properties["size"]}cm)" : "";
-            var rarity = f.Properties.ContainsKey("rarity") ? GetRarityEmoji(f.Properties["rarity"].ToString()) : "";
+            var size = f.Properties.TryGetValue("size", out var propSize) ? $" ({propSize}cm)" : "";
+            var rarity = f.Properties.TryGetValue("rarity", out var propRarity) ? GetRarityEmoji(propRarity.ToString()) : "";
             return $"{rarity} **{f.Name}** x{f.Quantity}{size}";
         }));
 
@@ -114,16 +124,16 @@ public class InventoryModule : CommandGroup
             Timestamp = DateTimeOffset.UtcNow
         };
 
-        return await RespondAsync(embeds: new[] { embed });
+        return await RespondAsync(embeds: [embed]);
     }
 
     private async Task<PlayerProfile> GetOrCreatePlayerAsync(ulong userId, string username)
     {
-        var player = await _playerRepository.GetPlayerAsync(userId);
+        var player = await playerRepository.GetPlayerAsync(userId);
         if (player == null)
         {
-            player = await _playerRepository.CreatePlayerAsync(userId, username);
-            await _inventoryRepository.CreateInventoryAsync(userId);
+            player = await playerRepository.CreatePlayerAsync(userId, username);
+            await inventoryRepository.CreateInventoryAsync(userId);
         }
         return player;
     }
@@ -156,7 +166,13 @@ public class InventoryModule : CommandGroup
     private async Task<IResult> RespondAsync(string content = "", IReadOnlyList<Embed>? embeds = null)
     {
         var embedsParam = embeds != null ? new Optional<IReadOnlyList<IEmbed>>(embeds.Cast<IEmbed>().ToList()) : default;
-        await _channelAPI.CreateMessageAsync(_context.ChannelID, content, embeds: embedsParam);
+
+        if (!context.TryGetChannelID(out var channelID))
+        {
+            return Result.FromError(new NotFoundError("Failed to get channel id from context"));
+        }
+
+        await channelAPI.CreateMessageAsync(channelID, content, embeds: embedsParam);
         return Result.FromSuccess();
     }
 }

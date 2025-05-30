@@ -1,5 +1,5 @@
 using FishChamp.Data.Models;
-using Newtonsoft.Json;
+using System.Text.Json;
 
 namespace FishChamp.Data.Repositories;
 
@@ -31,8 +31,8 @@ public class JsonInventoryRepository : IInventoryRepository
             var newInventory = new Inventory
             {
                 UserId = userId,
-                Items = new List<InventoryItem>
-                {
+                Items =
+                [
                     new()
                     {
                         ItemId = "basic_rod",
@@ -41,7 +41,7 @@ public class JsonInventoryRepository : IInventoryRepository
                         Quantity = 1,
                         Properties = new() { ["durability"] = 100, ["power"] = 1 }
                     }
-                },
+                ],
                 LastUpdated = DateTime.UtcNow
             };
 
@@ -78,11 +78,7 @@ public class JsonInventoryRepository : IInventoryRepository
 
     public async Task AddItemAsync(ulong userId, InventoryItem item)
     {
-        var inventory = await GetInventoryAsync(userId);
-        if (inventory == null)
-        {
-            inventory = await CreateInventoryAsync(userId);
-        }
+        var inventory = await GetInventoryAsync(userId) ?? await CreateInventoryAsync(userId);
 
         var existingItem = inventory.Items.FirstOrDefault(i => i.ItemId == item.ItemId);
         if (existingItem != null)
@@ -118,16 +114,16 @@ public class JsonInventoryRepository : IInventoryRepository
     {
         if (!File.Exists(_dataPath))
         {
-            return new List<Inventory>();
+            return [];
         }
 
         var json = await File.ReadAllTextAsync(_dataPath);
-        return JsonConvert.DeserializeObject<List<Inventory>>(json) ?? new List<Inventory>();
+        return JsonSerializer.Deserialize<List<Inventory>>(json) ?? [];
     }
 
     private async Task SaveInventoriesAsync(List<Inventory> inventories)
     {
-        var json = JsonConvert.SerializeObject(inventories, Formatting.Indented);
+        var json = JsonSerializer.Serialize(inventories, options: new JsonSerializerOptions() { WriteIndented = true });
         await File.WriteAllTextAsync(_dataPath, json);
     }
 }

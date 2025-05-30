@@ -10,38 +10,35 @@ using Remora.Results;
 using Remora.Rest.Core;
 using FishChamp.Data.Repositories;
 using FishChamp.Data.Models;
+using Remora.Discord.Commands.Extensions;
 
 namespace FishChamp.Modules;
 
 [Group("fishing")]
 [Description("Fishing-related commands")]
-public class FishingModule : CommandGroup
+public class FishingModule(IDiscordRestChannelAPI channelAPI, ICommandContext context,
+    IPlayerRepository playerRepository, IInventoryRepository inventoryRepository,
+    IAreaRepository areaRepository, IDiscordRestUserAPI userAPI) : CommandGroup
 {
-    private readonly IDiscordRestChannelAPI _channelAPI;
-    private readonly ICommandContext _context;
-    private readonly IPlayerRepository _playerRepository;
-    private readonly IInventoryRepository _inventoryRepository;
-    private readonly IAreaRepository _areaRepository;
-
-    public FishingModule(IDiscordRestChannelAPI channelAPI, ICommandContext context,
-        IPlayerRepository playerRepository, IInventoryRepository inventoryRepository,
-        IAreaRepository areaRepository)
-    {
-        _channelAPI = channelAPI;
-        _context = context;
-        _playerRepository = playerRepository;
-        _inventoryRepository = inventoryRepository;
-        _areaRepository = areaRepository;
-    }
-
     [Command("cast")]
     [Description("Cast your fishing line")]
     public async Task<IResult> CastLineAsync()
     {
-        var userId = _context.User.ID.Value;
-        var player = await GetOrCreatePlayerAsync(userId, _context.User.Username);
+        if (!context.TryGetUserID(out var userId))
+        {
+            return Result.FromError(new NotFoundError("Failed to get user id from context"));
+        }
+
+        var userResult = await userAPI.GetUserAsync(userId);
+
+        if (!userResult.IsSuccess)
+        {
+            return Result.FromError(new NotFoundError("Failed to get user"));
+        }
+
+        var player = await GetOrCreatePlayerAsync(userId.Value, userResult.Entity.Username);
         
-        var currentArea = await _areaRepository.GetAreaAsync(player.CurrentArea);
+        var currentArea = await areaRepository.GetAreaAsync(player.CurrentArea);
         if (currentArea == null)
         {
             return await RespondAsync("🚫 Current area not found! Try using `/map` to navigate.");
@@ -76,11 +73,11 @@ public class FishingModule : CommandGroup
                 Properties = new() { ["size"] = random.Next(10, 50), ["rarity"] = "common" }
             };
 
-            await _inventoryRepository.AddItemAsync(userId, fishItem);
+            await inventoryRepository.AddItemAsync(userId.Value, fishItem);
             
             player.Experience += 10;
             player.LastActive = DateTime.UtcNow;
-            await _playerRepository.UpdatePlayerAsync(player);
+            await playerRepository.UpdatePlayerAsync(player);
 
             return await RespondAsync($"🎣 **Success!** You caught a {fishItem.Name}! " +
                                     $"Size: {fishItem.Properties["size"]}cm (+10 XP)");
@@ -95,9 +92,20 @@ public class FishingModule : CommandGroup
     [Description("View your fishing profile")]
     public async Task<IResult> ViewProfileAsync()
     {
-        var userId = _context.User.ID.Value;
-        var player = await GetOrCreatePlayerAsync(userId, _context.User.Username);
-        var inventory = await _inventoryRepository.GetInventoryAsync(userId);
+        if (!context.TryGetUserID(out var userId))
+        {
+            return Result.FromError(new NotFoundError("Failed to get user id from context"));
+        }
+
+        var userResult = await userAPI.GetUserAsync(userId);
+
+        if (!userResult.IsSuccess)
+        {
+            return Result.FromError(new NotFoundError("Failed to get user"));
+        }
+
+        var player = await GetOrCreatePlayerAsync(userId.Value, userResult.Entity.Username);
+        var inventory = await inventoryRepository.GetInventoryAsync(userId.Value);
 
         var fishCount = inventory?.Items.Count(i => i.ItemType == "Fish") ?? 0;
         var totalFish = inventory?.Items.Where(i => i.ItemType == "Fish").Sum(i => i.Quantity) ?? 0;
@@ -119,16 +127,16 @@ public class FishingModule : CommandGroup
             Timestamp = DateTimeOffset.UtcNow
         };
 
-        return await RespondAsync(embeds: new[] { embed });
+        return await RespondAsync(embeds: [embed]);
     }
 
     private async Task<PlayerProfile> GetOrCreatePlayerAsync(ulong userId, string username)
     {
-        var player = await _playerRepository.GetPlayerAsync(userId);
+        var player = await playerRepository.GetPlayerAsync(userId);
         if (player == null)
         {
-            player = await _playerRepository.CreatePlayerAsync(userId, username);
-            await _inventoryRepository.CreateInventoryAsync(userId);
+            player = await playerRepository.CreatePlayerAsync(userId, username);
+            await inventoryRepository.CreateInventoryAsync(userId);
         }
         return player;
     }
@@ -141,7 +149,13 @@ public class FishingModule : CommandGroup
     private async Task<IResult> RespondAsync(string content = "", IReadOnlyList<Embed>? embeds = null)
     {
         var embedsParam = embeds != null ? new Optional<IReadOnlyList<IEmbed>>(embeds.Cast<IEmbed>().ToList()) : default;
-        await _channelAPI.CreateMessageAsync(_context.ChannelID, content, embeds: embedsParam);
+
+        if (!context.TryGetChannelID(out var channelID))
+        {
+            return Result.FromError(new NotFoundError("Failed to get channel id from context"));
+        }
+
+        await channelAPI.CreateMessageAsync(channelID, content, embeds: embedsParam);
         return Result.FromSuccess();
     }
 }
