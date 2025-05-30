@@ -10,4 +10,6 @@ public class PlayerProfile
     public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
     public int Level { get; set; } = 1;
     public int Experience { get; set; } = 0;
+    public string EquippedRod { get; set; } = "basic_rod";
+    public string EquippedBait { get; set; } = string.Empty;
 }
