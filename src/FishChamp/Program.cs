@@ -55,9 +55,11 @@ public class Program
                 // Discord Bot
                 services.AddDiscordCommands(true)
                     .AddResponder<SlashCommandConfigurator>()
+                    .AddResponder<FishingInteractionResponder>()
                     .AddAutocompleteProvider<AreaFishSpotAutocompleteProvider>()
                     .AddCommandTree()
                         .WithCommandGroup<FishingCommandGroup>()
+                        .WithCommandGroup<FishCommandGroup>()
                         .WithCommandGroup<MapCommandGroup>()
                         .WithCommandGroup<InventoryCommandGroup>()
                             .Finish();

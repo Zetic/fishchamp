@@ -121,11 +121,57 @@ public class MapCommandGroup(IInteractionContext context,
         }
 
         player.CurrentArea = targetArea.AreaId;
+        player.CurrentFishingSpot = string.Empty; // Clear fishing spot when traveling
         player.LastActive = DateTime.UtcNow;
         await playerRepository.UpdatePlayerAsync(player);
 
         return await feedbackService.SendContextualContentAsync($"🚶‍♂️ You have traveled to **{targetArea.Name}**!\n\n" +
                                 $"*{targetArea.Description}*", Color.Green);
+    }
+
+    [Command("goto")]
+    [Description("Go to a specific fishing spot in your current area")]
+    public async Task<IResult> GoToFishingSpotAsync([Description("Fishing spot to go to")] string fishingSpotName)
+    {
+        if (!(context.Interaction.Member.TryGet(out var member) && member.User.TryGet(out var user)))
+        {
+            return Result.FromError(new NotFoundError("Failed to get user"));
+        }
+
+        var player = await GetOrCreatePlayerAsync(user.ID.Value, user.Username);
+        var currentArea = await areaRepository.GetAreaAsync(player.CurrentArea);
+
+        if (currentArea == null)
+        {
+            return await feedbackService.SendContextualContentAsync("🚫 Current area not found!", Color.Red);
+        }
+
+        if (currentArea.FishingSpots.Count == 0)
+        {
+            return await feedbackService.SendContextualContentAsync("🎣 No fishing spots available in this area!", Color.Red);
+        }
+
+        // Find the fishing spot by name or ID
+        var fishingSpot = currentArea.FishingSpots.FirstOrDefault(f => 
+            f.SpotId.Equals(fishingSpotName, StringComparison.OrdinalIgnoreCase) ||
+            f.Name.Equals(fishingSpotName, StringComparison.OrdinalIgnoreCase));
+
+        if (fishingSpot == null)
+        {
+            var availableSpots = string.Join(", ", currentArea.FishingSpots.Select(s => s.Name));
+            return await feedbackService.SendContextualContentAsync(
+                $"🚫 Fishing spot '{fishingSpotName}' not found!\n\nAvailable spots: {availableSpots}", Color.Red);
+        }
+
+        // Update player's current fishing spot
+        player.CurrentFishingSpot = fishingSpot.SpotId;
+        player.LastActive = DateTime.UtcNow;
+        await playerRepository.UpdatePlayerAsync(player);
+
+        return await feedbackService.SendContextualContentAsync(
+            $"🎣 You are now at **{fishingSpot.Name}**!\n\n" +
+            $"*{fishingSpot.Type} fishing spot with {fishingSpot.AvailableFish.Count} fish species available.*\n\n" +
+            $"Use `/fish` to start fishing!", Color.Green);
     }
 
     [Command("areas")]
