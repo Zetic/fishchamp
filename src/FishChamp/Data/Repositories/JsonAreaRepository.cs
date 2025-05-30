@@ -121,6 +121,54 @@ public class JsonAreaRepository : IAreaRepository
                         AvailableFish = ["minnow", "sunfish"]
                     }
                 ],
+                FarmSpots =
+                [
+                    new()
+                    {
+                        SpotId = "lakeside_garden",
+                        Name = "Lakeside Garden",
+                        AvailableCrops = ["worms", "corn", "wheat"],
+                        CanDigForWorms = true
+                    }
+                ],
+                Shops = new Dictionary<string, ShopInventory>
+                {
+                    ["tackle_shop"] = new()
+                    {
+                        ShopId = "tackle_shop",
+                        Name = "Bob's Tackle Shop",
+                        Items = 
+                        [
+                            new()
+                            {
+                                ItemId = "basic_rod",
+                                Name = "Basic Fishing Rod",
+                                ItemType = "Rod",
+                                Price = 50,
+                                Description = "A simple fishing rod for beginners.",
+                                Properties = new() { ["power"] = 1, ["durability"] = 100 }
+                            },
+                            new()
+                            {
+                                ItemId = "worm_bait",
+                                Name = "Worm Bait",
+                                ItemType = "Bait",
+                                Price = 5,
+                                Description = "Common bait that attracts most fish.",
+                                Properties = new() { ["attraction"] = 1.1 }
+                            },
+                            new()
+                            {
+                                ItemId = "spinner_lure",
+                                Name = "Spinner Lure",
+                                ItemType = "Bait",
+                                Price = 15,
+                                Description = "Attracts predatory fish like bass.",
+                                Properties = new() { ["attraction"] = 1.2 }
+                            }
+                        ]
+                    }
+                },
                 ConnectedAreas = ["mystic_lake"],
                 IsUnlocked = true
             },
@@ -137,8 +185,54 @@ public class JsonAreaRepository : IAreaRepository
                         Name = "Deep Waters",
                         Type = FishingSpotType.Water,
                         AvailableFish = ["rainbow_trout", "pike", "mysterious_eel"]
+                    },
+                    new()
+                    {
+                        SpotId = "misty_shore",
+                        Name = "Misty Shore",
+                        Type = FishingSpotType.Land,
+                        AvailableFish = ["ghost_carp", "silver_perch", "moonfish"]
                     }
                 ],
+                FarmSpots =
+                [
+                    new()
+                    {
+                        SpotId = "enchanted_soil",
+                        Name = "Enchanted Soil Patch",
+                        AvailableCrops = ["glowing_corn", "magic_beans", "starfruit"],
+                        CanDigForWorms = true
+                    }
+                ],
+                Shops = new Dictionary<string, ShopInventory>
+                {
+                    ["mystic_tackle"] = new()
+                    {
+                        ShopId = "mystic_tackle",
+                        Name = "Mystic Fishing Supplies",
+                        Items = 
+                        [
+                            new()
+                            {
+                                ItemId = "enchanted_rod",
+                                Name = "Enchanted Fishing Rod",
+                                ItemType = "Rod",
+                                Price = 500,
+                                Description = "A rod imbued with mysterious powers.",
+                                Properties = new() { ["power"] = 3, ["durability"] = 200 }
+                            },
+                            new()
+                            {
+                                ItemId = "glowing_lure",
+                                Name = "Glowing Lure",
+                                ItemType = "Bait",
+                                Price = 50,
+                                Description = "Attracts rare fish from the depths.",
+                                Properties = new() { ["attraction"] = 1.5 }
+                            }
+                        ]
+                    }
+                },
                 ConnectedAreas = ["starter_lake"],
                 IsUnlocked = false,
                 UnlockRequirement = "Catch 5 different fish species"

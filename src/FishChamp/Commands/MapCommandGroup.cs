@@ -40,6 +40,13 @@ public class MapCommandGroup(IInteractionContext context,
 
         var spotsText = string.Join("\n", currentArea.FishingSpots.Select(spot => 
             $"• **{spot.Name}** ({spot.Type}) - {spot.AvailableFish.Count} fish species"));
+            
+        var farmSpotsText = "None";
+        if (currentArea.FarmSpots.Count > 0)
+        {
+            farmSpotsText = string.Join("\n", currentArea.FarmSpots.Select(spot =>
+                $"• **{spot.Name}** - {spot.AvailableCrops.Count} crops" + (spot.CanDigForWorms ? " (Can dig for worms)" : "")));
+        }
 
         var connectedAreasText = "None";
         if (currentArea.ConnectedAreas.Count > 0)
@@ -49,6 +56,13 @@ public class MapCommandGroup(IInteractionContext context,
                 connectedAreas.Where(a => currentArea.ConnectedAreas.Contains(a.AreaId))
                              .Select(a => a.Name));
         }
+        
+        var shopsText = "None";
+        if (currentArea.Shops?.Count > 0)
+        {
+            shopsText = string.Join("\n", currentArea.Shops.Values.Select(shop =>
+                $"• **{shop.Name}** - {shop.Items.Count(i => i.InStock)} items"));
+        }
 
         var embed = new Embed
         {
@@ -57,9 +71,12 @@ public class MapCommandGroup(IInteractionContext context,
             Colour = Color.Green,
             Fields = new List<EmbedField>
             {
-                new("Fishing Spots", spotsText.Length > 0 ? spotsText : "None", false),
-                new("Connected Areas", connectedAreasText, false)
+                new("🎣 Fishing Spots", spotsText.Length > 0 ? spotsText : "None", false),
+                new("🌱 Farm Spots", farmSpotsText, false),
+                new("🏪 Shops", shopsText, false),
+                new("🧭 Connected Areas", connectedAreasText, false)
             },
+            Footer = new EmbedFooter("Use /map travel <area> to move between areas"),
             Timestamp = DateTimeOffset.UtcNow
         };
 

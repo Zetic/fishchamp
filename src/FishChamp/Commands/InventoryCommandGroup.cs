@@ -45,13 +45,39 @@ public class InventoryCommandGroup(IInteractionContext context,
         {
             var itemsText = string.Join("\n", group.Select(item =>
             {
-                var properties = item.Properties.Count > 0 
-                    ? $" ({string.Join(", ", item.Properties.Select(p => $"{p.Key}: {p.Value}"))})"
-                    : "";
-                return $"• {item.Name} x{item.Quantity}{properties}";
+                string additionalInfo = "";
+                
+                if (item.ItemType == "Fish")
+                {
+                    var size = item.Properties.TryGetValue("size", out var propSize) ? $"{propSize}cm" : "";
+                    var rarity = item.Properties.TryGetValue("rarity", out var propRarity) ? GetRarityEmoji(propRarity.ToString()) : "";
+                    additionalInfo = $" {rarity} {size}";
+                }
+                else if (item.ItemType == "Rod")
+                {
+                    var power = item.Properties.TryGetValue("power", out var propPower) ? $"Power: {propPower}" : "";
+                    var durability = item.Properties.TryGetValue("durability", out var propDur) ? $"Durability: {propDur}" : "";
+                    additionalInfo = $" ({power}, {durability})";
+                    
+                    // Mark equipped rod
+                    if (item.ItemId == player.EquippedRod)
+                    {
+                        additionalInfo += " [EQUIPPED]";
+                    }
+                }
+                else if (item.ItemType == "Bait")
+                {
+                    // Mark equipped bait
+                    if (item.ItemId == player.EquippedBait)
+                    {
+                        additionalInfo = " [EQUIPPED]";
+                    }
+                }
+                
+                return $"• **{item.Name}** x{item.Quantity}{additionalInfo}";
             }));
 
-            fields.Add(new EmbedField($"{GetItemTypeEmoji(group.Key)} {group.Key}", itemsText, false));
+            fields.Add(new EmbedField($"{GetItemTypeEmoji(group.Key)} {group.Key}s ({group.Sum(i => i.Quantity)})", itemsText, false));
         }
 
         var embed = new Embed
@@ -59,7 +85,7 @@ public class InventoryCommandGroup(IInteractionContext context,
             Title = $"🎒 {player.Username}'s Inventory",
             Colour = Color.Orange,
             Fields = fields,
-            Footer = new EmbedFooter($"Last updated: {inventory.LastUpdated:yyyy-MM-dd HH:mm} UTC"),
+            Footer = new EmbedFooter($"Use /inventory fish, /inventory rods, or /inventory baits for more details\nLast updated: {inventory.LastUpdated:yyyy-MM-dd HH:mm} UTC"),
             Timestamp = DateTimeOffset.UtcNow
         };
 
@@ -98,6 +124,92 @@ public class InventoryCommandGroup(IInteractionContext context,
 
         var totalFish = fish.Sum(f => f.Quantity);
         var uniqueSpecies = fish.Count;
+    [Command("rods")]
+    [Description("View your fishing rod collection")]
+    public async Task<IResult> ViewRodsAsync()
+    {
+        if (!(context.Interaction.Member.TryGet(out var member) && member.User.TryGet(out var user)))
+        {
+            return Result.FromError(new NotFoundError("Failed to get user"));
+        }
+
+        var player = await GetOrCreatePlayerAsync(user.ID.Value, user.Username);
+        var inventory = await inventoryRepository.GetInventoryAsync(user.ID.Value);
+
+        if (inventory == null)
+        {
+            return await feedbackService.SendContextualContentAsync("🎣 You don't have any fishing rods yet! Visit a shop to buy one.", Color.Yellow);
+        }
+
+        var rods = inventory.Items.Where(i => i.ItemType == "Rod").ToList();
+        if (rods.Count == 0)
+        {
+            return await feedbackService.SendContextualContentAsync("🎣 You don't have any fishing rods yet! Visit a shop to buy one.", Color.Red);
+        }
+
+        var rodsText = string.Join("\n", rods.Select(r =>
+        {
+            var power = r.Properties.TryGetValue("power", out var propPower) ? $"Power: {propPower}" : "";
+            var durability = r.Properties.TryGetValue("durability", out var propDur) ? $"Durability: {propDur}" : "";
+            var equipped = r.ItemId == player.EquippedRod ? " **[EQUIPPED]**" : "";
+            
+            return $"• **{r.Name}** ({power}, {durability}){equipped}";
+        }));
+
+        var embed = new Embed
+        {
+            Title = $"🎣 {player.Username}'s Fishing Rods",
+            Description = rodsText,
+            Colour = Color.Brown,
+            Footer = new EmbedFooter("Use /fishing equip-rod <rod name> to equip a rod"),
+            Timestamp = DateTimeOffset.UtcNow
+        };
+
+        return await feedbackService.SendContextualEmbedAsync(embed);
+    }
+
+    [Command("baits")]
+    [Description("View your bait collection")]
+    public async Task<IResult> ViewBaitsAsync()
+    {
+        if (!(context.Interaction.Member.TryGet(out var member) && member.User.TryGet(out var user)))
+        {
+            return Result.FromError(new NotFoundError("Failed to get user"));
+        }
+
+        var player = await GetOrCreatePlayerAsync(user.ID.Value, user.Username);
+        var inventory = await inventoryRepository.GetInventoryAsync(user.ID.Value);
+
+        if (inventory == null)
+        {
+            return await feedbackService.SendContextualContentAsync("🪱 You don't have any bait yet! Visit a shop to buy some.", Color.Yellow);
+        }
+
+        var baits = inventory.Items.Where(i => i.ItemType == "Bait").ToList();
+        if (baits.Count == 0)
+        {
+            return await feedbackService.SendContextualContentAsync("🪱 You don't have any bait yet! Visit a shop to buy some.", Color.Red);
+        }
+
+        var baitsText = string.Join("\n", baits.Select(b =>
+        {
+            var attraction = b.Properties.TryGetValue("attraction", out var propAttr) ? $"Attraction: {propAttr}x" : "";
+            var equipped = b.ItemId == player.EquippedBait ? " **[EQUIPPED]**" : "";
+            
+            return $"• **{b.Name}** x{b.Quantity} ({attraction}){equipped}";
+        }));
+
+        var embed = new Embed
+        {
+            Title = $"🪱 {player.Username}'s Bait Collection",
+            Description = baitsText,
+            Colour = Color.SandyBrown,
+            Footer = new EmbedFooter("Use /fishing equip-bait <bait name> to equip bait"),
+            Timestamp = DateTimeOffset.UtcNow
+        };
+
+        return await feedbackService.SendContextualEmbedAsync(embed);
+    }
 
         var embed = new Embed
         {
