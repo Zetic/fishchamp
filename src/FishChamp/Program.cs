@@ -4,12 +4,14 @@ using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
 using Remora.Commands.Extensions;
 using FishChamp.Configuration;
-using FishChamp.Services;
 using FishChamp.Modules;
 using FishChamp.Data.Repositories;
 using Remora.Discord.Hosting.Extensions;
 using Remora.Discord.Commands.Extensions;
 using Remora.Discord.Commands.Services;
+using FishChamp.Providers;
+using Remora.Discord.Gateway.Extensions;
+using FishChamp.Responders;
 
 namespace FishChamp;
 
@@ -35,6 +37,12 @@ public class Program
             .AddDiscordService((context) =>
             {
                 var token = configuration["Discord:Token"];
+
+                if (string.IsNullOrEmpty(token))
+                {
+                    throw new Exception("Discord token is not configured. Please set the 'Discord:Token' in appsettings.json or environment variables.");
+                }
+
                 return token;
             })
             .ConfigureServices((context, services) =>
@@ -44,18 +52,19 @@ public class Program
                 services.Configure<DatabaseConfiguration>(context.Configuration.GetSection("Database"));
 
                 // Discord Bot
-                services.AddDiscordCommands(true);
-                services.AddCommandTree()
-                    .WithCommandGroup<FishingModule>()
-                    .WithCommandGroup<MapModule>()
-                    .WithCommandGroup<InventoryModule>()
-                    .Finish();
+                services.AddDiscordCommands(true)
+                    .AddResponder<SlashCommandConfigurator>()
+                    .AddAutocompleteProvider<AreaFishSpotAutocompleteProvider>()
+                    .AddCommandTree()
+                        .WithCommandGroup<FishingModule>()
+                        .WithCommandGroup<MapModule>()
+                        .WithCommandGroup<InventoryModule>()
+                            .Finish();
 
                 // Repositories and Services
                 services.AddSingleton<IPlayerRepository, JsonPlayerRepository>();
                 services.AddSingleton<IInventoryRepository, JsonInventoryRepository>();
                 services.AddSingleton<IAreaRepository, JsonAreaRepository>();
-                services.AddSingleton<BotService>();
 
                 // Ensure data directory exists
                 var dataDir = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "data");
