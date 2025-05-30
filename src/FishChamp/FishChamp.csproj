@@ -9,8 +9,6 @@
 
   <ItemGroup>
     <PackageReference Include="Remora.Discord" Version="2025.2.0" />
-    <PackageReference Include="Remora.Discord.Gateway" Version="13.0.1" />
-    <PackageReference Include="Remora.Commands" Version="11.0.2" />
     <PackageReference Include="Microsoft.Extensions.Hosting" Version="9.0.5" />
     <PackageReference Include="Microsoft.Extensions.Configuration" Version="9.0.5" />
     <PackageReference Include="Microsoft.Extensions.Configuration.Json" Version="9.0.5" />
@@ -21,6 +19,11 @@
     <None Update="appsettings.json">
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
     </None>
+  </ItemGroup>
+
+  <ItemGroup>
+    <Folder Include="Responders\" />
+    <Folder Include="Services\" />
   </ItemGroup>
 
 </Project>
