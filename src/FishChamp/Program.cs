@@ -13,6 +13,8 @@ using FishChamp.Providers;
 using Remora.Discord.Gateway.Extensions;
 using FishChamp.Responders;
 using FishChamp.Helpers;
+using Remora.Discord.Interactivity.Extensions;
+using FishChamp.Interactions;
 
 namespace FishChamp;
 
@@ -55,14 +57,17 @@ public class Program
                 // Discord Bot
                 services.AddDiscordCommands(true)
                     .AddResponder<SlashCommandConfigurator>()
-                    .AddResponder<FishingInteractionResponder>()
                     .AddAutocompleteProvider<AreaFishSpotAutocompleteProvider>()
+
                     .AddCommandTree()
                         .WithCommandGroup<FishingCommandGroup>()
                         .WithCommandGroup<FishCommandGroup>()
                         .WithCommandGroup<MapCommandGroup>()
                         .WithCommandGroup<InventoryCommandGroup>()
-                            .Finish();
+                            .Finish()
+
+                    .AddInteractivity()
+                    .AddInteractionGroup<FishingInteractionGroup>();
 
                 // Repositories and Services
                 services.AddSingleton<DiscordHelper>();

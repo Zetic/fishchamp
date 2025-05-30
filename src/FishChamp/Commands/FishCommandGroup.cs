@@ -10,16 +10,18 @@ using Remora.Results;
 using Remora.Rest.Core;
 using FishChamp.Data.Repositories;
 using FishChamp.Data.Models;
-using Remora.Discord.Commands.Extensions;
 using Remora.Discord.Commands.Feedback.Services;
 using FishChamp.Helpers;
-using System.Text.Json;
+using Microsoft.Extensions.Logging;
+using Remora.Discord.Interactivity;
+using FishChamp.Interactions;
 
 namespace FishChamp.Modules;
 
 [Description("Quick fishing command")]
-public class FishCommandGroup(IInteractionCommandContext context, IDiscordRestChannelAPI channelAPI,
-    IPlayerRepository playerRepository, IInventoryRepository inventoryRepository,
+public class FishCommandGroup(
+    IInteractionCommandContext context, IDiscordRestChannelAPI channelAPI,
+    IPlayerRepository playerRepository, IInventoryRepository inventoryRepository, IDiscordRestInteractionAPI interactionAPI,
     IAreaRepository areaRepository, DiscordHelper discordHelper, FeedbackService feedbackService) : CommandGroup
 {
     [Command("fish")]
@@ -77,13 +79,17 @@ public class FishCommandGroup(IInteractionCommandContext context, IDiscordRestCh
         };
 
         // Create the Cast Line button
-        var castButton = new ButtonComponent(ButtonComponentStyle.Primary, "Cast Line", new PartialEmoji(Name: "🎣"), "fish_cast_line");
+        var castButton = new ButtonComponent(ButtonComponentStyle.Primary, "Cast Line", new PartialEmoji(Name: "🎣"), 
+            CustomIDHelpers.CreateButtonID(FishingInteractionGroup.CastLine));
         var components = new List<IMessageComponent>
         {
-            new ActionRowComponent(new[] { (IMessageComponent)castButton })
+            new ActionRowComponent([castButton])
         };
 
-        return await feedbackService.SendContextualEmbedAsync(embed, components);
+        return await interactionAPI.CreateFollowupMessageAsync(context.Interaction.ApplicationID,
+            context.Interaction.Token, 
+            embeds: new Optional<IReadOnlyList<IEmbed>>([embed]), 
+            components: components);
     }
 
     private async Task<PlayerProfile> GetOrCreatePlayerAsync(ulong userId, string username)
