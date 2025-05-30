@@ -17,8 +17,8 @@ namespace FishChamp.Modules;
 
 [Group("inventory")]
 [Description("Inventory management commands")]
-public class InventoryModule(IDiscordRestChannelAPI channelAPI, IInteractionContext context,
-    IPlayerRepository playerRepository, IInventoryRepository inventoryRepository, IDiscordRestUserAPI userAPI, 
+public class InventoryModule(IInteractionContext context,
+    IPlayerRepository playerRepository, IInventoryRepository inventoryRepository, 
     FeedbackService feedbackService) : CommandGroup
 {
     [Command("view")]

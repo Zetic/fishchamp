@@ -18,7 +18,7 @@ namespace FishChamp.Modules;
 
 [Group("map")]
 [Description("Map and navigation commands")]
-public class MapModule(IDiscordRestChannelAPI channelAPI, IDiscordRestUserAPI userAPI, IInteractionContext context,
+public class MapModule(IInteractionContext context,
     IPlayerRepository playerRepository, IAreaRepository areaRepository, FeedbackService feedbackService) : CommandGroup
 {
     [Command("current")]

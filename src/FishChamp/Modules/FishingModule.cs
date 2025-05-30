@@ -20,9 +20,9 @@ namespace FishChamp.Modules;
 
 [Group("fishing")]
 [Description("Fishing-related commands")]
-public class FishingModule(IDiscordRestChannelAPI channelAPI, IInteractionCommandContext context,
+public class FishingModule(IInteractionCommandContext context,
     IPlayerRepository playerRepository, IInventoryRepository inventoryRepository,
-    IAreaRepository areaRepository, IDiscordRestUserAPI userAPI, FeedbackService feedbackService) : CommandGroup
+    IAreaRepository areaRepository, FeedbackService feedbackService) : CommandGroup
 {
     [Command("cast")]
     [Description("Cast your fishing line")]
