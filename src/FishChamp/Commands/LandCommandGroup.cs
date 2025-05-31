@@ -17,7 +17,8 @@ namespace FishChamp.Modules;
 [Description("Land ownership and housing commands")]
 public class LandCommandGroup(IInteractionContext context,
     IPlayerRepository playerRepository, IAreaRepository areaRepository, 
-    IPlotRepository plotRepository, IHouseRepository houseRepository, FeedbackService feedbackService) : CommandGroup
+    IPlotRepository plotRepository, IHouseRepository houseRepository, 
+    IInventoryRepository inventoryRepository, FeedbackService feedbackService) : CommandGroup
 {
     [Command("browse")]
     [Description("Browse available land plots in your current area")]
@@ -294,8 +295,337 @@ public class LandCommandGroup(IInteractionContext context,
         return await feedbackService.SendContextualEmbedAsync(embed);
     }
 
+    [Command("decorate")]
+    [Description("Add furniture to your house room")]
+    public async Task<IResult> DecoratePHouseAsync(
+        [Description("Plot name with the house")] string plotName,
+        [Description("Room name")] string roomName,
+        [Description("Furniture item name from inventory")] string itemName)
+    {
+        if (!(context.Interaction.Member.TryGet(out var member) && member.User.TryGet(out var user)))
+        {
+            return Result.FromError(new NotFoundError("Failed to get user"));
+        }
+
+        var ownedPlots = await plotRepository.GetUserPlotsAsync(user.ID.Value);
+        var plot = ownedPlots.FirstOrDefault(p => 
+            p.Name.Equals(plotName, StringComparison.OrdinalIgnoreCase));
+
+        if (plot == null || plot.HouseId == null)
+        {
+            return await feedbackService.SendContextualContentAsync($"🏞️ You don't have a house on plot '{plotName}'!", Color.Red);
+        }
+
+        var house = await houseRepository.GetHouseAsync(plot.HouseId);
+        if (house == null)
+        {
+            return await feedbackService.SendContextualContentAsync("❌ House not found!", Color.Red);
+        }
+
+        var room = house.Rooms.FirstOrDefault(r => 
+            r.Name.Equals(roomName, StringComparison.OrdinalIgnoreCase));
+
+        if (room == null)
+        {
+            return await feedbackService.SendContextualContentAsync($"🏠 Room '{roomName}' not found in your house!", Color.Red);
+        }
+
+        // Check if player has the item in inventory
+        var inventory = await inventoryRepository.GetInventoryAsync(user.ID.Value);
+        if (inventory == null)
+        {
+            return await feedbackService.SendContextualContentAsync("📦 Your inventory is empty!", Color.Red);
+        }
+
+        var item = inventory.Items.FirstOrDefault(i => 
+            i.Name.Equals(itemName, StringComparison.OrdinalIgnoreCase) && 
+            (i.ItemType.Equals("Furniture", StringComparison.OrdinalIgnoreCase) || 
+             i.ItemType.Equals("Decoration", StringComparison.OrdinalIgnoreCase)));
+
+        if (item == null)
+        {
+            return await feedbackService.SendContextualContentAsync($"🪑 You don't have a furniture/decoration item named '{itemName}' in your inventory!", Color.Red);
+        }
+
+        if (item.Quantity < 1)
+        {
+            return await feedbackService.SendContextualContentAsync($"🪑 You don't have any '{itemName}' left!", Color.Red);
+        }
+
+        // Create furniture from inventory item
+        var furniture = new Furniture
+        {
+            ItemId = item.ItemId,
+            Name = item.Name,
+            Type = item.ItemType.Equals("Furniture", StringComparison.OrdinalIgnoreCase) 
+                ? FurnitureType.Decoration 
+                : FurnitureType.Decoration,
+            Position = "center",
+            Properties = new Dictionary<string, object>(item.Properties)
+        };
+
+        // Add buffs based on furniture properties
+        if (item.Properties.ContainsKey("buffs"))
+        {
+            // This is a simplified buff system - in a real implementation, 
+            // you'd have more complex buff definitions
+            furniture.Buffs.Add(new FurnitureBuff
+            {
+                BuffId = $"furniture_{item.ItemId}",
+                Name = $"{item.Name} Comfort",
+                Description = "Provides comfort and happiness in your home",
+                Effects = new Dictionary<string, object> { { "happiness", 5 } }
+            });
+        }
+
+        // Add furniture to room
+        room.Furniture.Add(furniture);
+        house.LastUpdated = DateTime.UtcNow;
+
+        // Remove item from inventory
+        await inventoryRepository.RemoveItemAsync(user.ID.Value, item.ItemId, 1);
+
+        // Update house
+        await houseRepository.UpdateHouseAsync(house);
+
+        var embed = new Embed
+        {
+            Title = "🪑 Furniture Placed!",
+            Description = $"You have successfully placed **{item.Name}** in **{room.Name}**!\n\n" +
+                         $"**Placement Details:**\n" +
+                         $"🏠 House: {house.Name}\n" +
+                         $"🚪 Room: {room.Name}\n" +
+                         $"🪑 Furniture: {furniture.Name}\n" +
+                         (furniture.Buffs.Count > 0 ? $"✨ Buffs: {string.Join(", ", furniture.Buffs.Select(b => b.Name))}" : ""),
+            Colour = Color.Purple
+        };
+
+        return await feedbackService.SendContextualEmbedAsync(embed);
+    }
+
+    [Command("room")]
+    [Description("View details of a specific room in your house")]
+    public async Task<IResult> ViewRoomAsync(
+        [Description("Plot name with the house")] string plotName,
+        [Description("Room name")] string roomName)
+    {
+        if (!(context.Interaction.Member.TryGet(out var member) && member.User.TryGet(out var user)))
+        {
+            return Result.FromError(new NotFoundError("Failed to get user"));
+        }
+
+        var ownedPlots = await plotRepository.GetUserPlotsAsync(user.ID.Value);
+        var plot = ownedPlots.FirstOrDefault(p => 
+            p.Name.Equals(plotName, StringComparison.OrdinalIgnoreCase));
+
+        if (plot == null || plot.HouseId == null)
+        {
+            return await feedbackService.SendContextualContentAsync($"🏞️ You don't have a house on plot '{plotName}'!", Color.Red);
+        }
+
+        var house = await houseRepository.GetHouseAsync(plot.HouseId);
+        if (house == null)
+        {
+            return await feedbackService.SendContextualContentAsync("❌ House not found!", Color.Red);
+        }
+
+        var room = house.Rooms.FirstOrDefault(r => 
+            r.Name.Equals(roomName, StringComparison.OrdinalIgnoreCase));
+
+        if (room == null)
+        {
+            return await feedbackService.SendContextualContentAsync($"🏠 Room '{roomName}' not found in your house!", Color.Red);
+        }
+
+        var furnitureText = room.Furniture.Count > 0
+            ? string.Join("\n", room.Furniture.Select(f =>
+                $"🪑 **{f.Name}** ({f.Type})" +
+                (f.Buffs.Count > 0 ? $" - ✨ {string.Join(", ", f.Buffs.Select(b => b.Name))}" : "")))
+            : "No furniture placed yet.";
+
+        var stationsText = room.CraftingStations.Count > 0
+            ? string.Join(", ", room.CraftingStations)
+            : "None";
+
+        var totalBuffs = room.Furniture.SelectMany(f => f.Buffs).ToList();
+        var buffsText = totalBuffs.Count > 0
+            ? string.Join("\n", totalBuffs.GroupBy(b => b.Name).Select(g =>
+                $"✨ **{g.Key}** (+{g.Sum(b => GetBuffValue(b, "happiness"))})"))
+            : "No active buffs.";
+
+        var embed = new Embed
+        {
+            Title = $"🚪 {room.Name}",
+            Description = room.Description,
+            Colour = Color.Blue,
+            Fields = new List<EmbedField>
+            {
+                new("🪑 Furniture", furnitureText, false),
+                new("🔧 Crafting Stations", stationsText, true),
+                new("✨ Active Buffs", buffsText, true)
+            },
+            Footer = new EmbedFooter($"Room Type: {room.Type}")
+        };
+
+        return await feedbackService.SendContextualEmbedAsync(embed);
+    }
+
+    [Command("station")]
+    [Description("Install a crafting station in your house room")]
+    public async Task<IResult> InstallCraftingStationAsync(
+        [Description("Plot name with the house")] string plotName,
+        [Description("Room name")] string roomName,
+        [Description("Station type (bait_maker, stove, anvil, workbench)")] string stationType)
+    {
+        if (!(context.Interaction.Member.TryGet(out var member) && member.User.TryGet(out var user)))
+        {
+            return Result.FromError(new NotFoundError("Failed to get user"));
+        }
+
+        var ownedPlots = await plotRepository.GetUserPlotsAsync(user.ID.Value);
+        var plot = ownedPlots.FirstOrDefault(p => 
+            p.Name.Equals(plotName, StringComparison.OrdinalIgnoreCase));
+
+        if (plot == null || plot.HouseId == null)
+        {
+            return await feedbackService.SendContextualContentAsync($"🏞️ You don't have a house on plot '{plotName}'!", Color.Red);
+        }
+
+        var house = await houseRepository.GetHouseAsync(plot.HouseId);
+        if (house == null)
+        {
+            return await feedbackService.SendContextualContentAsync("❌ House not found!", Color.Red);
+        }
+
+        var room = house.Rooms.FirstOrDefault(r => 
+            r.Name.Equals(roomName, StringComparison.OrdinalIgnoreCase));
+
+        if (room == null)
+        {
+            return await feedbackService.SendContextualContentAsync($"🏠 Room '{roomName}' not found in your house!", Color.Red);
+        }
+
+        // Validate station type
+        var validStations = new[] { "bait_maker", "stove", "anvil", "workbench", "loom", "alchemy_table" };
+        if (!validStations.Contains(stationType.ToLower()))
+        {
+            return await feedbackService.SendContextualContentAsync($"🔧 Invalid station type! Valid types: {string.Join(", ", validStations)}", Color.Red);
+        }
+
+        // Check if station already exists in this room
+        if (room.CraftingStations.Contains(stationType.ToLower()))
+        {
+            return await feedbackService.SendContextualContentAsync($"🔧 A {stationType} is already installed in this room!", Color.Red);
+        }
+
+        // Check if player has enough coins
+        var player = await GetOrCreatePlayerAsync(user.ID.Value, user.Username);
+        var stationCost = GetStationCost(stationType.ToLower());
+
+        if (player.FishCoins < stationCost)
+        {
+            return await feedbackService.SendContextualContentAsync(
+                $"💰 You need {stationCost} Fish Coins to install a {stationType}! You have {player.FishCoins}.", Color.Red);
+        }
+
+        // Install the station
+        room.CraftingStations.Add(stationType.ToLower());
+        house.LastUpdated = DateTime.UtcNow;
+
+        // Deduct coins
+        player.FishCoins -= stationCost;
+
+        // Update both player and house
+        await playerRepository.UpdatePlayerAsync(player);
+        await houseRepository.UpdateHouseAsync(house);
+
+        var embed = new Embed
+        {
+            Title = "🔧 Crafting Station Installed!",
+            Description = $"You have successfully installed a **{ToTitleCase(stationType.Replace("_", " "))}** in **{room.Name}**!\n\n" +
+                         $"**Installation Details:**\n" +
+                         $"🏠 House: {house.Name}\n" +
+                         $"🚪 Room: {room.Name}\n" +
+                         $"🔧 Station: {ToTitleCase(stationType.Replace("_", " "))}\n" +
+                         $"💰 Cost: {stationCost} Fish Coins\n" +
+                         $"💰 Remaining Balance: {player.FishCoins} Fish Coins\n\n" +
+                         $"You can now use advanced crafting recipes that require this station!",
+            Colour = Color.Orange
+        };
+
+        return await feedbackService.SendContextualEmbedAsync(embed);
+    }
+
+    [Command("stations")]
+    [Description("List all available crafting station types")]
+    public async Task<IResult> ListCraftingStationsAsync()
+    {
+        var stations = new Dictionary<string, (string name, int cost, string description)>
+        {
+            ["bait_maker"] = ("Bait Maker", 300, "Craft advanced bait for better fishing results"),
+            ["stove"] = ("Cooking Stove", 400, "Cook meals and food for powerful buffs"),
+            ["anvil"] = ("Blacksmith Anvil", 800, "Forge fishing rods and metal tools"),
+            ["workbench"] = ("Crafting Workbench", 250, "Build furniture and basic items"),
+            ["loom"] = ("Textile Loom", 500, "Weave fabrics and decorative items"),
+            ["alchemy_table"] = ("Alchemy Table", 1000, "Brew potions and magical enhancements")
+        };
+
+        var stationsText = string.Join("\n", stations.Select(kvp =>
+            $"🔧 **{kvp.Value.name}** - {kvp.Value.cost} 🪙\n" +
+            $"   {kvp.Value.description}"));
+
+        var embed = new Embed
+        {
+            Title = "🔧 Available Crafting Stations",
+            Description = stationsText,
+            Colour = Color.Blue,
+            Footer = new EmbedFooter("Use `/land station <plot> <room> <station_type>` to install a station")
+        };
+
+        return await feedbackService.SendContextualEmbedAsync(embed);
+    }
+
     private async Task<PlayerProfile> GetOrCreatePlayerAsync(ulong userId, string username)
     {
         return await playerRepository.GetPlayerAsync(userId) ?? await playerRepository.CreatePlayerAsync(userId, username);
+    }
+
+    private static int GetBuffValue(FurnitureBuff buff, string effectKey)
+    {
+        if (buff.Effects.TryGetValue(effectKey, out var value))
+        {
+            return value is int intValue ? intValue : 0;
+        }
+        return 0;
+    }
+
+    private static int GetStationCost(string stationType)
+    {
+        return stationType switch
+        {
+            "bait_maker" => 300,
+            "stove" => 400,
+            "anvil" => 800,
+            "workbench" => 250,
+            "loom" => 500,
+            "alchemy_table" => 1000,
+            _ => 500
+        };
+    }
+
+    private static string ToTitleCase(string input)
+    {
+        if (string.IsNullOrEmpty(input))
+            return input;
+
+        var words = input.Split(' ');
+        for (int i = 0; i < words.Length; i++)
+        {
+            if (words[i].Length > 0)
+            {
+                words[i] = char.ToUpper(words[i][0]) + (words[i].Length > 1 ? words[i][1..].ToLower() : "");
+            }
+        }
+        return string.Join(" ", words);
     }
 }
