@@ -11,15 +11,24 @@ using Remora.Discord.Commands.Feedback.Services;
 using Remora.Results;
 using FishChamp.Data.Repositories;
 using FishChamp.Data.Models;
+using Microsoft.Extensions.DependencyInjection;
+using FishChamp.Helpers;
+using Remora.Discord.API.Abstractions.Rest;
+using Remora.Discord.Interactivity;
+using FishChamp.Interactions;
+using FishChamp.Tracker;
+using Remora.Rest.Core;
 
 namespace FishChamp.Modules;
 
 [Group("farm")]
 [Description("Farming system commands")]
-public class FarmCommandGroup(IInteractionCommandContext context,
+public class FarmCommandGroup(IDiscordRestInteractionAPI interactionAPI,
+    IInteractionCommandContext context,
     IPlayerRepository playerRepository, IInventoryRepository inventoryRepository,
     IAreaRepository areaRepository, IFarmRepository farmRepository,
-    FeedbackService feedbackService) : CommandGroup
+    FeedbackService feedbackService,
+    DiscordHelper discordHelper) : CommandGroup
 {
     [Command("view")]
     [Description("View your current farm plots and crops")]
@@ -323,112 +332,44 @@ public class FarmCommandGroup(IInteractionCommandContext context,
         var player = await playerRepository.GetPlayerAsync(user.ID.Value);
         if (player == null)
         {
-            return await feedbackService.SendContextualErrorAsync("Player profile not found. Use `/fish` to get started!");
+            return await discordHelper.ErrorInteractionEphemeral(context.Interaction, "Player profile not found. Use `/fish` to get started!");
         }
 
         var currentArea = await areaRepository.GetAreaAsync(player.CurrentArea);
         if (currentArea == null)
         {
-            return await feedbackService.SendContextualErrorAsync("Current area not found.");
+            return await discordHelper.ErrorInteractionEphemeral(context.Interaction, "Current area not found.");
         }
 
         var farmSpot = currentArea.FarmSpots.FirstOrDefault(fs => fs.SpotId == farmSpotId);
         if (farmSpot == null)
         {
-            return await feedbackService.SendContextualErrorAsync($"Farm spot '{farmSpotId}' not found in {currentArea.Name}.");
+            return await discordHelper.ErrorInteractionEphemeral(context.Interaction, $"Farm spot '{farmSpotId}' not found in {currentArea.Name}.");
         }
 
         if (!farmSpot.CanDigForWorms)
         {
-            return await feedbackService.SendContextualErrorAsync($"Cannot dig for worms at {farmSpot.Name}.");
+            return await discordHelper.ErrorInteractionEphemeral(context.Interaction, $"Cannot dig for worms at {farmSpot.Name}.");
         }
 
-        var random = new Random();
-        var digResults = new List<InventoryItem>();
-
-        // Simple dig results - could be expanded into a mini-game
-        var success = random.NextDouble() < 0.7; // 70% success rate
-
-        if (success)
+        var startDiggingButton = new ButtonComponent(ButtonComponentStyle.Primary, "Start Digging", CustomID: CustomIDHelpers.CreateButtonID(DirtDiggingInteractionGroup.Start));
+        var components = new List<IMessageComponent>
         {
-            // Determine what was found
-            var findRoll = random.NextDouble();
-            if (findRoll < 0.4) // 40% - common worms
-            {
-                digResults.Add(new InventoryItem
-                {
-                    ItemId = "worm_bait",
-                    ItemType = "Bait",
-                    Name = "Worm Bait",
-                    Quantity = random.Next(1, 4),
-                    Properties = new() { ["attraction"] = 1.1 }
-                });
-            }
-            else if (findRoll < 0.7) // 30% - quality worms
-            {
-                digResults.Add(new InventoryItem
-                {
-                    ItemId = "quality_worms",
-                    ItemType = "Bait",
-                    Name = "Quality Worms",
-                    Quantity = random.Next(1, 3),
-                    Properties = new() { ["attraction"] = 1.3 }
-                });
-            }
-            else if (findRoll < 0.9) // 20% - grubs
-            {
-                digResults.Add(new InventoryItem
-                {
-                    ItemId = "grub_bait",
-                    ItemType = "Bait",
-                    Name = "Grub Bait",
-                    Quantity = random.Next(1, 2),
-                    Properties = new() { ["attraction"] = 1.4 }
-                });
-            }
-            else // 10% - rare find
-            {
-                digResults.Add(new InventoryItem
-                {
-                    ItemId = "magical_larvae",
-                    ItemType = "Bait",
-                    Name = "Magical Larvae",
-                    Quantity = 1,
-                    Properties = new() { ["attraction"] = 1.8, ["rare_bonus"] = true }
-                });
-            }
-        }
+            new ActionRowComponent([startDiggingButton])
+        };
 
-        if (digResults.Count > 0)
+        var embed = new Embed
         {
-            foreach (var item in digResults)
-            {
-                await inventoryRepository.AddItemAsync(user.ID.Value, item);
-            }
+            Title = "🪱 Dig for Worms",
+            Description = $"You can dig for worms at {farmSpot.Name}. Click the button below to start digging!",
+            Colour = Color.Brown,
+            Timestamp = DateTimeOffset.UtcNow
+        };
 
-            var embed = new Embed
-            {
-                Title = "🪱 Digging Success!",
-                Description = $"You found something while digging at {farmSpot.Name}!",
-                Colour = Color.Brown,
-                Fields = digResults.Select(item => new EmbedField("Found", $"{item.Quantity}x {item.Name}", true)).ToList(),
-                Timestamp = DateTimeOffset.UtcNow
-            };
-
-            return await feedbackService.SendContextualEmbedAsync(embed);
-        }
-        else
-        {
-            var embed = new Embed
-            {
-                Title = "🪱 No Luck",
-                Description = $"You dug around at {farmSpot.Name} but didn't find anything useful this time.",
-                Colour = Color.Gray,
-                Timestamp = DateTimeOffset.UtcNow
-            };
-
-            return await feedbackService.SendContextualEmbedAsync(embed);
-        }
+        return await interactionAPI.CreateFollowupMessageAsync(context.Interaction.ApplicationID,
+            context.Interaction.Token,
+            embeds: new Optional<IReadOnlyList<IEmbed>>([embed]),
+            components: components);
     }
 
     private static SeedType? GetSeedInfo(string seedType)

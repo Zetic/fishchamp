@@ -14,7 +14,7 @@ public interface IInstanceTracker<T> where T : class
     void Add(Snowflake id, T instance);
     bool TryRemove(Snowflake id, out T? instance);
 
-    T TryGetValue(Snowflake id);
+    bool TryGetValue(Snowflake id, out T instance);
     IReadOnlyList<T> GetAll();
 }
 
@@ -45,12 +45,11 @@ public class InstanceTracker<T> : IInstanceTracker<T> where T : class
         }
     }
 
-    public T TryGetValue(Snowflake id)
+    public bool TryGetValue(Snowflake id, out T instance)
     {
         lock (_lock)
         {
-            _instances.TryGetValue(id, out var instance);
-            return instance;
+            return _instances.TryGetValue(id, out instance);
         }
     }
 

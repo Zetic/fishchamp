@@ -85,7 +85,8 @@ public class Program
                             .Finish()
 
                     .AddInteractivity()
-                    .AddInteractionGroup<FishingInteractionGroup>();
+                    .AddInteractionGroup<FishingInteractionGroup>()
+                    .AddInteractionGroup<DirtDiggingInteractionGroup>();
 
                 // Repositories and Services
                 services.AddSingleton<DiscordHelper>();
@@ -99,6 +100,8 @@ public class Program
                 services.AddSingleton<IAreaUnlockService, AreaUnlockService>();
 
                 services.AddSingleton<IInstanceTracker<FishingInstance>, InstanceTracker<FishingInstance>>();
+                services.AddSingleton<IInstanceTracker<DirtDiggingInstance>, InstanceTracker<DirtDiggingInstance>>();
+
                 services.AddHostedService<FishingInstanceUpdaterService>();
                 services.AddHostedService<TrapUpdaterService>();
                 services.AddHostedService<AquariumMaintenanceService>();
