@@ -21,7 +21,7 @@ using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
 
-namespace FishChamp.Interactions;
+namespace FishChamp.Minigames.Fishing;
 
 public class FishingInteractionGroup(
     IDiscordRestInteractionAPI interactionAPI,
@@ -37,7 +37,7 @@ public class FishingInteractionGroup(
     public const string ReelIn = "fish_reel_in";
     public const string LetGo = "fish_let_go";
     public const string StopReel = "fish_stop_reel";
-    
+
     [Button(CastLine)]
     public async Task<IResult> CastLineAsync()
     {
@@ -144,7 +144,7 @@ public class FishingInteractionGroup(
         {
             // Add try again button
             var tryAgainButton = new ButtonComponent(ButtonComponentStyle.Primary, "Cast Again", new PartialEmoji(Name: "🎣"), CustomIDHelpers.CreateButtonID(CastLine));
-            components.Add(new ActionRowComponent([(IMessageComponent)tryAgainButton]));
+            components.Add(new ActionRowComponent([tryAgainButton]));
         }
 
         return await interactionAPI.EditOriginalInteractionResponseAsync(
@@ -294,7 +294,7 @@ public class FishingInteractionGroup(
             return Result.FromSuccess();
 
         // Simulate timing success/failure
-        var timingSuccess = Random.Shared.NextDouble() < (0.9 * timingPerecent); // 90% chance of success if perfectly timed, less if not
+        var timingSuccess = Random.Shared.NextDouble() < 0.9 * timingPerecent; // 90% chance of success if perfectly timed, less if not
 
         if (!timingSuccess)
         {
@@ -416,8 +416,8 @@ public class FishingInteractionGroup(
 
         // Check for newly unlocked areas
         var newlyUnlockedAreas = await areaUnlockService.CheckAndUnlockAreasAsync(player);
-        var unlockMessage = newlyUnlockedAreas.Count > 0 
-            ? $"\n\n🗺️ **New area{(newlyUnlockedAreas.Count > 1 ? "s" : "")} unlocked:** {string.Join(", ", newlyUnlockedAreas)}!" 
+        var unlockMessage = newlyUnlockedAreas.Count > 0
+            ? $"\n\n🗺️ **New area{(newlyUnlockedAreas.Count > 1 ? "s" : "")} unlocked:** {string.Join(", ", newlyUnlockedAreas)}!"
             : "";
 
         // Get rarity emoji

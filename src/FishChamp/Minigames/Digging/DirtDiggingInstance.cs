@@ -1,5 +1,4 @@
-﻿using FishChamp.Interactions;
-using Remora.Discord.API.Abstractions.Objects;
+﻿using Remora.Discord.API.Abstractions.Objects;
 using Remora.Discord.API.Abstractions.Rest;
 using Remora.Discord.API.Objects;
 using Remora.Discord.Commands.Contexts;
@@ -13,7 +12,7 @@ using System.Numerics;
 using System.Text;
 using System.Threading.Tasks;
 
-namespace FishChamp.Data.Models;
+namespace FishChamp.Minigames.Digging;
 
 public class DirtDiggingInstance(IDiscordRestInteractionAPI interactionAPI)
 {
@@ -49,7 +48,7 @@ public class DirtDiggingInstance(IDiscordRestInteractionAPI interactionAPI)
                     });
                 }
                 else if (SearchedTiles.Any(tile => tile == new Vector2(i, j)))
-                { 
+                {
                     lineBuilder.Append(":black_large_square:");
                 }
                 else

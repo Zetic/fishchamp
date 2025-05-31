@@ -18,11 +18,11 @@ using System.Numerics;
 using System.Text;
 using System.Threading.Tasks;
 
-namespace FishChamp.Interactions;
+namespace FishChamp.Minigames.Digging;
 
 public class DirtDiggingInteractionGroup(
     IDiscordRestInteractionAPI interactionAPI,
-    IInteractionContext context, 
+    IInteractionContext context,
     IServiceProvider services,
     IInstanceTracker<DirtDiggingInstance> diggingTracker,
     IInventoryRepository inventoryRepository) : InteractionGroup
@@ -63,7 +63,7 @@ public class DirtDiggingInteractionGroup(
     }
 
     [Button(MoveUp)]
-    public async Task<IResult> MoveUpAsync() => await MoveAsync(-Vector2.UnitY);  
+    public async Task<IResult> MoveUpAsync() => await MoveAsync(-Vector2.UnitY);
 
     [Button(MoveDown)]
     public async Task<IResult> MoveDownAsync() => await MoveAsync(Vector2.UnitY);
@@ -205,10 +205,10 @@ public class DirtDiggingInteractionGroup(
                     ItemType = "Bait",
                     Name = "Magical Larvae",
                     Quantity = 1,
-                    Properties = new() 
-                    { 
-                        ["attraction"] = 1.8, 
-                        ["rare_bonus"] = true 
+                    Properties = new()
+                    {
+                        ["attraction"] = 1.8,
+                        ["rare_bonus"] = true
                     }
                 });
             }

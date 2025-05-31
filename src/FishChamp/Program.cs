@@ -15,11 +15,11 @@ using Remora.Discord.Gateway.Extensions;
 using FishChamp.Responders;
 using FishChamp.Helpers;
 using Remora.Discord.Interactivity.Extensions;
-using FishChamp.Interactions;
 using FishChamp.Services;
 using FishChamp.Tracker;
-using FishChamp.Data.Models;
 using System.Collections.Concurrent;
+using FishChamp.Minigames.Digging;
+using FishChamp.Minigames.Fishing;
 
 namespace FishChamp;
 

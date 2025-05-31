@@ -1,6 +1,4 @@
-﻿using FishChamp.Data.Models;
-using FishChamp.Interactions;
-using FishChamp.Tracker;
+﻿using FishChamp.Tracker;
 using Microsoft.Extensions.Hosting;
 using System;
 using System.Collections.Concurrent;
@@ -9,14 +7,14 @@ using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
 
-namespace FishChamp.Services;
+namespace FishChamp.Minigames.Fishing;
 
 
 public class FishingInstanceUpdaterService(IInstanceTracker<FishingInstance> fishingTracker) : BackgroundService
 {
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
     {
-        while(!stoppingToken.IsCancellationRequested)
+        while (!stoppingToken.IsCancellationRequested)
         {
             await Task.Delay(1000);
 

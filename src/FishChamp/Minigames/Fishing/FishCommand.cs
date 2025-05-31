@@ -14,14 +14,13 @@ using Remora.Discord.Commands.Feedback.Services;
 using FishChamp.Helpers;
 using Microsoft.Extensions.Logging;
 using Remora.Discord.Interactivity;
-using FishChamp.Interactions;
 using Polly;
 using Remora.Discord.Commands.Extensions;
 using Remora.Discord.Pagination.Extensions;
 using Remora.Discord.Commands.Feedback.Messages;
 using Remora.Discord.Commands.Attributes;
 
-namespace FishChamp.Modules;
+namespace FishChamp.Minigames.Fishing;
 
 [Description("Quick fishing command")]
 public class FishCommandGroup(
@@ -43,19 +42,19 @@ public class FishCommandGroup(
         // Check if player is at a fishing spot
         if (string.IsNullOrEmpty(player.CurrentFishingSpot))
         {
-            return await discordHelper.ErrorInteractionEphemeral(context.Interaction, 
+            return await discordHelper.ErrorInteractionEphemeral(context.Interaction,
                 "🎣 You need to be at a fishing spot first! Use `/map goto <fishing spot>` to go to one.");
         }
 
         var currentArea = await areaRepository.GetAreaAsync(player.CurrentArea);
         if (currentArea == null)
         {
-            return await discordHelper.ErrorInteractionEphemeral(context.Interaction, 
+            return await discordHelper.ErrorInteractionEphemeral(context.Interaction,
                 ":map: Current area not found! Try using `/map` to navigate.");
         }
 
         // Find the fishing spot the player is at
-        var fishingSpot = currentArea.FishingSpots.FirstOrDefault(f => 
+        var fishingSpot = currentArea.FishingSpots.FirstOrDefault(f =>
             f.SpotId.Equals(player.CurrentFishingSpot, StringComparison.OrdinalIgnoreCase));
 
         if (fishingSpot == null)
@@ -63,7 +62,7 @@ public class FishCommandGroup(
             // Player's fishing spot is invalid, clear it
             player.CurrentFishingSpot = string.Empty;
             await playerRepository.UpdatePlayerAsync(player);
-            return await discordHelper.ErrorInteractionEphemeral(context.Interaction, 
+            return await discordHelper.ErrorInteractionEphemeral(context.Interaction,
                 "🚫 Your current fishing spot is no longer available. Use `/map goto <fishing spot>` to go to a new one.");
         }
 
@@ -72,7 +71,7 @@ public class FishCommandGroup(
             // Check if player has a boat equipped
             if (player.EquippedBoat == null)
             {
-                return await discordHelper.ErrorInteractionEphemeral(context.Interaction, 
+                return await discordHelper.ErrorInteractionEphemeral(context.Interaction,
                     ":sailboat: You need a boat to fish here! Purchase one from a shop and use `/boat equip` to get started.");
             }
 
@@ -83,13 +82,13 @@ public class FishCommandGroup(
                 // Reset equipped boat if it doesn't exist
                 player.EquippedBoat = null;
                 await playerRepository.UpdatePlayerAsync(player);
-                return await discordHelper.ErrorInteractionEphemeral(context.Interaction, 
+                return await discordHelper.ErrorInteractionEphemeral(context.Interaction,
                     ":sailboat: Your equipped boat was not found! Please equip a boat again.");
             }
 
             if (boat.Durability <= 0)
             {
-                return await discordHelper.ErrorInteractionEphemeral(context.Interaction, 
+                return await discordHelper.ErrorInteractionEphemeral(context.Interaction,
                     "🔧 Your boat is broken and needs to be repaired before use!");
             }
 
@@ -110,7 +109,7 @@ public class FishCommandGroup(
         };
 
         // Create the Cast Line button
-        var castButton = new ButtonComponent(ButtonComponentStyle.Primary, "Cast Line", new PartialEmoji(Name: "🎣"), 
+        var castButton = new ButtonComponent(ButtonComponentStyle.Primary, "Cast Line", new PartialEmoji(Name: "🎣"),
             CustomIDHelpers.CreateButtonID(FishingInteractionGroup.CastLine));
         var components = new List<IMessageComponent>
         {
@@ -118,8 +117,8 @@ public class FishCommandGroup(
         };
 
         return await interactionAPI.CreateFollowupMessageAsync(context.Interaction.ApplicationID,
-            context.Interaction.Token, 
-            embeds: new Optional<IReadOnlyList<IEmbed>>([embed]), 
+            context.Interaction.Token,
+            embeds: new Optional<IReadOnlyList<IEmbed>>([embed]),
             components: components);
     }
 

@@ -1,5 +1,4 @@
-﻿using FishChamp.Interactions;
-using Polly;
+﻿using Polly;
 using Remora.Discord.API.Abstractions.Objects;
 using Remora.Discord.API.Abstractions.Rest;
 using Remora.Discord.API.Objects;
@@ -12,7 +11,7 @@ using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
 
-namespace FishChamp.Data.Models;
+namespace FishChamp.Minigames.Fishing;
 
 public class FishingInstance(IDiscordRestInteractionAPI interactionAPI)
 {
@@ -93,7 +92,7 @@ public class FishingInstance(IDiscordRestInteractionAPI interactionAPI)
         float center = (min + max) / 2f;
         float maxDistance = center - min;
         float distance = float.Abs(value - center);
-        float closeness = 1f - (distance / maxDistance);
+        float closeness = 1f - distance / maxDistance;
         return float.Clamp(closeness, 0f, 1f);
     }
 
