@@ -19,6 +19,7 @@ public class PlayerProfile
     public int CookingLevel { get; set; } = 1; // Cooking skill level
     public int CookingExperience { get; set; } = 0; // Cooking XP
     public string? EquippedBoat { get; set; } = null; // Currently equipped boat ID
+    public List<OwnedPlot> OwnedPlots { get; set; } = new(); // Player-owned land plots
 }
 
 public class ActiveBuff
