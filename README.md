@@ -74,19 +74,19 @@ The bot now includes:
 - ✅ Temperature and cleanliness monitoring
 - ✅ Fish transfer between inventory and aquarium
 
-### Iteration 4.2 – Aquarium Maintenance (Future)
-- [ ] Add cleaning, feeding, temperature control systems
-- [ ] Implement fish happiness and health mechanics
-- [ ] Add maintenance failure consequences
+### Iteration 4.2 – Aquarium Maintenance ✅
+- ✅ Add cleaning, feeding, temperature control systems
+- ✅ Implement fish happiness and health mechanics
+- ✅ Add maintenance failure consequences
 
-### Iteration 4.3 – Aquarium Breeding (Future)  
-- [ ] Implement fish compatibility breeding system
-- [ ] Add trait inheritance mechanics for offspring
+### Iteration 4.3 – Aquarium Breeding ✅  
+- ✅ Implement fish compatibility breeding system
+- ✅ Add trait inheritance mechanics for offspring
 
-### Iteration 4.4 – Aquarium Decoration (Future)
-- [ ] Add decoration items (plants, pebbles, statues)
-- [ ] Implement mood bonuses from decorations
-- [ ] Add achievement system
+### Iteration 4.4 – Aquarium Decoration ✅
+- ✅ Add decoration items (plants, pebbles, statues, coral, caves)
+- ✅ Implement mood bonuses from decorations
+- ✅ Add decoration management system
 
 ## Setup Instructions
 
@@ -146,10 +146,16 @@ dotnet run
 - `/shop browse` - Browse items available in your current area
 - `/shop buy <item> [quantity]` - Purchase items from the shop
 
-### Aquarium Commands (NEW - PHASE 4)
+### Aquarium Commands (PHASE 4 - COMPLETE!)
 - `/aquarium view` - View your aquarium status and fish
 - `/aquarium add <fish>` - Add a fish from your inventory to the aquarium
 - `/aquarium remove <fish>` - Remove a fish from aquarium back to inventory
+- `/aquarium clean` - Clean the tank (1 hour cooldown)
+- `/aquarium feed` - Feed your fish (4 hour cooldown)
+- `/aquarium temperature <temp>` - Adjust temperature (15-30°C)
+- `/aquarium breed <parent1> <parent2>` - Breed two compatible fish
+- `/aquarium decorate <type>` - Add decorations (plant, pebbles, statue, coral, cave)
+- `/aquarium remove-decoration <type>` - Remove a decoration
 - `/aquarium help` - Show aquarium system help
 
 ## Game Features
@@ -170,13 +176,15 @@ dotnet run
 - **Crafting System**: Create advanced traps using materials
 - **Repair System**: Restore damaged traps with materials
 
-### Aquarium System (NEW - PHASE 4)
+### Aquarium System (PHASE 4 - COMPLETE!)
 - **Personal Fish Tanks**: Store and manage your fish collection
-- **Fish Health & Happiness**: Track fish well-being and mood
-- **Tank Environment**: Monitor temperature and cleanliness
+- **Fish Health & Happiness**: Track fish well-being with real-time degradation
+- **Tank Environment**: Monitor and control temperature and cleanliness
 - **Fish Transfer**: Move fish between inventory and aquarium
+- **Maintenance System**: Feed fish every 4-6 hours, clean tank regularly, control temperature
+- **Breeding System**: Breed compatible fish to create offspring with inherited traits
+- **Decoration System**: Add up to 5 decorations for continuous happiness bonuses
 - **Capacity Management**: Start with 10 fish slots, expandable in future
-- **Future Features**: Breeding, decorations, and advanced maintenance
 
 ### Areas System
 - **Starter Lake**: Perfect for beginners with common fish
@@ -203,9 +211,8 @@ dotnet run
 ## Next Steps
 
 Future iterations will add:
-- Advanced aquarium maintenance and breeding systems
-- Aquarium decorations and mood bonuses
 - Farming and cooking systems
 - Boat exploration and deeper water access
 - Housing and customizable plots
 - Advanced social features and trading
+- Achievement system for aquarium milestones
