@@ -48,6 +48,23 @@ The bot now includes:
 - ✅ Allow players to fish at the same spot
 - ✅ Added cooperative bonuses for fishing together
 
+## Phase 3: Passive Fishing & Traps ✅
+
+### Iteration 3.1 – Deployable Fish Traps ✅
+- ✅ DeployTrap command with configurable timer (1-24 hours)
+- ✅ CheckTrap command that yields caught fish after duration
+- ✅ Passive fishing mechanics with realistic catch rates
+- ✅ Bait compatibility and efficiency bonuses
+- ✅ Shop integration with purchasable trap items
+
+### Iteration 3.2 – Trap Crafting & Bait ✅
+- ✅ Different trap types (Basic, Shallow, Deep, Reinforced)
+- ✅ Trap durability system with wear over time
+- ✅ Crafting system for creating advanced traps
+- ✅ Material requirements and crafting recipes
+- ✅ Trap repair system using materials
+- ✅ Enhanced bait types with specialized bonuses
+
 ## Setup Instructions
 
 ### Prerequisites
@@ -91,16 +108,43 @@ dotnet run
 - `/inventory view` - View your complete inventory
 - `/inventory fish` - View only your fish collection
 
+### Trap Commands (NEW - PHASE 3)
+- `/trap deploy <hours> [bait]` - Deploy a fish trap for passive fishing (1-24 hours)
+- `/trap check` - Check your traps and collect caught fish
+- `/trap list` - View your trap deployment history
+- `/trap info [type]` - Get information about trap types and properties
+- `/trap repair [trap_id]` - Repair damaged traps using materials
+
+### Crafting Commands (NEW - PHASE 3)
+- `/craft trap <type>` - Craft traps using materials (basic, shallow, deep, reinforced)
+- `/craft recipes` - View all available trap crafting recipes
+
+### Shop Commands
+- `/shop browse` - Browse items available in your current area
+- `/shop buy <item> [quantity]` - Purchase items from the shop
+
 ## Game Features
+
+### Fishing System
+- Interactive fishing minigames with timing-based mechanics
+- Different fish species in different areas with unique traits
+- Fish rarity system (common, uncommon, rare, epic, legendary)
+- Rod and bait equipment system with upgrade mechanics
+- Experience points and leveling system
+- Multiplayer fishing sessions for cooperative play
+
+### Passive Fishing System (NEW - PHASE 3)
+- **Fish Traps**: Deploy traps for automated fishing over time
+- **Trap Types**: Basic, Shallow Water, Deep Water, and Reinforced traps
+- **Trap Durability**: Traps wear out over time and need repair/replacement
+- **Bait Compatibility**: Use different baits to improve trap efficiency
+- **Crafting System**: Create advanced traps using materials
+- **Repair System**: Restore damaged traps with materials
 
 ### Areas System
 - **Starter Lake**: Perfect for beginners with common fish
 - **Mystic Lake**: Mysterious waters with rare fish (unlockable)
-
-### Fishing System
-- Simple RNG-based fishing with 70% success rate
-- Different fish species in different areas
-- Experience points and leveling system
+- Area-specific shops with unique items and trap materials
 
 ### Persistence
 - Player profiles with levels, experience, and currency

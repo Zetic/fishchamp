@@ -27,3 +27,14 @@ public interface IAreaRepository
     Task UpdateAreaAsync(AreaState area);
     Task<List<AreaState>> GetConnectedAreasAsync(string areaId);
 }
+
+public interface ITrapRepository
+{
+    Task<FishTrap?> GetTrapAsync(string trapId);
+    Task<List<FishTrap>> GetUserTrapsAsync(ulong userId);
+    Task<List<FishTrap>> GetActiveTrapsAsync();
+    Task<List<FishTrap>> GetCompletedTrapsAsync(ulong userId);
+    Task<FishTrap> CreateTrapAsync(FishTrap trap);
+    Task UpdateTrapAsync(FishTrap trap);
+    Task DeleteTrapAsync(string trapId);
+}
