@@ -163,7 +163,7 @@ public class JsonAreaRepository : IAreaRepository
                                 Name = "Spinner Lure",
                                 ItemType = "Bait",
                                 Price = 15,
-                                Description = "Attracts predatory fish like bass.",
+                                Description = "Attracts predatory fish like ember bass.",
                                 Properties = new() { ["attraction"] = 1.2 }
                             },
                             new()
