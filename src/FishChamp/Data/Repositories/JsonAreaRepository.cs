@@ -104,21 +104,21 @@ public class JsonAreaRepository : IAreaRepository
                         SpotId = "dock",
                         Name = "Wooden Dock",
                         Type = FishingSpotType.Land,
-                        AvailableFish = ["common_carp", "bluegill", "bass"]
+                        AvailableFish = ["azure_finling", "crystal_perch", "ember_bass"]
                     },
                     new()
                     {
                         SpotId = "dock_end",
                         Name = "End of the Dock",
                         Type = FishingSpotType.Water,
-                        AvailableFish = ["bluegill", "bass", "catfish"]
+                        AvailableFish = ["crystal_perch", "ember_bass", "shadow_whiskers"]
                     },
                     new()
                     {
                         SpotId = "shore",
                         Name = "Rocky Shore",
                         Type = FishingSpotType.Land,
-                        AvailableFish = ["minnow", "sunfish"]
+                        AvailableFish = ["glimmer_minnow", "golden_sunfish"]
                     }
                 ],
                 FarmSpots =
@@ -219,6 +219,24 @@ public class JsonAreaRepository : IAreaRepository
                                 Price = 25,
                                 Description = "Basic materials for crafting traps: rope, wire, and wooden planks.",
                                 Properties = new() { ["stack_size"] = 10 }
+                            },
+                            new()
+                            {
+                                ItemId = "sturdy_rod",
+                                Name = "Sturdy Fishing Rod",
+                                ItemType = "Rod",
+                                Price = 150,
+                                Description = "A more durable rod with basic fish-finding capabilities.",
+                                Properties = new() { ["power"] = 2, ["durability"] = 150, ["abilities"] = (int)RodAbility.FishFinder }
+                            },
+                            new()
+                            {
+                                ItemId = "hook_master_rod",
+                                Name = "Hook Master Rod",  
+                                ItemType = "Rod",
+                                Price = 200,
+                                Description = "Features sharp hooks that prevent fish from slipping away.",
+                                Properties = new() { ["power"] = 2, ["durability"] = 120, ["abilities"] = (int)RodAbility.SharpHook }
                             }
                         ]
                     }
@@ -260,9 +278,9 @@ public class JsonAreaRepository : IAreaRepository
                 ],
                 Shops = new Dictionary<string, ShopInventory>
                 {
-                    ["mystic_tackle"] = new()
+                    ["mystic_fishing_supplies"] = new()
                     {
-                        ShopId = "mystic_tackle",
+                        ShopId = "mystic_fishing_supplies",
                         Name = "Mystic Fishing Supplies",
                         Items = 
                         [
@@ -273,7 +291,7 @@ public class JsonAreaRepository : IAreaRepository
                                 ItemType = "Rod",
                                 Price = 500,
                                 Description = "A rod imbued with mysterious powers.",
-                                Properties = new() { ["power"] = 3, ["durability"] = 200 }
+                                Properties = new() { ["power"] = 3, ["durability"] = 200, ["abilities"] = (int)RodAbility.Precision }
                             },
                             new()
                             {
@@ -287,9 +305,198 @@ public class JsonAreaRepository : IAreaRepository
                         ]
                     }
                 },
-                ConnectedAreas = ["starter_lake"],
+                ConnectedAreas = ["starter_lake", "enchanted_forest"],
                 IsUnlocked = false,
                 UnlockRequirement = "Catch 5 different fish species"
+            },
+            new()
+            {
+                AreaId = "enchanted_forest",
+                Name = "Enchanted Forest Springs",
+                Description = "Ancient springs hidden deep within a magical forest. The water here glows with ethereal light, home to the rarest mystical fish.",
+                FishingSpots =
+                [
+                    new()
+                    {
+                        SpotId = "crystal_spring",
+                        Name = "Crystal Spring",
+                        Type = FishingSpotType.Land,
+                        AvailableFish = ["prism_trout", "ethereal_guppy", "starlight_salmon"]
+                    },
+                    new()
+                    {
+                        SpotId = "moonwell",
+                        Name = "Ancient Moonwell",
+                        Type = FishingSpotType.Water,
+                        AvailableFish = ["lunar_bass", "void_eel", "phoenix_koi"]
+                    },
+                    new()
+                    {
+                        SpotId = "fairy_pond",
+                        Name = "Fairy Pond",
+                        Type = FishingSpotType.Land,
+                        AvailableFish = ["fairy_fin", "dream_carp", "celestial_perch"]
+                    }
+                ],
+                FarmSpots =
+                [
+                    new()
+                    {
+                        SpotId = "mystic_grove",
+                        Name = "Mystic Grove",
+                        AvailableCrops = ["moonberries", "starflower_seeds", "enchanted_moss"],
+                        CanDigForWorms = true
+                    }
+                ],
+                Shops = new Dictionary<string, ShopInventory>
+                {
+                    ["arcane_angler"] = new()
+                    {
+                        ShopId = "arcane_angler",
+                        Name = "The Arcane Angler",
+                        Items = 
+                        [
+                            new()
+                            {
+                                ItemId = "precision_rod",
+                                Name = "Rod of Precision",
+                                ItemType = "Rod",
+                                Price = 750,
+                                Description = "A masterwork rod that helps target evasive fish.",
+                                Properties = new() { ["power"] = 4, ["durability"] = 250, ["abilities"] = (int)RodAbility.Precision }
+                            },
+                            new()
+                            {
+                                ItemId = "sharp_hook_rod",
+                                Name = "Sharp Hook Rod",
+                                ItemType = "Rod",
+                                Price = 650,
+                                Description = "Prevents slippery fish from escaping your grasp.",
+                                Properties = new() { ["power"] = 3, ["durability"] = 200, ["abilities"] = (int)RodAbility.SharpHook }
+                            },
+                            new()
+                            {
+                                ItemId = "fish_finder_rod",
+                                Name = "Fish Finder Rod",
+                                ItemType = "Rod",
+                                Price = 800,
+                                Description = "Reveals camouflaged fish hiding in the depths.",
+                                Properties = new() { ["power"] = 4, ["durability"] = 280, ["abilities"] = (int)RodAbility.FishFinder }
+                            },
+                            new()
+                            {
+                                ItemId = "lure_master_rod",
+                                Name = "Lure Master Rod",
+                                ItemType = "Rod",
+                                Price = 900,
+                                Description = "Enhances magnetic fish to attract schools.",
+                                Properties = new() { ["power"] = 5, ["durability"] = 300, ["abilities"] = (int)RodAbility.Lure }
+                            },
+                            new()
+                            {
+                                ItemId = "ethereal_bait",
+                                Name = "Ethereal Bait",
+                                ItemType = "Bait",
+                                Price = 75,
+                                Description = "Mystical bait that draws rare ethereal fish.",
+                                Properties = new() { ["attraction"] = 2.0, ["rare_bonus"] = true }
+                            },
+                            new()
+                            {
+                                ItemId = "starlight_lure",
+                                Name = "Starlight Lure",
+                                ItemType = "Bait",
+                                Price = 100,
+                                Description = "Captures the essence of starlight to attract celestial fish.",
+                                Properties = new() { ["attraction"] = 2.5, ["rare_bonus"] = true }
+                            }
+                        ]
+                    }
+                },
+                ConnectedAreas = ["mystic_lake", "deep_ocean"],
+                IsUnlocked = false,
+                UnlockRequirement = "Catch a rare or higher rarity fish in Mystic Lake"
+            },
+            new()
+            {
+                AreaId = "deep_ocean",
+                Name = "Abyssal Deep Ocean",
+                Description = "The vast, dark depths of the ocean where legendary sea creatures dwell. Only the most skilled anglers dare venture here.",
+                FishingSpots =
+                [
+                    new()
+                    {
+                        SpotId = "ocean_surface",
+                        Name = "Ocean Surface",
+                        Type = FishingSpotType.Water,
+                        AvailableFish = ["titan_tuna", "storm_marlin", "kraken_spawn"]
+                    },
+                    new()
+                    {
+                        SpotId = "abyssal_trench",
+                        Name = "Abyssal Trench",
+                        Type = FishingSpotType.Water,
+                        AvailableFish = ["void_leviathan", "ancient_angler", "deep_dragon"]
+                    },
+                    new()
+                    {
+                        SpotId = "coral_reef",
+                        Name = "Enchanted Coral Reef",
+                        Type = FishingSpotType.Water,
+                        AvailableFish = ["coral_emperor", "reef_spirit", "rainbow_ray"]
+                    }
+                ],
+                FarmSpots =
+                [
+                    new()
+                    {
+                        SpotId = "kelp_forest",
+                        Name = "Giant Kelp Forest",
+                        AvailableCrops = ["sea_grapes", "ocean_kelp", "pearl_algae"],
+                        CanDigForWorms = false
+                    }
+                ],
+                Shops = new Dictionary<string, ShopInventory>
+                {
+                    ["neptunes_arsenal"] = new()
+                    {
+                        ShopId = "neptunes_arsenal",
+                        Name = "Neptune's Arsenal",
+                        Items = 
+                        [
+                            new()
+                            {
+                                ItemId = "legendary_trident_rod",
+                                Name = "Legendary Trident Rod",
+                                ItemType = "Rod",
+                                Price = 2000,
+                                Description = "A divine rod forged by Neptune himself. Combines all rod abilities.",
+                                Properties = new() { ["power"] = 7, ["durability"] = 500, ["abilities"] = (int)(RodAbility.Precision | RodAbility.SharpHook | RodAbility.FishFinder | RodAbility.Lure) }
+                            },
+                            new()
+                            {
+                                ItemId = "kraken_bait",
+                                Name = "Kraken Bait",
+                                ItemType = "Bait",
+                                Price = 200,
+                                Description = "Legendary bait that can attract even the mightiest sea creatures.",
+                                Properties = new() { ["attraction"] = 3.0, ["legendary_bonus"] = true }
+                            },
+                            new()
+                            {
+                                ItemId = "pearl_lure",
+                                Name = "Black Pearl Lure",
+                                ItemType = "Bait",
+                                Price = 150,
+                                Description = "A rare black pearl that mesmerizes deep sea creatures.",
+                                Properties = new() { ["attraction"] = 2.2, ["deep_water_bonus"] = true }
+                            }
+                        ]
+                    }
+                },
+                ConnectedAreas = ["enchanted_forest"],
+                IsUnlocked = false,
+                UnlockRequirement = "Catch 3 epic or legendary fish and own a rod with power 4+"
             }
         };
 
