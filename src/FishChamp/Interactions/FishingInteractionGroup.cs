@@ -346,11 +346,32 @@ public class FishingInteractionGroup(
         var equippedBait = !string.IsNullOrEmpty(player.EquippedBait) ?
                           inventory?.Items.FirstOrDefault(i => i.ItemId == player.EquippedBait && i.ItemType == "Bait") : null;
 
+        // Clean up expired buffs
+        player.ActiveBuffs.RemoveAll(b => DateTime.UtcNow >= b.ExpiresAt);
+
+        // Calculate buff modifiers
+        double catchRateBonus = 0.0;
+        double rareBonus = 0.0;
+        double xpBonus = 0.0;
+        double traitBonus = 0.0;
+
+        foreach (var buff in player.ActiveBuffs)
+        {
+            if (buff.Effects.ContainsKey("catch_rate_bonus"))
+                catchRateBonus += (double)buff.Effects["catch_rate_bonus"];
+            if (buff.Effects.ContainsKey("rare_fish_bonus"))
+                rareBonus += (double)buff.Effects["rare_fish_bonus"];
+            if (buff.Effects.ContainsKey("xp_bonus"))
+                xpBonus += (double)buff.Effects["xp_bonus"];
+            if (buff.Effects.ContainsKey("trait_discovery_bonus"))
+                traitBonus += (double)buff.Effects["trait_discovery_bonus"];
+        }
+
         // Calculate success chance and fish details (simplified version of original logic)
         var potentialCatch = availableFish[random.Next(availableFish.Count)];
 
-        // Determine fish rarity
-        var rarityRoll = random.NextDouble();
+        // Determine fish rarity (with rare fish bonus from meals)
+        var rarityRoll = random.NextDouble() * (1.0 - rareBonus); // Lower roll means better chance
         string rarity = rarityRoll < 0.7 ? "common" :
                        rarityRoll < 0.9 ? "uncommon" :
                        rarityRoll < 0.98 ? "rare" : "epic";
@@ -380,8 +401,9 @@ public class FishingInteractionGroup(
 
         await inventoryRepository.AddItemAsync(user.ID.Value, fishItem);
 
-        // Update player stats
-        int xpGained = rarity switch { "uncommon" => 20, "rare" => 40, "epic" => 70, _ => 10 };
+        // Update player stats (with XP bonus from meals)
+        int baseXp = rarity switch { "uncommon" => 20, "rare" => 40, "epic" => 70, _ => 10 };
+        int xpGained = (int)Math.Round(baseXp * (1.0 + xpBonus));
         player.Experience += xpGained;
         player.LastActive = DateTime.UtcNow;
 

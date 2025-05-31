@@ -86,6 +86,13 @@ public class InventoryCommandGroup(IInteractionContext context,
             fields.Add(new EmbedField($"{GetItemTypeEmoji(group.Key)} {group.Key}s ({group.Sum(i => i.Quantity)})", itemsText, false));
         }
 
+        // Clean up expired buffs
+        player.ActiveBuffs.RemoveAll(b => DateTime.UtcNow >= b.ExpiresAt);
+        if (player.ActiveBuffs.Any())
+        {
+            await playerRepository.UpdatePlayerAsync(player);
+        }
+
         var embed = new Embed
         {
             Title = $"🎒 {player.Username}'s Inventory",
@@ -94,6 +101,26 @@ public class InventoryCommandGroup(IInteractionContext context,
             Footer = new EmbedFooter($"Use /inventory fish, /inventory rods, or /inventory baits for more details\nLast updated: {inventory.LastUpdated:yyyy-MM-dd HH:mm} UTC"),
             Timestamp = DateTimeOffset.UtcNow
         };
+
+        // Add active buffs if any
+        if (player.ActiveBuffs.Any())
+        {
+            var buffsText = string.Join("\n", player.ActiveBuffs.Select(buff =>
+            {
+                var timeLeft = buff.ExpiresAt - DateTime.UtcNow;
+                var timeText = timeLeft.TotalMinutes > 60 
+                    ? $"{timeLeft.Hours}h {timeLeft.Minutes}m" 
+                    : $"{timeLeft.Minutes}m";
+                return $"• **{buff.Name}** - {timeText} left";
+            }));
+
+            var buffFields = new List<EmbedField>(fields)
+            {
+                new("🎯 Active Buffs", buffsText, false)
+            };
+            
+            embed = embed with { Fields = buffFields };
+        }
 
         return await feedbackService.SendContextualEmbedAsync(embed);
     }
@@ -259,6 +286,116 @@ public class InventoryCommandGroup(IInteractionContext context,
         return await feedbackService.SendContextualEmbedAsync(embed);
     }
 
+    [Command("consume")]
+    [Description("Consume a meal to gain temporary buffs")]
+    public async Task<IResult> ConsumeMealAsync(
+        [Description("Name of the meal to consume")] string mealName)
+    {
+        if (!(context.Interaction.Member.TryGet(out var member) && member.User.TryGet(out var user)))
+        {
+            return Result.FromError(new NotFoundError("Failed to get user"));
+        }
+
+        var player = await GetOrCreatePlayerAsync(user.ID.Value, user.Username);
+        var inventory = await inventoryRepository.GetInventoryAsync(user.ID.Value);
+
+        if (inventory == null)
+        {
+            return await feedbackService.SendContextualErrorAsync("Inventory not found!");
+        }
+
+        // Find the meal in inventory
+        var meal = inventory.Items.FirstOrDefault(i => 
+            i.ItemType == "Meal" && 
+            (i.Name.Contains(mealName, StringComparison.OrdinalIgnoreCase) || 
+             i.ItemId.Contains(mealName, StringComparison.OrdinalIgnoreCase)));
+
+        if (meal == null)
+        {
+            return await feedbackService.SendContextualErrorAsync($"Meal '{mealName}' not found in your inventory!");
+        }
+
+        if (meal.Quantity <= 0)
+        {
+            return await feedbackService.SendContextualErrorAsync($"You don't have any {meal.Name} left!");
+        }
+
+        // Remove expired buffs
+        player.ActiveBuffs.RemoveAll(b => DateTime.UtcNow >= b.ExpiresAt);
+
+        // Check if player already has this type of buff
+        var buffType = meal.Properties.GetString("buff_type", "");
+        var existingBuff = player.ActiveBuffs.FirstOrDefault(b => 
+            b.Effects.GetString("buff_type", "") == buffType);
+
+        if (existingBuff != null)
+        {
+            return await feedbackService.SendContextualErrorAsync($"You already have a {buffType} buff active! Wait for it to expire or it will be replaced.");
+        }
+
+        // Consume the meal
+        await inventoryRepository.RemoveItemAsync(user.ID.Value, meal.ItemId, 1);
+
+        // Create buff from meal properties
+        var durationMinutes = meal.Properties.GetInt("duration_minutes", 30);
+        var buff = new ActiveBuff
+        {
+            BuffId = meal.ItemId,
+            Name = meal.Name,
+            ExpiresAt = DateTime.UtcNow.AddMinutes(durationMinutes),
+            Effects = meal.Properties
+        };
+
+        player.ActiveBuffs.Add(buff);
+        await playerRepository.UpdatePlayerAsync(player);
+
+        var effectsDescription = GetMealEffectsDescription(meal.Properties);
+        var embed = new Embed
+        {
+            Title = "🍽️ Meal Consumed!",
+            Description = $"You consumed **{meal.Name}** and gained temporary buffs!\n\n" +
+                         $"**Effects:** {effectsDescription}\n" +
+                         $"**Duration:** {durationMinutes} minutes\n" +
+                         $"**Expires:** <t:{((DateTimeOffset)buff.ExpiresAt).ToUnixTimeSeconds()}:R>",
+            Colour = Color.Green,
+            Footer = new EmbedFooter("These buffs will enhance your fishing abilities!"),
+            Timestamp = DateTimeOffset.UtcNow
+        };
+
+        return await feedbackService.SendContextualEmbedAsync(embed);
+    }
+
+    private static string GetMealEffectsDescription(Dictionary<string, object> properties)
+    {
+        var effects = new List<string>();
+        
+        if (properties.ContainsKey("catch_rate_bonus"))
+        {
+            var bonus = Math.Round((double)properties["catch_rate_bonus"] * 100);
+            effects.Add($"+{bonus}% catch rate");
+        }
+        
+        if (properties.ContainsKey("xp_bonus"))
+        {
+            var bonus = Math.Round((double)properties["xp_bonus"] * 100);
+            effects.Add($"+{bonus}% XP gain");
+        }
+        
+        if (properties.ContainsKey("rare_fish_bonus"))
+        {
+            var bonus = Math.Round((double)properties["rare_fish_bonus"] * 100);
+            effects.Add($"+{bonus}% rare fish chance");
+        }
+        
+        if (properties.ContainsKey("trait_discovery_bonus"))
+        {
+            var bonus = Math.Round((double)properties["trait_discovery_bonus"] * 100);
+            effects.Add($"+{bonus}% trait discovery");
+        }
+
+        return string.Join(", ", effects);
+    }
+
     private async Task<PlayerProfile> GetOrCreatePlayerAsync(ulong userId, string username)
     {
         var player = await playerRepository.GetPlayerAsync(userId);
@@ -277,6 +414,9 @@ public class InventoryCommandGroup(IInteractionContext context,
             "fish" => "🐟",
             "rod" => "🎣",
             "bait" => "🪱",
+            "meal" => "🍽️",
+            "crop" => "🌾",
+            "trap" => "🪤",
             "tool" => "🔧",
             _ => "📦"
         };
