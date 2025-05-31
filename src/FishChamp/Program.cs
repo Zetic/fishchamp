@@ -70,6 +70,7 @@ public class Program
                         .WithCommandGroup<InventoryCommandGroup>()
                         .WithCommandGroup<ShopCommandGroup>()
                         .WithCommandGroup<TrapCommandGroup>()
+                        .WithCommandGroup<CraftingCommandGroup>()
                             .Finish()
 
                     .AddInteractivity()

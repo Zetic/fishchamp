@@ -275,6 +275,139 @@ public class TrapCommandGroup(IInteractionCommandContext context,
         return await feedbackService.SendContextualEmbedAsync(embed);
     }
 
+    [Command("info")]
+    [Description("View information about trap types and their properties")]
+    public async Task<IResult> TrapInfoAsync([Description("Trap type to view")] string? trapType = null)
+    {
+        if (string.IsNullOrEmpty(trapType))
+        {
+            // Show all trap types
+            var embed = new Embed
+            {
+                Title = "🪤 Trap Types Information",
+                Description = "**Available Trap Types:**\n\n" +
+                             "• **Basic Trap** - Standard trap for all areas\n" +
+                             "• **Shallow Water Trap** - Optimized for shore fishing\n" +
+                             "• **Deep Water Trap** - Best for deep water spots\n" +
+                             "• **Reinforced Trap** - High durability, works everywhere\n\n" +
+                             "Use `/trap info <type>` for detailed information about a specific trap type.",
+                Colour = Color.Teal,
+                Timestamp = DateTimeOffset.UtcNow
+            };
+            
+            return await feedbackService.SendContextualEmbedAsync(embed);
+        }
+
+        var trapDetails = GetTrapTypeDetails(trapType.ToLower());
+        if (trapDetails == null)
+        {
+            return await feedbackService.SendContextualErrorAsync(
+                $"Unknown trap type '{trapType}'. Available types: basic, shallow, deep, reinforced");
+        }
+
+        var detailEmbed = new Embed
+        {
+            Title = $"🪤 {trapDetails.Name}",
+            Description = $"**{trapDetails.Description}**\n\n" +
+                         $"**Properties:**\n" +
+                         $"• **Durability:** {trapDetails.Durability} (lasts longer)\n" +
+                         $"• **Efficiency:** {trapDetails.Efficiency}x catch rate\n" +
+                         (trapDetails.WaterType != null ? $"• **Specialized for:** {trapDetails.WaterType} water fishing\n" : "") +
+                         $"• **Shop Price:** {trapDetails.ShopPrice} coins\n\n" +
+                         $"**Best Used At:**\n{trapDetails.BestUse}",
+            Colour = Color.DarkSlateBlue,
+            Timestamp = DateTimeOffset.UtcNow
+        };
+        
+        return await feedbackService.SendContextualEmbedAsync(detailEmbed);
+    }
+
+    [Command("repair")]
+    [Description("Repair a damaged trap using materials")]
+    public async Task<IResult> RepairTrapAsync([Description("Trap ID to repair")] string? trapId = null)
+    {
+        if (!(context.Interaction.Member.TryGet(out var member) && member.User.TryGet(out var user)))
+        {
+            return Result.FromError(new NotFoundError("Failed to get user"));
+        }
+
+        var userTraps = await trapRepository.GetUserTrapsAsync(user.ID.Value);
+        var damagedTraps = userTraps.Where(t => t.Durability < 50 && !t.IsCompleted).ToList();
+
+        if (!damagedTraps.Any())
+        {
+            return await feedbackService.SendContextualErrorAsync("You don't have any damaged traps that need repair!");
+        }
+
+        // If no specific trap ID provided, show list of damaged traps
+        if (string.IsNullOrEmpty(trapId))
+        {
+            var listDescription = new StringBuilder();
+            listDescription.AppendLine("**Damaged Traps Available for Repair:**\n");
+
+            foreach (var trap in damagedTraps)
+            {
+                listDescription.AppendLine($"• **{trap.TrapId.Substring(0, 8)}...** - {trap.TrapType}");
+                listDescription.AppendLine($"  Location: {trap.CurrentArea} - {trap.FishingSpot}");
+                listDescription.AppendLine($"  Durability: {trap.Durability}/100 ({(trap.Durability < 25 ? "Critical" : "Damaged")})");
+                listDescription.AppendLine();
+            }
+
+            listDescription.AppendLine("Use `/trap repair <trap_id>` to repair a specific trap.");
+            listDescription.AppendLine("Repair cost: 1 Trap Material per 25 durability restored.");
+
+            var listEmbed = new Embed
+            {
+                Title = "🔧 Trap Repair Service",
+                Description = listDescription.ToString(),
+                Colour = Color.Orange,
+                Timestamp = DateTimeOffset.UtcNow
+            };
+
+            return await feedbackService.SendContextualEmbedAsync(listEmbed);
+        }
+
+        // Find specific trap to repair
+        var targetTrap = damagedTraps.FirstOrDefault(t => t.TrapId.StartsWith(trapId));
+        if (targetTrap == null)
+        {
+            return await feedbackService.SendContextualErrorAsync($"Trap with ID '{trapId}' not found or doesn't need repair!");
+        }
+
+        // Check if player has repair materials
+        var inventory = await inventoryRepository.GetInventoryAsync(user.ID.Value);
+        var materialItem = inventory?.Items.FirstOrDefault(i => i.ItemId == "trap_material");
+
+        var durabilityToRestore = 100 - targetTrap.Durability;
+        var materialsNeeded = Math.Ceiling(durabilityToRestore / 25.0);
+
+        if (materialItem == null || materialItem.Quantity < materialsNeeded)
+        {
+            var hasAmount = materialItem?.Quantity ?? 0;
+            return await feedbackService.SendContextualErrorAsync(
+                $"Not enough Trap Materials! Need {materialsNeeded} (you have {hasAmount})");
+        }
+
+        // Perform repair
+        await inventoryRepository.RemoveItemAsync(user.ID.Value, "trap_material", (int)materialsNeeded);
+        targetTrap.Durability = 100;
+        await trapRepository.UpdateTrapAsync(targetTrap);
+
+        var repairEmbed = new Embed
+        {
+            Title = "🔧 Trap Repaired!",
+            Description = $"Successfully repaired your **{targetTrap.TrapType}** trap!\n\n" +
+                         $"**Location:** {targetTrap.CurrentArea} - {targetTrap.FishingSpot}\n" +
+                         $"**Durability:** 100/100 ✨\n" +
+                         $"**Materials Used:** {materialsNeeded} Trap Material(s)\n\n" +
+                         "Your trap is now ready for deployment again!",
+            Colour = Color.LimeGreen,
+            Timestamp = DateTimeOffset.UtcNow
+        };
+
+        return await feedbackService.SendContextualEmbedAsync(repairEmbed);
+    }
+
     private async Task GenerateTrapCatches(FishTrap trap)
     {
         // Don't regenerate if already has catches
@@ -297,11 +430,19 @@ public class TrapCommandGroup(IInteractionCommandContext context,
             totalChance = Math.Min(0.95, totalChance * 1.5); // 50% bonus with bait
         }
 
-        // Determine number of catches
+        // Determine number of catches based on trap efficiency
+        var efficiency = 1.0;
+        if (trap.Properties.TryGetValue("efficiency", out var effValue))
+        {
+            efficiency = Convert.ToDouble(effValue);
+        }
+
         var catchCount = 0;
+        var adjustedTotalChance = totalChance * efficiency;
+        
         for (int i = 0; i < Math.Ceiling(hoursDuration); i++)
         {
-            if (random.NextDouble() < totalChance)
+            if (random.NextDouble() < adjustedTotalChance)
             {
                 catchCount++;
             }
@@ -312,13 +453,23 @@ public class TrapCommandGroup(IInteractionCommandContext context,
         {
             var fishId = fishingSpot.AvailableFish[random.Next(fishingSpot.AvailableFish.Count)];
             
-            // Determine rarity (passive traps get slightly lower rare fish rates)
+            // Determine rarity (better traps get better rates)
             var rarityRoll = random.NextDouble();
-            var rarity = rarityRoll switch
+            var baseRarityBonus = efficiency > 1.5 ? 0.1 : efficiency > 1.2 ? 0.05 : 0.0;
+            
+            // Special bait bonus for rare fish
+            var baitRareBonus = 0.0;
+            if (!string.IsNullOrEmpty(trap.EquippedBait) && trap.EquippedBait.Contains("rare"))
             {
-                < 0.7 => "common",
-                < 0.9 => "uncommon",
-                < 0.98 => "rare",
+                baitRareBonus = 0.15;
+            }
+            
+            var adjustedRarityRoll = rarityRoll - baseRarityBonus - baitRareBonus;
+            var rarity = adjustedRarityRoll switch
+            {
+                < 0.65 => "common",
+                < 0.85 => "uncommon", 
+                < 0.96 => "rare",
                 _ => "epic"
             };
 
@@ -344,8 +495,15 @@ public class TrapCommandGroup(IInteractionCommandContext context,
             trap.CaughtFish.Add(caughtFish);
         }
 
-        // Reduce trap durability
-        trap.Durability = Math.Max(0, trap.Durability - (int)(hoursDuration * 5)); // 5 durability per hour
+        // Reduce trap durability based on usage and trap type
+        var baseDurability = 100;
+        if (trap.Properties.TryGetValue("durability", out var durValue))
+        {
+            baseDurability = Convert.ToInt32(durValue);
+        }
+        
+        var durabilityLoss = Math.Max(1, (int)(hoursDuration * (100.0 / baseDurability) * 3)); // Better traps lose less durability
+        trap.Durability = Math.Max(0, trap.Durability - durabilityLoss);
         trap.IsCompleted = true;
         
         await trapRepository.UpdateTrapAsync(trap);
@@ -397,4 +555,61 @@ public class TrapCommandGroup(IInteractionCommandContext context,
             _ => fishId.Replace("_", " ").ToTitleCase()
         };
     }
+    
+    private static TrapTypeDetails? GetTrapTypeDetails(string trapType)
+    {
+        return trapType switch
+        {
+            "basic" => new TrapTypeDetails
+            {
+                Name = "Basic Fish Trap",
+                Description = "A simple trap suitable for all fishing areas. Good for beginners.",
+                Durability = 100,
+                Efficiency = 1.0,
+                ShopPrice = 100,
+                BestUse = "Any fishing spot - versatile but not specialized"
+            },
+            "shallow" => new TrapTypeDetails
+            {
+                Name = "Shallow Water Trap",
+                Description = "Specialized trap designed for shore and shallow water fishing.",
+                Durability = 120,
+                Efficiency = 1.3,
+                WaterType = "shallow",
+                ShopPrice = 200,
+                BestUse = "Shore fishing spots, lakeside areas, and shallow waters"
+            },
+            "deep" => new TrapTypeDetails
+            {
+                Name = "Deep Water Trap",
+                Description = "Heavy-duty trap optimized for deep water fishing.",
+                Durability = 150,
+                Efficiency = 1.5,
+                WaterType = "deep",
+                ShopPrice = 350,
+                BestUse = "Deep water fishing spots, ocean areas, and large lakes"
+            },
+            "reinforced" => new TrapTypeDetails
+            {
+                Name = "Reinforced Trap",
+                Description = "Premium trap with exceptional durability and catch rate.",
+                Durability = 200,
+                Efficiency = 2.0,
+                ShopPrice = 500,
+                BestUse = "Any location - premium choice for serious trappers"
+            },
+            _ => null
+        };
+    }
+}
+
+public class TrapTypeDetails
+{
+    public string Name { get; set; } = string.Empty;
+    public string Description { get; set; } = string.Empty;
+    public int Durability { get; set; }
+    public double Efficiency { get; set; }
+    public string? WaterType { get; set; }
+    public int ShopPrice { get; set; }
+    public string BestUse { get; set; } = string.Empty;
 }

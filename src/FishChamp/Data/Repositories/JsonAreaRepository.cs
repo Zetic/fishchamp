@@ -192,6 +192,33 @@ public class JsonAreaRepository : IAreaRepository
                                 Price = 3,
                                 Description = "Simple bait made from bread. Works well for common fish.",
                                 Properties = new() { ["attraction"] = 1.05 }
+                            },
+                            new()
+                            {
+                                ItemId = "deep_trap",
+                                Name = "Deep Water Trap",
+                                ItemType = "Trap",
+                                Price = 350,
+                                Description = "Specialized trap for deep waters. Better catch rate for large fish.",
+                                Properties = new() { ["durability"] = 150, ["efficiency"] = 1.5, ["water_type"] = "deep" }
+                            },
+                            new()
+                            {
+                                ItemId = "rare_bait",
+                                Name = "Golden Lure",
+                                ItemType = "Bait",
+                                Price = 50,
+                                Description = "Premium bait that significantly attracts rare fish.",
+                                Properties = new() { ["attraction"] = 1.8, ["rare_bonus"] = true }
+                            },
+                            new()
+                            {
+                                ItemId = "trap_material",
+                                Name = "Trap Materials",
+                                ItemType = "Material",
+                                Price = 25,
+                                Description = "Basic materials for crafting traps: rope, wire, and wooden planks.",
+                                Properties = new() { ["stack_size"] = 10 }
                             }
                         ]
                     }
