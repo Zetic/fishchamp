@@ -71,6 +71,9 @@ public class AquariumMaintenanceService(IAquariumRepository aquariumRepository, 
         {
             ApplyFishDegradation(fish, aquarium, timeSinceLastFed, timeSinceLastCleaned);
         }
+        
+        // Apply decoration bonuses
+        ApplyDecorationBonuses(aquarium);
     }
 
     private static void ApplyFishDegradation(Data.Models.AquariumFish fish, Data.Models.Aquarium aquarium, TimeSpan timeSinceLastFed, TimeSpan timeSinceLastCleaned)
@@ -140,6 +143,28 @@ public class AquariumMaintenanceService(IAquariumRepository aquariumRepository, 
         else
         {
             fish.CanBreed = true;
+        }
+    }
+
+    private static void ApplyDecorationBonuses(Data.Models.Aquarium aquarium)
+    {
+        if (!aquarium.Decorations.Any()) return;
+
+        // Calculate total decoration bonus
+        var totalBonus = aquarium.Decorations.Sum(decoration => decoration.ToLower() switch
+        {
+            "plant" => 1.0,   // Slow but steady happiness boost
+            "pebbles" => 0.5,
+            "statue" => 2.0,  // Higher boost but slower
+            "coral" => 1.5,
+            "cave" => 1.2,
+            _ => 0.5
+        });
+
+        // Apply decoration bonus to all living fish (small but continuous)
+        foreach (var fish in aquarium.Fish.Where(f => f.IsAlive))
+        {
+            fish.Happiness = Math.Min(100, fish.Happiness + totalBonus * 0.1); // Very small continuous bonus
         }
     }
 }
