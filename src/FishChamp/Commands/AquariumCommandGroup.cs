@@ -34,12 +34,40 @@ public class AquariumCommandGroup(IInteractionCommandContext context,
         var player = await GetOrCreatePlayerAsync(user.ID.Value, user.Username);
         var aquarium = await GetOrCreateAquariumAsync(user.ID.Value);
 
+        // Apply degradation when viewing
+        Services.AquariumMaintenanceService.ApplyDegradation(aquarium);
+        await aquariumRepository.UpdateAquariumAsync(aquarium);
+
         var fields = new List<EmbedField>
         {
-            new("Fish Count", $"{aquarium.Fish.Count}/{aquarium.Capacity}", true),
+            new("Fish Count", $"{aquarium.Fish.Count(f => f.IsAlive)}/{aquarium.Capacity}", true),
             new("Temperature", $"{aquarium.Temperature:F1}°C", true),
             new("Cleanliness", $"{aquarium.Cleanliness:F0}%", true)
         };
+
+        // Add maintenance status
+        var timeSinceLastFed = DateTime.UtcNow - aquarium.LastFed;
+        var timeSinceLastCleaned = DateTime.UtcNow - aquarium.LastCleaned;
+        
+        var feedingStatus = timeSinceLastFed.TotalHours switch
+        {
+            < 4 => "🟢 Well Fed",
+            < 6 => "🟡 Getting Hungry", 
+            < 12 => "🟠 Hungry",
+            _ => "🔴 Starving"
+        };
+        
+        var cleanlinessStatus = aquarium.Cleanliness switch
+        {
+            >= 80 => "🟢 Sparkling Clean",
+            >= 60 => "🟡 Mostly Clean",
+            >= 40 => "🟠 Getting Dirty",
+            >= 20 => "🔴 Very Dirty",
+            _ => "⚫ Filthy"
+        };
+
+        fields.Add(new("Feeding Status", feedingStatus, true));
+        fields.Add(new("Tank Status", cleanlinessStatus, true));
 
         string description = "";
         
@@ -47,7 +75,10 @@ public class AquariumCommandGroup(IInteractionCommandContext context,
         if (aquarium.Fish.Any())
         {
             var fishText = new StringBuilder();
-            foreach (var fish in aquarium.Fish.Take(15)) // Limit display to 15 fish
+            var livingFish = aquarium.Fish.Where(f => f.IsAlive).Take(15);
+            var deadFish = aquarium.Fish.Where(f => !f.IsAlive).Take(5);
+            
+            foreach (var fish in livingFish)
             {
                 var rarityEmoji = GetRarityEmoji(fish.Rarity);
                 var healthEmoji = fish.Health > 80 ? "💚" : fish.Health > 50 ? "💛" : "❤️";
@@ -56,9 +87,18 @@ public class AquariumCommandGroup(IInteractionCommandContext context,
                 fishText.AppendLine($"{rarityEmoji} **{fish.Name}** {healthEmoji}{happinessEmoji}");
             }
 
-            if (aquarium.Fish.Count > 15)
+            if (deadFish.Any())
             {
-                fishText.AppendLine($"... and {aquarium.Fish.Count - 15} more fish");
+                fishText.AppendLine("\n💀 **Deceased:**");
+                foreach (var fish in deadFish)
+                {
+                    fishText.AppendLine($"☠️ {fish.Name}");
+                }
+            }
+
+            if (aquarium.Fish.Count(f => f.IsAlive) > 15)
+            {
+                fishText.AppendLine($"... and {aquarium.Fish.Count(f => f.IsAlive) - 15} more living fish");
             }
 
             fields.Add(new EmbedField("🐟 Fish", fishText.ToString(), false));
@@ -198,6 +238,149 @@ public class AquariumCommandGroup(IInteractionCommandContext context,
         return await feedbackService.SendContextualEmbedAsync(embed);
     }
 
+    [Command("clean")]
+    [Description("Clean your aquarium to improve cleanliness")]
+    public async Task<IResult> CleanAquariumAsync()
+    {
+        if (!(context.Interaction.Member.TryGet(out var member) && member.User.TryGet(out var user)))
+        {
+            return Result.FromError(new NotFoundError("Failed to get user"));
+        }
+
+        var aquarium = await GetOrCreateAquariumAsync(user.ID.Value);
+        Services.AquariumMaintenanceService.ApplyDegradation(aquarium);
+
+        // Cleaning improves cleanliness but takes time and has a cooldown
+        var timeSinceLastCleaned = DateTime.UtcNow - aquarium.LastCleaned;
+        if (timeSinceLastCleaned.TotalHours < 1)
+        {
+            var remainingTime = TimeSpan.FromHours(1) - timeSinceLastCleaned;
+            return await feedbackService.SendContextualErrorAsync($"You just cleaned your aquarium! Please wait {remainingTime.Minutes} more minutes.");
+        }
+
+        var oldCleanliness = aquarium.Cleanliness;
+        aquarium.Cleanliness = Math.Min(100, aquarium.Cleanliness + 30);
+        aquarium.LastCleaned = DateTime.UtcNow;
+
+        await aquariumRepository.UpdateAquariumAsync(aquarium);
+
+        var embed = new Embed
+        {
+            Title = "🧽 Aquarium Cleaned!",
+            Description = "You've cleaned your aquarium! Your fish look much happier.",
+            Colour = Color.Green,
+            Fields = new List<EmbedField>
+            {
+                new("Cleanliness", $"{oldCleanliness:F0}% → {aquarium.Cleanliness:F0}%", true),
+                new("Next Cleaning", "Available in 1 hour", true)
+            },
+            Timestamp = DateTimeOffset.UtcNow
+        };
+
+        return await feedbackService.SendContextualEmbedAsync(embed);
+    }
+
+    [Command("feed")]
+    [Description("Feed your fish to keep them happy and healthy")]
+    public async Task<IResult> FeedFishAsync()
+    {
+        if (!(context.Interaction.Member.TryGet(out var member) && member.User.TryGet(out var user)))
+        {
+            return Result.FromError(new NotFoundError("Failed to get user"));
+        }
+
+        var aquarium = await GetOrCreateAquariumAsync(user.ID.Value);
+        Services.AquariumMaintenanceService.ApplyDegradation(aquarium);
+
+        if (!aquarium.Fish.Any())
+        {
+            return await feedbackService.SendContextualErrorAsync("Your aquarium is empty! Add some fish first.");
+        }
+
+        // Feeding has a cooldown
+        var timeSinceLastFed = DateTime.UtcNow - aquarium.LastFed;
+        if (timeSinceLastFed.TotalHours < 4)
+        {
+            var remainingTime = TimeSpan.FromHours(4) - timeSinceLastFed;
+            return await feedbackService.SendContextualErrorAsync($"Your fish are still full! Please wait {remainingTime.Hours}h {remainingTime.Minutes}m before feeding again.");
+        }
+
+        aquarium.LastFed = DateTime.UtcNow;
+
+        // Feeding improves happiness of all living fish
+        var fedCount = 0;
+        foreach (var fish in aquarium.Fish.Where(f => f.IsAlive))
+        {
+            fish.Happiness = Math.Min(100, fish.Happiness + 15);
+            fedCount++;
+        }
+
+        await aquariumRepository.UpdateAquariumAsync(aquarium);
+
+        var embed = new Embed
+        {
+            Title = "🍽️ Fish Fed!",
+            Description = $"You've fed {fedCount} fish! They're swimming happily around the tank.",
+            Colour = Color.Green,
+            Fields = new List<EmbedField>
+            {
+                new("Fish Fed", fedCount.ToString(), true),
+                new("Next Feeding", "Available in 4 hours", true)
+            },
+            Timestamp = DateTimeOffset.UtcNow
+        };
+
+        return await feedbackService.SendContextualEmbedAsync(embed);
+    }
+
+    [Command("temperature")]
+    [Description("Adjust the aquarium temperature")]
+    public async Task<IResult> AdjustTemperatureAsync(
+        [Description("Target temperature (15-30°C)")]
+        double targetTemperature)
+    {
+        if (!(context.Interaction.Member.TryGet(out var member) && member.User.TryGet(out var user)))
+        {
+            return Result.FromError(new NotFoundError("Failed to get user"));
+        }
+
+        if (targetTemperature < 15 || targetTemperature > 30)
+        {
+            return await feedbackService.SendContextualErrorAsync("Temperature must be between 15°C and 30°C.");
+        }
+
+        var aquarium = await GetOrCreateAquariumAsync(user.ID.Value);
+        Services.AquariumMaintenanceService.ApplyDegradation(aquarium);
+
+        var oldTemperature = aquarium.Temperature;
+        aquarium.Temperature = targetTemperature;
+
+        await aquariumRepository.UpdateAquariumAsync(aquarium);
+
+        var temperatureStatus = targetTemperature switch
+        {
+            >= 20 and <= 25 => "🌡️ Perfect temperature range!",
+            >= 18 and < 20 => "❄️ A bit cool, but acceptable",
+            > 25 and <= 28 => "🔥 A bit warm, but acceptable", 
+            _ => "⚠️ Extreme temperature - your fish may become stressed!"
+        };
+
+        var embed = new Embed
+        {
+            Title = "🌡️ Temperature Adjusted!",
+            Description = temperatureStatus,
+            Colour = targetTemperature >= 20 && targetTemperature <= 25 ? Color.Green : Color.Orange,
+            Fields = new List<EmbedField>
+            {
+                new("Temperature", $"{oldTemperature:F1}°C → {targetTemperature:F1}°C", true),
+                new("Optimal Range", "20°C - 25°C", true)
+            },
+            Timestamp = DateTimeOffset.UtcNow
+        };
+
+        return await feedbackService.SendContextualEmbedAsync(embed);
+    }
+
     [Command("help")]
     [Description("Show aquarium system help and commands")]
     public async Task<IResult> HelpAsync()
@@ -209,20 +392,25 @@ public class AquariumCommandGroup(IInteractionCommandContext context,
             Colour = Color.Blue,
             Fields = new List<EmbedField>
             {
-                new("📋 Commands", 
+                new("📋 Basic Commands", 
                     "`/aquarium view` - View your aquarium and fish\n" +
                     "`/aquarium add <fish>` - Add a fish from inventory\n" +
                     "`/aquarium remove <fish>` - Remove a fish to inventory\n" +
                     "`/aquarium help` - Show this help message", false),
+                new("🔧 Maintenance Commands",
+                    "`/aquarium clean` - Clean the tank (1 hour cooldown)\n" +
+                    "`/aquarium feed` - Feed your fish (4 hour cooldown)\n" +
+                    "`/aquarium temperature <temp>` - Adjust temperature (15-30°C)", false),
                 new("🏠 Tank Features",
                     "• **Capacity**: Start with 10 fish slots\n" +
                     "• **Health**: Fish health and happiness tracking\n" +
                     "• **Environment**: Temperature and cleanliness monitoring\n" +
-                    "• **Future**: Breeding, decorations, and maintenance!", false),
+                    "• **Maintenance**: Keep your fish happy with regular care!", false),
                 new("💡 Tips",
-                    "• Use autocomplete for easy fish selection\n" +
-                    "• Fish health and happiness will affect future breeding\n" +
-                    "• Keep your aquarium clean for happy fish!", false)
+                    "• Feed fish every 4-6 hours to keep them happy\n" +
+                    "• Clean the tank when cleanliness drops below 50%\n" +
+                    "• Keep temperature between 20-25°C for optimal health\n" +
+                    "• Unhappy or unhealthy fish can't breed!", false)
             },
             Timestamp = DateTimeOffset.UtcNow
         };

@@ -94,6 +94,7 @@ public class Program
                 services.AddSingleton<IInstanceTracker<FishingInstance>, InstanceTracker<FishingInstance>>();
                 services.AddHostedService<FishingInstanceUpdaterService>();
                 services.AddHostedService<TrapUpdaterService>();
+                services.AddHostedService<AquariumMaintenanceService>();
 
                 
 
