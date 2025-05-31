@@ -365,9 +365,9 @@ public class AquariumCommandGroup(IInteractionCommandContext context,
 
         // Find parent fish
         var parent1 = aquarium.Fish.FirstOrDefault(f => 
-            f.Name.Equals(parent1Name, StringComparison.OrdinalIgnoreCase) && f.IsAlive);
+            f.FishId.Equals(parent1Name, StringComparison.OrdinalIgnoreCase) && f.IsAlive);
         var parent2 = aquarium.Fish.FirstOrDefault(f => 
-            f.Name.Equals(parent2Name, StringComparison.OrdinalIgnoreCase) && f.IsAlive);
+            f.FishId.Equals(parent2Name, StringComparison.OrdinalIgnoreCase) && f.IsAlive);
 
         if (parent1 == null)
         {

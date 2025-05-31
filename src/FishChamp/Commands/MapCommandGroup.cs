@@ -157,8 +157,7 @@ public class MapCommandGroup(IInteractionContext context,
 
         // Find the fishing spot by name or ID
         var fishingSpot = currentArea.FishingSpots.FirstOrDefault(f => 
-            f.SpotId.Equals(fishingSpotName, StringComparison.OrdinalIgnoreCase) ||
-            f.Name.Equals(fishingSpotName, StringComparison.OrdinalIgnoreCase));
+            f.SpotId.Equals(fishingSpotName, StringComparison.OrdinalIgnoreCase));
 
         if (fishingSpot == null)
         {
