@@ -1,6 +1,7 @@
 using FishChamp.Data.Models;
 using System.Text.Json;
 using FishChamp.Helpers;
+using FishChamp.Services;
 
 namespace FishChamp.Data.Repositories;
 
@@ -26,7 +27,15 @@ public class JsonAquariumRepository : IAquariumRepository
         await _lock.WaitAsync();
         try
         {
-            return _aquariums.TryGetValue(userId, out var aquarium) ? aquarium : null;
+            if (_aquariums.TryGetValue(userId, out var aquarium))
+            {
+                // Apply maintenance updates when accessing aquarium
+                AquariumMaintenanceService.UpdateAquariumConditions(aquarium);
+                // Save changes if any fish conditions were updated
+                await SaveAquariums();
+                return aquarium;
+            }
+            return null;
         }
         finally
         {
