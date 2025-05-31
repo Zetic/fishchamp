@@ -15,4 +15,13 @@ public class PlayerProfile
     public string CurrentFishingSpot { get; set; } = string.Empty;
     public Dictionary<string, double> BiggestCatch { get; set; } = new(); // Fish type -> weight
     public List<string> UnlockedAreas { get; set; } = ["starter_lake"]; // Areas unlocked by this player
+    public List<ActiveBuff> ActiveBuffs { get; set; } = new(); // Active meal buffs
+}
+
+public class ActiveBuff
+{
+    public string BuffId { get; set; } = string.Empty;
+    public string Name { get; set; } = string.Empty;
+    public DateTime ExpiresAt { get; set; }
+    public Dictionary<string, object> Effects { get; set; } = new();
 }
