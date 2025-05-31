@@ -237,6 +237,42 @@ public class JsonAreaRepository : IAreaRepository
                                 Price = 200,
                                 Description = "Features sharp hooks that prevent fish from slipping away.",
                                 Properties = new() { ["power"] = 2, ["durability"] = 120, ["abilities"] = (int)RodAbility.SharpHook }
+                            },
+                            new()
+                            {
+                                ItemId = "corn_seeds",
+                                Name = "Corn Seeds",
+                                ItemType = "Seed",
+                                Price = 10,
+                                Description = "Basic corn seeds that grow in 4 hours. Yields corn for bait crafting.",
+                                Properties = new() { ["growth_time"] = 4 }
+                            },
+                            new()
+                            {
+                                ItemId = "tomato_seeds",
+                                Name = "Tomato Seeds",
+                                ItemType = "Seed",
+                                Price = 15,
+                                Description = "Fresh tomato seeds that grow in 6 hours. Great for cooking.",
+                                Properties = new() { ["growth_time"] = 6 }
+                            },
+                            new()
+                            {
+                                ItemId = "algae_spores",
+                                Name = "Algae Spores",
+                                ItemType = "Seed",
+                                Price = 20,
+                                Description = "Aquatic algae spores that grow quickly in 2 hours. Used for aquarium food.",
+                                Properties = new() { ["growth_time"] = 2 }
+                            },
+                            new()
+                            {
+                                ItemId = "herb_seeds",
+                                Name = "Spice Herb Seeds",
+                                ItemType = "Seed",
+                                Price = 25,
+                                Description = "Aromatic herb seeds that take 8 hours to grow. Used in premium bait crafting.",
+                                Properties = new() { ["growth_time"] = 8 }
                             }
                         ]
                     }

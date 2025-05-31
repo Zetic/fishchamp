@@ -67,6 +67,8 @@ public class Program
                     .AddAutocompleteProvider<ShopAutocompleteProvider>()
                     .AddAutocompleteProvider<AquariumFishAutocompleteProvider>()
                     .AddAutocompleteProvider<AquariumRemoveFishAutocompleteProvider>()
+                    .AddAutocompleteProvider<FarmSpotAutocompleteProvider>()
+                    .AddAutocompleteProvider<SeedTypeAutocompleteProvider>()
 
                     .AddCommandTree()
                         .WithCommandGroup<FishingCommandGroup>()
@@ -77,6 +79,7 @@ public class Program
                         .WithCommandGroup<TrapCommandGroup>()
                         .WithCommandGroup<CraftingCommandGroup>()
                         .WithCommandGroup<AquariumCommandGroup>()
+                        .WithCommandGroup<FarmCommandGroup>()
                             .Finish()
 
                     .AddInteractivity()
@@ -89,12 +92,14 @@ public class Program
                 services.AddSingleton<IAreaRepository, JsonAreaRepository>();
                 services.AddSingleton<ITrapRepository, JsonTrapRepository>();
                 services.AddSingleton<IAquariumRepository, JsonAquariumRepository>();
+                services.AddSingleton<IFarmRepository, JsonFarmRepository>();
                 services.AddSingleton<IAreaUnlockService, AreaUnlockService>();
 
                 services.AddSingleton<IInstanceTracker<FishingInstance>, InstanceTracker<FishingInstance>>();
                 services.AddHostedService<FishingInstanceUpdaterService>();
                 services.AddHostedService<TrapUpdaterService>();
                 services.AddHostedService<AquariumMaintenanceService>();
+                services.AddHostedService<CropGrowthService>();
 
                 
 
