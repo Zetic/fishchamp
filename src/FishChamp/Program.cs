@@ -68,6 +68,8 @@ public class Program
                         .WithCommandGroup<FishCommandGroup>()
                         .WithCommandGroup<MapCommandGroup>()
                         .WithCommandGroup<InventoryCommandGroup>()
+                        .WithCommandGroup<ShopCommandGroup>()
+                        .WithCommandGroup<TrapCommandGroup>()
                             .Finish()
 
                     .AddInteractivity()
@@ -78,9 +80,11 @@ public class Program
                 services.AddSingleton<IPlayerRepository, JsonPlayerRepository>();
                 services.AddSingleton<IInventoryRepository, JsonInventoryRepository>();
                 services.AddSingleton<IAreaRepository, JsonAreaRepository>();
+                services.AddSingleton<ITrapRepository, JsonTrapRepository>();
 
                 services.AddSingleton<IInstanceTracker<FishingInstance>, InstanceTracker<FishingInstance>>();
                 services.AddHostedService<FishingInstanceUpdaterService>();
+                services.AddHostedService<TrapUpdaterService>();
 
                 
 

@@ -165,6 +165,33 @@ public class JsonAreaRepository : IAreaRepository
                                 Price = 15,
                                 Description = "Attracts predatory fish like bass.",
                                 Properties = new() { ["attraction"] = 1.2 }
+                            },
+                            new()
+                            {
+                                ItemId = "basic_trap",
+                                Name = "Basic Fish Trap",
+                                ItemType = "Trap",
+                                Price = 100,
+                                Description = "A simple fish trap for passive fishing. Lasts for several deployments.",
+                                Properties = new() { ["durability"] = 100, ["efficiency"] = 1.0 }
+                            },
+                            new()
+                            {
+                                ItemId = "shallow_trap",
+                                Name = "Shallow Water Trap",
+                                ItemType = "Trap",
+                                Price = 200,
+                                Description = "Specialized trap for shallow waters. Better catch rate for shore fish.",
+                                Properties = new() { ["durability"] = 120, ["efficiency"] = 1.3, ["water_type"] = "shallow" }
+                            },
+                            new()
+                            {
+                                ItemId = "bread_bait",
+                                Name = "Bread Crumbs",
+                                ItemType = "Bait",
+                                Price = 3,
+                                Description = "Simple bait made from bread. Works well for common fish.",
+                                Properties = new() { ["attraction"] = 1.05 }
                             }
                         ]
                     }
