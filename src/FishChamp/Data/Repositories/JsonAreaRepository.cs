@@ -337,6 +337,24 @@ public class JsonAreaRepository : IAreaRepository
                                 Price = 50,
                                 Description = "Attracts rare fish from the depths.",
                                 Properties = new() { ["attraction"] = 1.5 }
+                            },
+                            new()
+                            {
+                                ItemId = "skiff",
+                                Name = "Small Skiff",
+                                ItemType = "Boat",
+                                Price = 200,
+                                Description = "A simple wooden boat perfect for shallow waters.",
+                                Properties = new() { ["boat_type"] = "skiff" }
+                            },
+                            new()
+                            {
+                                ItemId = "canoe",
+                                Name = "Sturdy Canoe",
+                                ItemType = "Boat",
+                                Price = 500,
+                                Description = "A reliable canoe that can handle rougher waters.",
+                                Properties = new() { ["boat_type"] = "canoe" }
                             }
                         ]
                     }
@@ -526,6 +544,15 @@ public class JsonAreaRepository : IAreaRepository
                                 Price = 150,
                                 Description = "A rare black pearl that mesmerizes deep sea creatures.",
                                 Properties = new() { ["attraction"] = 2.2, ["deep_water_bonus"] = true }
+                            },
+                            new()
+                            {
+                                ItemId = "speedboat",
+                                Name = "Fast Speedboat",
+                                ItemType = "Boat",
+                                Price = 1500,
+                                Description = "A modern speedboat for deep sea exploration.",
+                                Properties = new() { ["boat_type"] = "speedboat" }
                             }
                         ]
                     }

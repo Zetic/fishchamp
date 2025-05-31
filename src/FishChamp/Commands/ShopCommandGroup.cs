@@ -20,7 +20,7 @@ namespace FishChamp.Modules;
 [Description("Shop and trading commands")]
 public class ShopCommandGroup(IInteractionContext context,
     IPlayerRepository playerRepository, IInventoryRepository inventoryRepository,
-    IAreaRepository areaRepository, DiscordHelper discordHelper, FeedbackService feedbackService) : CommandGroup
+    IAreaRepository areaRepository, IBoatRepository boatRepository, DiscordHelper discordHelper, FeedbackService feedbackService) : CommandGroup
 {
     [Command("browse")]
     [Description("Browse the shop in your current area")]
@@ -158,7 +158,41 @@ public class ShopCommandGroup(IInteractionContext context,
             return await discordHelper.ErrorInteractionEphemeral(context.Interaction, $"🪙 You don't have enough fish coins! (Need {item.Price}, have {player.FishCoins})");
         }
 
-        // Create the inventory item
+        // Special handling for boats
+        if (item.ItemType == "Boat")
+        {
+            // Get boat type from properties
+            var boatType = item.Properties.GetValueOrDefault("boat_type", "skiff").ToString();
+            if (string.IsNullOrEmpty(boatType))
+            {
+                return await discordHelper.ErrorInteractionEphemeral(context.Interaction, "🚫 Invalid boat type!");
+            }
+
+            // Create boat
+            var boat = new Boat
+            {
+                UserId = user.ID.Value,
+                BoatType = boatType,
+                Name = item.Name,
+                Durability = BoatTypes.BoatData.GetValueOrDefault(boatType)?.MaxDurability ?? 100,
+                MaxDurability = BoatTypes.BoatData.GetValueOrDefault(boatType)?.MaxDurability ?? 100,
+                StorageCapacity = BoatTypes.BoatData.GetValueOrDefault(boatType)?.StorageCapacity ?? 5
+            };
+
+            await boatRepository.CreateBoatAsync(boat);
+            
+            // Subtract the cost
+            player.FishCoins -= item.Price;
+            await playerRepository.UpdatePlayerAsync(player);
+
+            return await feedbackService.SendContextualContentAsync(
+                $"⛵ You purchased **{item.Name}** for {item.Price} 🪙\n" +
+                $"Use `/boat equip` to start using it for water fishing!\n" +
+                $"New balance: {player.FishCoins} 🪙", 
+                Color.Green);
+        }
+
+        // Regular item handling
         var inventoryItem = new InventoryItem
         {
             ItemId = item.ItemId,

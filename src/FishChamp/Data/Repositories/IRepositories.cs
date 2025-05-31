@@ -56,3 +56,12 @@ public interface IFarmRepository
     Task UpdateFarmAsync(Farm farm);
     Task DeleteFarmAsync(ulong userId, string areaId, string farmSpotId);
 }
+
+public interface IBoatRepository
+{
+    Task<Boat?> GetBoatAsync(string boatId);
+    Task<List<Boat>> GetUserBoatsAsync(ulong userId);
+    Task<Boat> CreateBoatAsync(Boat boat);
+    Task UpdateBoatAsync(Boat boat);
+    Task DeleteBoatAsync(string boatId);
+}
