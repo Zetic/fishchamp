@@ -95,17 +95,12 @@ public class FishingCommandGroup(IInteractionCommandContext context, IDiscordRes
                           inventory?.Items.FirstOrDefault(i => i.ItemId == player.EquippedBait && i.ItemType == "Bait") : null;
 
         // Get rod abilities (if any)
-        RodAbility rodAbilities = RodAbility.None;
-        if (equippedRod != null && equippedRod.Properties.TryGetValue("abilities", out var abilitiesObj))
-        {
-            rodAbilities = (RodAbility)GetValueFromProperty<int>(abilitiesObj);
-        }
+        RodAbility rodAbilities = equippedRod != null ? (RodAbility)equippedRod.Properties.GetInt("abilities", 0) : RodAbility.None;
 
         // Calculate success chance based on rod and bait
         var random = new Random();
         double baseSuccessRate = 0.7; // 70% base success rate
-        double rodBonus = (equippedRod != null && equippedRod.Properties.TryGetValue("power", out var powerValue)) ?
-                         GetValueFromProperty<double>(powerValue) * 0.05 : 0; // 5% per rod power level
+        double rodBonus = equippedRod?.Properties.GetDouble("power", 0) * 0.05 ?? 0; // 5% per rod power level
         double baitBonus = equippedBait != null ? 0.1 : 0; // 10% bonus for having bait equipped
 
         // Check for multiplayer fishing bonus
@@ -507,8 +502,7 @@ public class FishingCommandGroup(IInteractionCommandContext context, IDiscordRes
         var fishSpecies = inventory.Items
             .Where(i => i.ItemType == "Fish")
             .GroupBy(i => i.ItemId)
-            .Select(g => g.OrderByDescending(f => 
-                f.Properties.TryGetValue("size", out var sizeElement) ? GetValueFromProperty<int>(sizeElement) : 0).First())
+            .Select(g => g.OrderByDescending(f => f.Properties.GetInt("size", 0)).First())
             .ToList();
 
         var totalSpecies = fishSpecies.Count;
@@ -517,28 +511,25 @@ public class FishingCommandGroup(IInteractionCommandContext context, IDiscordRes
         var fishEntries = new List<string>();
         foreach (var fish in fishSpecies)
         {
-            var size = fish.Properties.TryGetValue("size", out var propSize) ? GetValueFromProperty<int>(propSize) : 0;
-            var weight = fish.Properties.TryGetValue("weight", out var propWeight) ? GetValueFromProperty<double>(propWeight) : 0;
-            var rarity = fish.Properties.TryGetValue("rarity", out var propRarity) ? GetValueFromProperty<string>(propRarity) : "common";
+            var size = fish.Properties.GetInt("size", 0);
+            var weight = fish.Properties.GetDouble("weight", 0);
+            var rarity = fish.Properties.GetString("rarity", "common");
             var rarityEmoji = GetRarityEmoji(rarity);
             
             // Get traits if any
             string traitsText = "";
-            if (fish.Properties.TryGetValue("traits", out var propTraits))
+            var fishTraits = (FishTrait)fish.Properties.GetInt("traits", 0);
+            if (fishTraits != FishTrait.None)
             {
-                var fishTraits = (FishTrait)GetValueFromProperty<int>(propTraits);
-                if (fishTraits != FishTrait.None)
+                var traitsList = new List<string>();
+                if ((fishTraits & FishTrait.Evasive) != 0) traitsList.Add("Evasive");
+                if ((fishTraits & FishTrait.Slippery) != 0) traitsList.Add("Slippery");
+                if ((fishTraits & FishTrait.Magnetic) != 0) traitsList.Add("Magnetic");
+                if ((fishTraits & FishTrait.Camouflage) != 0) traitsList.Add("Camouflage");
+                
+                if (traitsList.Count > 0)
                 {
-                    var traitsList = new List<string>();
-                    if ((fishTraits & FishTrait.Evasive) != 0) traitsList.Add("Evasive");
-                    if ((fishTraits & FishTrait.Slippery) != 0) traitsList.Add("Slippery");
-                    if ((fishTraits & FishTrait.Magnetic) != 0) traitsList.Add("Magnetic");
-                    if ((fishTraits & FishTrait.Camouflage) != 0) traitsList.Add("Camouflage");
-                    
-                    if (traitsList.Count > 0)
-                    {
-                        traitsText = $" | Traits: {string.Join(", ", traitsList)}";
-                    }
+                    traitsText = $" | Traits: {string.Join(", ", traitsList)}";
                 }
             }
             
@@ -801,11 +792,7 @@ public class FishingCommandGroup(IInteractionCommandContext context, IDiscordRes
         return traits;
     }
 
-    public static T GetValueFromProperty<T>(object obj)
-    {
-        if (obj is not JsonElement element) return default;
-        return JsonSerializer.Deserialize<T>(element);
-    }
+
 }
 
 public static class StringExtensions
