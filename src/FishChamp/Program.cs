@@ -15,6 +15,10 @@ using FishChamp.Responders;
 using FishChamp.Helpers;
 using Remora.Discord.Interactivity.Extensions;
 using FishChamp.Interactions;
+using FishChamp.Services;
+using FishChamp.Tracker;
+using FishChamp.Data.Models;
+using System.Collections.Concurrent;
 
 namespace FishChamp;
 
@@ -74,6 +78,11 @@ public class Program
                 services.AddSingleton<IPlayerRepository, JsonPlayerRepository>();
                 services.AddSingleton<IInventoryRepository, JsonInventoryRepository>();
                 services.AddSingleton<IAreaRepository, JsonAreaRepository>();
+
+                services.AddSingleton<IInstanceTracker<FishingInstance>, InstanceTracker<FishingInstance>>();
+                services.AddHostedService<FishingInstanceUpdaterService>();
+
+                
 
                 // Ensure data directory exists
                 var dataDir = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "data");

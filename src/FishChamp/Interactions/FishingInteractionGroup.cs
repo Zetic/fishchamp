@@ -1,6 +1,9 @@
 ﻿using FishChamp.Data.Models;
 using FishChamp.Data.Repositories;
 using FishChamp.Modules;
+using FishChamp.Tracker;
+using Microsoft.Extensions.DependencyInjection;
+using Microsoft.VisualBasic;
 using Polly;
 using Remora.Discord.API.Abstractions.Gateway.Events;
 using Remora.Discord.API.Abstractions.Objects;
@@ -10,6 +13,7 @@ using Remora.Discord.Commands.Contexts;
 using Remora.Discord.Interactivity;
 using Remora.Results;
 using System;
+using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.Drawing;
 using System.Linq;
@@ -23,14 +27,15 @@ public class FishingInteractionGroup(
     IInteractionContext context,
     IPlayerRepository playerRepository,
     IInventoryRepository inventoryRepository,
-    IAreaRepository areaRepository) : InteractionGroup
+    IAreaRepository areaRepository,
+    IInstanceTracker<FishingInstance> fishingTracker,
+    IServiceProvider services) : InteractionGroup
 {
     public const string CastLine = "fish_cast_line";
     public const string ReelIn = "fish_reel_in";
     public const string LetGo = "fish_let_go";
     public const string StopReel = "fish_stop_reel";
-
-
+    
     [Button(CastLine)]
     public async Task<IResult> CastLineAsync()
     {
@@ -81,7 +86,8 @@ public class FishingInteractionGroup(
             context.Interaction.ApplicationID,
             context.Interaction.Token,
             context.Interaction.Message.Value.ID,
-            embeds: new Remora.Rest.Core.Optional<IReadOnlyList<IEmbed>?>([waitingEmbed]));
+            embeds: new Remora.Rest.Core.Optional<IReadOnlyList<IEmbed>?>([waitingEmbed]),
+            components: new Remora.Rest.Core.Optional<IReadOnlyList<IMessageComponent>?>([]));
 
         // Wait for the random amount of time
         await Task.Delay(waitTime);
@@ -158,11 +164,26 @@ public class FishingInteractionGroup(
             }
         }
 
+        StringBuilder builder = new StringBuilder();
+
+        for (int i = FishingInstance.MaxWater; i >= 0; i--)
+        {
+            if (i == 0)
+            {
+                builder.Append("<:newfish2:1378160844864487504>");
+            }
+            else
+            {
+                builder.Append(":blue_square:");
+            }
+        }
+
+
         // Start the timing mini-game
         var timingEmbed = new Embed
         {
             Title = "🎯 Timing Challenge!",
-            Description = "Click **Stop Reel** when the 🟢 is in the center!\n\n⬛⬛🟢⬛⬛",
+            Description = $"Click **Stop Reel** when the :fish: is in the center!\n\n{builder}",
             Colour = Color.Yellow,
             Footer = new EmbedFooter("Quick! Don't let the fish escape!"),
             Timestamp = DateTimeOffset.UtcNow
@@ -174,11 +195,17 @@ public class FishingInteractionGroup(
             new ActionRowComponent([stopButton])
         };
 
-        return await interactionAPI.EditOriginalInteractionResponseAsync(
+        var response = await interactionAPI.EditOriginalInteractionResponseAsync(
             context.Interaction.ApplicationID,
             context.Interaction.Token,
             embeds: new[] { timingEmbed },
             components: components);
+
+        FishingInstance fishingInstance = ActivatorUtilities.CreateInstance<FishingInstance>(services);
+        fishingInstance.Context = context;
+        fishingTracker.Add(user.ID, fishingInstance);
+
+        return response;
     }
 
     [Button(LetGo)]
@@ -238,6 +265,12 @@ public class FishingInteractionGroup(
             }
         }
 
+        float timingPerecent = 0;
+        if (fishingTracker.TryRemove(user.ID, out var fishingInstance))
+        {
+            timingPerecent = fishingInstance.GetFishPositionPercent();
+        }
+
         var player = await playerRepository.GetPlayerAsync(user.ID.Value);
         if (player == null)
             return Result.FromSuccess();
@@ -253,15 +286,14 @@ public class FishingInteractionGroup(
             return Result.FromSuccess();
 
         // Simulate timing success/failure
-        var random = new Random();
-        var timingSuccess = random.NextDouble() < 0.7; // 70% success rate
+        var timingSuccess = Random.Shared.NextDouble() < (0.9 * timingPerecent); // 90% chance of success if perfectly timed, less if not
 
         if (!timingSuccess)
         {
             var failEmbed = new Embed
             {
                 Title = "🐟 Fish Escaped!",
-                Description = "Your timing was off and the fish got away!\n\nBetter luck next time!",
+                Description = "The fish got away!\n\nBetter luck next time!",
                 Colour = Color.Red,
                 Timestamp = DateTimeOffset.UtcNow
             };
@@ -281,10 +313,10 @@ public class FishingInteractionGroup(
         }
 
         // Success! Now simulate the actual fishing logic from the original cast command
-        return await SimulateFishCatch(player, fishingSpot);
+        return await SimulateFishCatch(player, fishingSpot, timingPerecent);
     }
 
-    private async Task<IResult> SimulateFishCatch(PlayerProfile player, FishingSpot fishingSpot)
+    private async Task<IResult> SimulateFishCatch(PlayerProfile player, FishingSpot fishingSpot, float timingPercent)
     {
         if (!context.Interaction.Member.TryGet(out var member) || !member.User.TryGet(out var user))
             return Result.FromSuccess();
@@ -362,9 +394,39 @@ public class FishingInteractionGroup(
             _ => "⚪"
         };
 
+        static string GetTimingMessage(float timing)
+        {
+            string[] messages = timing switch
+            {
+                >= 0.95f => new[] {
+                "Perfect catch!", "Bullseye!", "Flawless!"
+            },
+                >= 0.85f => new[] {
+                "Great timing!", "Right on!", "Sharp reflexes!"
+            },
+                >= 0.7f => new[] {
+                "Solid!", "Nice one!", "You’re getting there."
+            },
+                >= 0.5f => new[] {
+                "Just in time!", "Cutting it close.", "Barely made it."
+            },
+                >= 0.4f => new[] {
+                "So close!", "Almost!", "That slipped."
+            },
+                >= 0.2f => new[] {
+                "Way off.", "Try again.", "Off tempo."
+            },
+                _ => new[] {
+                "Total miss.", "Ouch.", "Epic fail."
+            }
+            };
+
+            return messages[Random.Shared.Next(messages.Length)];
+        }
+
         var successEmbed = new Embed
         {
-            Title = "🎣 Great Catch!",
+            Title = $"🎣 {GetTimingMessage(timingPercent)}",
             Description = $"**Success!** You caught a {rarityEmoji} {fishItem.Name}!\n\n" +
                          $"Size: {fishItem.Properties["size"]}cm | Weight: {fishItem.Properties["weight"]}g (+{xpGained} XP)",
             Colour = Color.Green,

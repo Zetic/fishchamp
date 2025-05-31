@@ -15,6 +15,11 @@ using FishChamp.Helpers;
 using Microsoft.Extensions.Logging;
 using Remora.Discord.Interactivity;
 using FishChamp.Interactions;
+using Polly;
+using Remora.Discord.Commands.Extensions;
+using Remora.Discord.Pagination.Extensions;
+using Remora.Discord.Commands.Feedback.Messages;
+using Remora.Discord.Commands.Attributes;
 
 namespace FishChamp.Modules;
 
