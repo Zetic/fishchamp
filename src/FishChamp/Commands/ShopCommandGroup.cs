@@ -80,7 +80,7 @@ public class ShopCommandGroup(IInteractionContext context,
             return await feedbackService.SendContextualContentAsync("🏪 There are no shops in this area!", Color.Red);
         }
 
-        var shop = currentArea.Shops.Values.FirstOrDefault(s => s.Name.Equals(shopName, StringComparison.OrdinalIgnoreCase));
+        var shop = currentArea.Shops.Values.FirstOrDefault(s => s.ShopId.Equals(shopName, StringComparison.OrdinalIgnoreCase));
         
         if (shop == null)
         {
