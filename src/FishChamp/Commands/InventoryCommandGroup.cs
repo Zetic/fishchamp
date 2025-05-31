@@ -10,6 +10,7 @@ using Remora.Results;
 using Remora.Rest.Core;
 using FishChamp.Data.Repositories;
 using FishChamp.Data.Models;
+using FishChamp.Helpers;
 using Remora.Discord.Commands.Extensions;
 using Remora.Discord.Commands.Feedback.Services;
 using System.Text.Json;
@@ -50,15 +51,19 @@ public class InventoryCommandGroup(IInteractionContext context,
                 
                 if (item.ItemType == "Fish")
                 {
-                    var size = item.Properties.TryGetValue("size", out var propSize) ? $"{propSize}cm" : "";
-                    var rarity = item.Properties.TryGetValue("rarity", out var propRarity) ? GetRarityEmoji(propRarity.ToString()) : "";
-                    additionalInfo = $" {rarity} {size}";
+                    var size = item.Properties.GetInt("size", 0);
+                    var sizeText = size > 0 ? $"{size}cm" : "";
+                    var rarity = item.Properties.GetString("rarity", "");
+                    var rarityEmoji = !string.IsNullOrEmpty(rarity) ? GetRarityEmoji(rarity) : "";
+                    additionalInfo = $" {rarityEmoji} {sizeText}";
                 }
                 else if (item.ItemType == "Rod")
                 {
-                    var power = item.Properties.TryGetValue("power", out var propPower) ? $"Power: {propPower}" : "";
-                    var durability = item.Properties.TryGetValue("durability", out var propDur) ? $"Durability: {propDur}" : "";
-                    additionalInfo = $" ({power}, {durability})";
+                    var power = item.Properties.GetInt("power", 0);
+                    var powerText = power > 0 ? $"Power: {power}" : "";
+                    var durability = item.Properties.GetInt("durability", 0);
+                    var durabilityText = durability > 0 ? $"Durability: {durability}" : "";
+                    additionalInfo = $" ({powerText}, {durabilityText})";
                     
                     // Mark equipped rod
                     if (item.ItemId == player.EquippedRod)
@@ -118,31 +123,31 @@ public class InventoryCommandGroup(IInteractionContext context,
 
         var fishText = string.Join("\n", fish.Select(f =>
         {
-            var size = f.Properties.TryGetValue("size", out var propSize) ? $" ({propSize}cm)" : "";
-            var weight = f.Properties.TryGetValue("weight", out var propWeight) ? $", {propWeight}g" : "";
-            var rarity = f.Properties.TryGetValue("rarity", out var propRarity) ? GetRarityEmoji(propRarity.ToString()) : "";
+            var size = f.Properties.GetInt("size", 0);
+            var sizeText = size > 0 ? $" ({size}cm)" : "";
+            var weight = f.Properties.GetDouble("weight", 0);
+            var weightText = weight > 0 ? $", {weight}g" : "";
+            var rarity = f.Properties.GetString("rarity", "");
+            var rarityEmoji = !string.IsNullOrEmpty(rarity) ? GetRarityEmoji(rarity) : "";
             
             // Add fish traits if any
             string traitsText = "";
-            if (f.Properties.TryGetValue("traits", out var propTraits))
+            var fishTraits = (FishTrait)f.Properties.GetInt("traits", 0);
+            if (fishTraits != FishTrait.None)
             {
-                var fishTraits = (FishTrait)GetValueFromProperty<int>(propTraits);
-                if (fishTraits != FishTrait.None)
+                var traitsList = new List<string>();
+                if ((fishTraits & FishTrait.Evasive) != 0) traitsList.Add("Evasive");
+                if ((fishTraits & FishTrait.Slippery) != 0) traitsList.Add("Slippery");
+                if ((fishTraits & FishTrait.Magnetic) != 0) traitsList.Add("Magnetic");
+                if ((fishTraits & FishTrait.Camouflage) != 0) traitsList.Add("Camouflage");
+                
+                if (traitsList.Count > 0)
                 {
-                    var traitsList = new List<string>();
-                    if ((fishTraits & FishTrait.Evasive) != 0) traitsList.Add("Evasive");
-                    if ((fishTraits & FishTrait.Slippery) != 0) traitsList.Add("Slippery");
-                    if ((fishTraits & FishTrait.Magnetic) != 0) traitsList.Add("Magnetic");
-                    if ((fishTraits & FishTrait.Camouflage) != 0) traitsList.Add("Camouflage");
-                    
-                    if (traitsList.Count > 0)
-                    {
-                        traitsText = $" | {string.Join(", ", traitsList)}";
-                    }
+                    traitsText = $" | {string.Join(", ", traitsList)}";
                 }
             }
             
-            return $"{rarity} **{f.Name}** x{f.Quantity}{size}{weight}{traitsText}";
+            return $"{rarityEmoji} **{f.Name}** x{f.Quantity}{sizeText}{weightText}{traitsText}";
         }));
 
         var totalFish = fish.Sum(f => f.Quantity);
@@ -189,11 +194,13 @@ public class InventoryCommandGroup(IInteractionContext context,
 
         var rodsText = string.Join("\n", rods.Select(r =>
         {
-            var power = r.Properties.TryGetValue("power", out var propPower) ? $"Power: {propPower}" : "";
-            var durability = r.Properties.TryGetValue("durability", out var propDur) ? $"Durability: {propDur}" : "";
+            var power = r.Properties.GetInt("power", 0);
+            var powerText = power > 0 ? $"Power: {power}" : "";
+            var durability = r.Properties.GetInt("durability", 0);
+            var durabilityText = durability > 0 ? $"Durability: {durability}" : "";
             var equipped = r.ItemId == player.EquippedRod ? " **[EQUIPPED]**" : "";
             
-            return $"• **{r.Name}** ({power}, {durability}){equipped}";
+            return $"• **{r.Name}** ({powerText}, {durabilityText}){equipped}";
         }));
 
         var embed = new Embed
@@ -233,10 +240,11 @@ public class InventoryCommandGroup(IInteractionContext context,
 
         var baitsText = string.Join("\n", baits.Select(b =>
         {
-            var attraction = b.Properties.TryGetValue("attraction", out var propAttr) ? $"Attraction: {propAttr}x" : "";
+            var attraction = b.Properties.GetDouble("attraction", 1.0);
+            var attractionText = attraction != 1.0 ? $"Attraction: {attraction}x" : "";
             var equipped = b.ItemId == player.EquippedBait ? " **[EQUIPPED]**" : "";
             
-            return $"• **{b.Name}** x{b.Quantity} ({attraction}){equipped}";
+            return $"• **{b.Name}** x{b.Quantity} ({attractionText}){equipped}";
         }));
 
         var embed = new Embed
@@ -287,9 +295,4 @@ public class InventoryCommandGroup(IInteractionContext context,
         };
     }
 
-    public static T GetValueFromProperty<T>(object obj)
-    {
-        if (obj is not JsonElement element) return default;
-        return JsonSerializer.Deserialize<T>(element);
-    }
 }

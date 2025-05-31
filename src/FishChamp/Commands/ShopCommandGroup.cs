@@ -218,8 +218,8 @@ public class ShopCommandGroup(IInteractionContext context,
         }
         
         // Calculate sale price based on fish rarity and size
-        string rarity = fish.Properties.TryGetValue("rarity", out var propRarity) ? propRarity.ToString() : "common";
-        int fishSize = fish.Properties.TryGetValue("size", out var propSize) ? GetValueFromProperty<int>(propSize) : 10;
+        string rarity = fish.Properties.GetString("rarity", "common");
+        int fishSize = fish.Properties.GetInt("size", 10);
         
         int basePrice = rarity switch
         {
@@ -267,9 +267,4 @@ public class ShopCommandGroup(IInteractionContext context,
         return player;
     }
 
-    public static T GetValueFromProperty<T>(object obj)
-    {
-        if (obj is not JsonElement element) return default;
-        return JsonSerializer.Deserialize<T>(element);
-    }
 }
