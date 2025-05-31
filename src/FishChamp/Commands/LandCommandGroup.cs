@@ -17,7 +17,7 @@ namespace FishChamp.Modules;
 [Description("Land ownership and housing commands")]
 public class LandCommandGroup(IInteractionContext context,
     IPlayerRepository playerRepository, IAreaRepository areaRepository, 
-    IPlotRepository plotRepository, FeedbackService feedbackService) : CommandGroup
+    IPlotRepository plotRepository, IHouseRepository houseRepository, FeedbackService feedbackService) : CommandGroup
 {
     [Command("browse")]
     [Description("Browse available land plots in your current area")]
@@ -162,6 +162,133 @@ public class LandCommandGroup(IInteractionContext context,
             Description = plotsText,
             Colour = Color.Green,
             Footer = new EmbedFooter($"Total Plots Owned: {ownedPlots.Count}")
+        };
+
+        return await feedbackService.SendContextualEmbedAsync(embed);
+    }
+
+    [Command("build")]
+    [Description("Build a house on your owned plot")]
+    public async Task<IResult> BuildHouseAsync(
+        [Description("Plot name to build on")] string plotName,
+        [Description("House layout")] HouseLayout layout = HouseLayout.Cozy)
+    {
+        if (!(context.Interaction.Member.TryGet(out var member) && member.User.TryGet(out var user)))
+        {
+            return Result.FromError(new NotFoundError("Failed to get user"));
+        }
+
+        var ownedPlots = await plotRepository.GetUserPlotsAsync(user.ID.Value);
+        var plot = ownedPlots.FirstOrDefault(p => 
+            p.Name.Equals(plotName, StringComparison.OrdinalIgnoreCase));
+
+        if (plot == null)
+        {
+            return await feedbackService.SendContextualContentAsync($"🏞️ You don't own a plot named '{plotName}'! Use `/land list` to see your plots.", Color.Red);
+        }
+
+        if (plot.HouseId != null)
+        {
+            return await feedbackService.SendContextualContentAsync($"🏠 You already have a house built on '{plotName}'!", Color.Red);
+        }
+
+        // Check if player has enough coins for building
+        var player = await GetOrCreatePlayerAsync(user.ID.Value, user.Username);
+        var buildCost = layout switch
+        {
+            HouseLayout.Cozy => 500,
+            HouseLayout.Spacious => 1500,
+            HouseLayout.Mansion => 5000,
+            _ => 500
+        };
+
+        if (player.FishCoins < buildCost)
+        {
+            return await feedbackService.SendContextualContentAsync(
+                $"💰 You need {buildCost} Fish Coins to build a {layout} house! You have {player.FishCoins}.", Color.Red);
+        }
+
+        // Create the house
+        var house = new House
+        {
+            OwnerId = user.ID.Value,
+            PlotId = plot.PlotId,
+            AreaId = plot.AreaId,
+            Name = $"{plot.Name} House",
+            Layout = layout
+        };
+
+        var createdHouse = await houseRepository.CreateHouseAsync(house);
+
+        // Deduct coins and update plot
+        player.FishCoins -= buildCost;
+        plot.HouseId = createdHouse.HouseId;
+        
+        // Update player (plot is updated via reference in player.OwnedPlots)
+        await playerRepository.UpdatePlayerAsync(player);
+
+        var embed = new Embed
+        {
+            Title = "🏗️ House Construction Complete!",
+            Description = $"You have successfully built a **{layout}** house on **{plot.Name}**!\n\n" +
+                         $"**Construction Details:**\n" +
+                         $"🏠 House: {createdHouse.Name}\n" +
+                         $"📏 Layout: {layout}\n" +
+                         $"💰 Cost: {buildCost} Fish Coins\n" +
+                         $"💰 Remaining Balance: {player.FishCoins} Fish Coins\n\n" +
+                         $"Use `/land house {plotName}` to view your house interior!",
+            Colour = Color.Gold
+        };
+
+        return await feedbackService.SendContextualEmbedAsync(embed);
+    }
+
+    [Command("house")]
+    [Description("View your house interior")]
+    public async Task<IResult> ViewHouseAsync(
+        [Description("Plot name with the house")] string plotName)
+    {
+        if (!(context.Interaction.Member.TryGet(out var member) && member.User.TryGet(out var user)))
+        {
+            return Result.FromError(new NotFoundError("Failed to get user"));
+        }
+
+        var ownedPlots = await plotRepository.GetUserPlotsAsync(user.ID.Value);
+        var plot = ownedPlots.FirstOrDefault(p => 
+            p.Name.Equals(plotName, StringComparison.OrdinalIgnoreCase));
+
+        if (plot == null)
+        {
+            return await feedbackService.SendContextualContentAsync($"🏞️ You don't own a plot named '{plotName}'!", Color.Red);
+        }
+
+        if (plot.HouseId == null)
+        {
+            return await feedbackService.SendContextualContentAsync($"🏗️ You haven't built a house on '{plotName}' yet! Use `/land build {plotName}` to build one.", Color.Red);
+        }
+
+        var house = await houseRepository.GetHouseAsync(plot.HouseId);
+        if (house == null)
+        {
+            return await feedbackService.SendContextualContentAsync("❌ House not found! Please contact an administrator.", Color.Red);
+        }
+
+        var roomsText = house.Rooms.Count > 0 
+            ? string.Join("\n", house.Rooms.Select(room =>
+                $"🏠 **{room.Name}** ({room.Type})\n" +
+                $"   {room.Description}\n" +
+                $"   Furniture: {room.Furniture.Count}" +
+                (room.CraftingStations.Count > 0 ? $" | Stations: {room.CraftingStations.Count}" : "")))
+            : "No rooms available.";
+
+        var embed = new Embed
+        {
+            Title = $"🏠 {house.Name}",
+            Description = $"**Layout:** {house.Layout}\n" +
+                         $"**Location:** {plot.AreaId}\n\n" +
+                         $"**Rooms:**\n{roomsText}",
+            Colour = Color.Blue,
+            Footer = new EmbedFooter($"Built on {house.CreatedAt:MMM dd, yyyy} | Last updated {house.LastUpdated:MMM dd, yyyy}")
         };
 
         return await feedbackService.SendContextualEmbedAsync(embed);

@@ -74,3 +74,13 @@ public interface IPlotRepository
     Task<bool> PurchasePlotAsync(ulong userId, string areaId, string plotId);
     Task<bool> IsPlotAvailableAsync(string areaId, string plotId);
 }
+
+public interface IHouseRepository
+{
+    Task<House?> GetHouseAsync(string houseId);
+    Task<List<House>> GetUserHousesAsync(ulong userId);
+    Task<House?> GetHouseByPlotAsync(string areaId, string plotId);
+    Task<House> CreateHouseAsync(House house);
+    Task UpdateHouseAsync(House house);
+    Task DeleteHouseAsync(string houseId);
+}

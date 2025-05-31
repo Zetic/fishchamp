@@ -99,6 +99,7 @@ public class Program
                 services.AddSingleton<IFarmRepository, JsonFarmRepository>();
                 services.AddSingleton<IBoatRepository, JsonBoatRepository>();
                 services.AddSingleton<IPlotRepository, JsonPlotRepository>();
+                services.AddSingleton<IHouseRepository, JsonHouseRepository>();
                 services.AddSingleton<IAreaUnlockService, AreaUnlockService>();
 
                 services.AddSingleton<IInstanceTracker<FishingInstance>, InstanceTracker<FishingInstance>>();
