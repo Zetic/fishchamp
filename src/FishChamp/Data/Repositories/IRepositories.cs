@@ -38,3 +38,11 @@ public interface ITrapRepository
     Task UpdateTrapAsync(FishTrap trap);
     Task DeleteTrapAsync(string trapId);
 }
+
+public interface IAquariumRepository
+{
+    Task<Aquarium?> GetAquariumAsync(ulong userId);
+    Task<Aquarium> CreateAquariumAsync(ulong userId);
+    Task UpdateAquariumAsync(Aquarium aquarium);
+    Task<bool> AquariumExistsAsync(ulong userId);
+}

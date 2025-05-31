@@ -5,6 +5,7 @@ using Microsoft.Extensions.Logging;
 using Remora.Commands.Extensions;
 using FishChamp.Configuration;
 using FishChamp.Modules;
+using FishChamp.Commands;
 using FishChamp.Data.Repositories;
 using Remora.Discord.Hosting.Extensions;
 using Remora.Discord.Commands.Extensions;
@@ -64,6 +65,8 @@ public class Program
                     .AddAutocompleteProvider<AreaFishSpotAutocompleteProvider>()
                     .AddAutocompleteProvider<AreaAutocompleteProvider>()
                     .AddAutocompleteProvider<ShopAutocompleteProvider>()
+                    .AddAutocompleteProvider<AquariumFishAutocompleteProvider>()
+                    .AddAutocompleteProvider<AquariumRemoveFishAutocompleteProvider>()
 
                     .AddCommandTree()
                         .WithCommandGroup<FishingCommandGroup>()
@@ -73,6 +76,7 @@ public class Program
                         .WithCommandGroup<ShopCommandGroup>()
                         .WithCommandGroup<TrapCommandGroup>()
                         .WithCommandGroup<CraftingCommandGroup>()
+                        .WithCommandGroup<AquariumCommandGroup>()
                             .Finish()
 
                     .AddInteractivity()
@@ -84,6 +88,7 @@ public class Program
                 services.AddSingleton<IInventoryRepository, JsonInventoryRepository>();
                 services.AddSingleton<IAreaRepository, JsonAreaRepository>();
                 services.AddSingleton<ITrapRepository, JsonTrapRepository>();
+                services.AddSingleton<IAquariumRepository, JsonAquariumRepository>();
                 services.AddSingleton<IAreaUnlockService, AreaUnlockService>();
 
                 services.AddSingleton<IInstanceTracker<FishingInstance>, InstanceTracker<FishingInstance>>();

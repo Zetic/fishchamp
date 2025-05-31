@@ -65,6 +65,29 @@ The bot now includes:
 - ✅ Trap repair system using materials
 - ✅ Enhanced bait types with specialized bonuses
 
+## Phase 4: Aquarium System ✅
+
+### Iteration 4.1 – Aquarium Construction ✅
+- ✅ Aquarium command shows tank state
+- ✅ Fish storage with capacity limits (starts at 10 fish)
+- ✅ Fish health and happiness tracking
+- ✅ Temperature and cleanliness monitoring
+- ✅ Fish transfer between inventory and aquarium
+
+### Iteration 4.2 – Aquarium Maintenance (Future)
+- [ ] Add cleaning, feeding, temperature control systems
+- [ ] Implement fish happiness and health mechanics
+- [ ] Add maintenance failure consequences
+
+### Iteration 4.3 – Aquarium Breeding (Future)  
+- [ ] Implement fish compatibility breeding system
+- [ ] Add trait inheritance mechanics for offspring
+
+### Iteration 4.4 – Aquarium Decoration (Future)
+- [ ] Add decoration items (plants, pebbles, statues)
+- [ ] Implement mood bonuses from decorations
+- [ ] Add achievement system
+
 ## Setup Instructions
 
 ### Prerequisites
@@ -123,6 +146,12 @@ dotnet run
 - `/shop browse` - Browse items available in your current area
 - `/shop buy <item> [quantity]` - Purchase items from the shop
 
+### Aquarium Commands (NEW - PHASE 4)
+- `/aquarium view` - View your aquarium status and fish
+- `/aquarium add <fish>` - Add a fish from your inventory to the aquarium
+- `/aquarium remove <fish>` - Remove a fish from aquarium back to inventory
+- `/aquarium help` - Show aquarium system help
+
 ## Game Features
 
 ### Fishing System
@@ -140,6 +169,14 @@ dotnet run
 - **Bait Compatibility**: Use different baits to improve trap efficiency
 - **Crafting System**: Create advanced traps using materials
 - **Repair System**: Restore damaged traps with materials
+
+### Aquarium System (NEW - PHASE 4)
+- **Personal Fish Tanks**: Store and manage your fish collection
+- **Fish Health & Happiness**: Track fish well-being and mood
+- **Tank Environment**: Monitor temperature and cleanliness
+- **Fish Transfer**: Move fish between inventory and aquarium
+- **Capacity Management**: Start with 10 fish slots, expandable in future
+- **Future Features**: Breeding, decorations, and advanced maintenance
 
 ### Areas System
 - **Starter Lake**: Perfect for beginners with common fish
@@ -166,8 +203,9 @@ dotnet run
 ## Next Steps
 
 Future iterations will add:
-- Interactive fishing minigames
-- Fish traps and passive fishing
-- Aquarium management
-- Farming and crafting systems
-- Social features and trading
+- Advanced aquarium maintenance and breeding systems
+- Aquarium decorations and mood bonuses
+- Farming and cooking systems
+- Boat exploration and deeper water access
+- Housing and customizable plots
+- Advanced social features and trading
