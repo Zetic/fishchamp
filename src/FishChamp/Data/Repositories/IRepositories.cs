@@ -65,3 +65,12 @@ public interface IBoatRepository
     Task UpdateBoatAsync(Boat boat);
     Task DeleteBoatAsync(string boatId);
 }
+
+public interface IPlotRepository
+{
+    Task<Plot?> GetPlotAsync(string areaId, string plotId);
+    Task<List<Plot>> GetAreaPlotsAsync(string areaId);
+    Task<List<OwnedPlot>> GetUserPlotsAsync(ulong userId);
+    Task<bool> PurchasePlotAsync(ulong userId, string areaId, string plotId);
+    Task<bool> IsPlotAvailableAsync(string areaId, string plotId);
+}

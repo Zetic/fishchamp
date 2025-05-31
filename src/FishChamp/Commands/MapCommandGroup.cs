@@ -68,6 +68,18 @@ public class MapCommandGroup(IInteractionContext context,
                 $"• **{shop.Name}** - {shop.Items.Count(i => i.InStock)} items"));
         }
 
+        var plotsText = "None";
+        if (currentArea.AvailablePlots?.Count > 0)
+        {
+            var availablePlots = currentArea.AvailablePlots.Count(p => p.OwnerId == null);
+            var totalPlots = currentArea.AvailablePlots.Count;
+            plotsText = $"{availablePlots}/{totalPlots} plots available";
+            if (availablePlots > 0)
+            {
+                plotsText += $" (use `/land browse` to view)";
+            }
+        }
+
         var embed = new Embed
         {
             Title = $"🗺️ {currentArea.Name}",
@@ -78,6 +90,7 @@ public class MapCommandGroup(IInteractionContext context,
                 new("🎣 Fishing Spots", spotsText.Length > 0 ? spotsText : "None", false),
                 new("🌱 Farm Spots", farmSpotsText, false),
                 new("🏪 Shops", shopsText, false),
+                new("🏞️ Land Plots", plotsText, false),
                 new("🧭 Connected Areas", connectedAreasText, false)
             },
             Footer = new EmbedFooter("Use /map travel <area> to move or /map goto <spot> to go to fishing spots"),

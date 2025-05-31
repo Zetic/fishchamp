@@ -12,6 +12,7 @@ public class AreaState
     public bool IsUnlocked { get; set; } = true;
     public string UnlockRequirement { get; set; } = string.Empty;
     public Dictionary<string, ShopInventory> Shops { get; set; } = new();
+    public List<Plot> AvailablePlots { get; set; } = new(); // Land plots available for purchase
 }
 
 public enum FishingSpotType

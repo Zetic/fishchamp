@@ -82,6 +82,7 @@ public class Program
                         .WithCommandGroup<AquariumCommandGroup>()
                         .WithCommandGroup<FarmCommandGroup>()
                         .WithCommandGroup<BoatCommandGroup>()
+                        .WithCommandGroup<LandCommandGroup>()
                             .Finish()
 
                     .AddInteractivity()
@@ -97,6 +98,7 @@ public class Program
                 services.AddSingleton<IAquariumRepository, JsonAquariumRepository>();
                 services.AddSingleton<IFarmRepository, JsonFarmRepository>();
                 services.AddSingleton<IBoatRepository, JsonBoatRepository>();
+                services.AddSingleton<IPlotRepository, JsonPlotRepository>();
                 services.AddSingleton<IAreaUnlockService, AreaUnlockService>();
 
                 services.AddSingleton<IInstanceTracker<FishingInstance>, InstanceTracker<FishingInstance>>();
