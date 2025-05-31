@@ -46,3 +46,13 @@ public interface IAquariumRepository
     Task UpdateAquariumAsync(Aquarium aquarium);
     Task<bool> AquariumExistsAsync(ulong userId);
 }
+
+public interface IFarmRepository
+{
+    Task<Farm?> GetFarmAsync(ulong userId, string areaId, string farmSpotId);
+    Task<List<Farm>> GetUserFarmsAsync(ulong userId);
+    Task<List<Farm>> GetAllFarmsAsync();
+    Task<Farm> CreateFarmAsync(Farm farm);
+    Task UpdateFarmAsync(Farm farm);
+    Task DeleteFarmAsync(ulong userId, string areaId, string farmSpotId);
+}
