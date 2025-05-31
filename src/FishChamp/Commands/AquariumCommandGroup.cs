@@ -12,6 +12,7 @@ using Remora.Results;
 using FishChamp.Data.Repositories;
 using FishChamp.Data.Models;
 using FishChamp.Helpers;
+using FishChamp.Providers;
 
 namespace FishChamp.Commands;
 
@@ -81,7 +82,10 @@ public class AquariumCommandGroup(IInteractionCommandContext context,
 
     [Command("add")]
     [Description("Add a fish from your inventory to the aquarium")]
-    public async Task<IResult> AddFishAsync([Description("Fish type to add")] string fishType)
+    public async Task<IResult> AddFishAsync(
+        [Description("Fish type to add")]
+        [AutocompleteProvider("autocomplete::aquarium_fish")]
+        string fishType)
     {
         if (!(context.Interaction.Member.TryGet(out var member) && member.User.TryGet(out var user)))
         {
@@ -142,7 +146,10 @@ public class AquariumCommandGroup(IInteractionCommandContext context,
 
     [Command("remove")]
     [Description("Remove a fish from your aquarium back to inventory")]
-    public async Task<IResult> RemoveFishAsync([Description("Fish name or type to remove")] string fishIdentifier)
+    public async Task<IResult> RemoveFishAsync(
+        [Description("Fish name or type to remove")]
+        [AutocompleteProvider("autocomplete::aquarium_remove_fish")]
+        string fishIdentifier)
     {
         if (!(context.Interaction.Member.TryGet(out var member) && member.User.TryGet(out var user)))
         {
@@ -184,6 +191,38 @@ public class AquariumCommandGroup(IInteractionCommandContext context,
             Fields = new List<EmbedField>
             {
                 new("Fish Count", $"{aquarium.Fish.Count}/{aquarium.Capacity}", true)
+            },
+            Timestamp = DateTimeOffset.UtcNow
+        };
+
+        return await feedbackService.SendContextualEmbedAsync(embed);
+    }
+
+    [Command("help")]
+    [Description("Show aquarium system help and commands")]
+    public async Task<IResult> HelpAsync()
+    {
+        var embed = new Embed
+        {
+            Title = "🐠 Aquarium System Help",
+            Description = "Manage your personal fish tank with these commands:",
+            Colour = Color.Blue,
+            Fields = new List<EmbedField>
+            {
+                new("📋 Commands", 
+                    "`/aquarium view` - View your aquarium and fish\n" +
+                    "`/aquarium add <fish>` - Add a fish from inventory\n" +
+                    "`/aquarium remove <fish>` - Remove a fish to inventory\n" +
+                    "`/aquarium help` - Show this help message", false),
+                new("🏠 Tank Features",
+                    "• **Capacity**: Start with 10 fish slots\n" +
+                    "• **Health**: Fish health and happiness tracking\n" +
+                    "• **Environment**: Temperature and cleanliness monitoring\n" +
+                    "• **Future**: Breeding, decorations, and maintenance!", false),
+                new("💡 Tips",
+                    "• Use autocomplete for easy fish selection\n" +
+                    "• Fish health and happiness will affect future breeding\n" +
+                    "• Keep your aquarium clean for happy fish!", false)
             },
             Timestamp = DateTimeOffset.UtcNow
         };

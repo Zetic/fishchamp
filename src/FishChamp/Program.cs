@@ -65,6 +65,8 @@ public class Program
                     .AddAutocompleteProvider<AreaFishSpotAutocompleteProvider>()
                     .AddAutocompleteProvider<AreaAutocompleteProvider>()
                     .AddAutocompleteProvider<ShopAutocompleteProvider>()
+                    .AddAutocompleteProvider<AquariumFishAutocompleteProvider>()
+                    .AddAutocompleteProvider<AquariumRemoveFishAutocompleteProvider>()
 
                     .AddCommandTree()
                         .WithCommandGroup<FishingCommandGroup>()
