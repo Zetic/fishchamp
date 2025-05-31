@@ -14,4 +14,5 @@ public class PlayerProfile
     public string EquippedBait { get; set; } = string.Empty;
     public string CurrentFishingSpot { get; set; } = string.Empty;
     public Dictionary<string, double> BiggestCatch { get; set; } = new(); // Fish type -> weight
+    public List<string> UnlockedAreas { get; set; } = ["starter_lake"]; // Areas unlocked by this player
 }

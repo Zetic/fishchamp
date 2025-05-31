@@ -11,6 +11,7 @@ using FishChamp.Data.Models;
 using Remora.Discord.Commands.Feedback.Services;
 using FishChamp.Helpers;
 using System.Text.Json;
+using Remora.Discord.Commands.Attributes;
 
 namespace FishChamp.Modules;
 
@@ -59,7 +60,7 @@ public class ShopCommandGroup(IInteractionContext context,
 
     [Command("view")]
     [Description("View items in a specific shop")]
-    public async Task<IResult> ViewShopAsync([Description("Shop name")] string shopName)
+    public async Task<IResult> ViewShopAsync([Description("Shop name")] [AutocompleteProvider("autocomplete::shop")] string shopName)
     {
         if (!(context.Interaction.Member.TryGet(out var member) && member.User.TryGet(out var user)))
         {
@@ -114,7 +115,7 @@ public class ShopCommandGroup(IInteractionContext context,
     [Command("buy")]
     [Description("Buy an item from the shop")]
     public async Task<IResult> BuyItemAsync(
-        [Description("Shop name")] string shopName,
+        [Description("Shop name")] [AutocompleteProvider("autocomplete::shop")] string shopName,
         [Description("Item to buy")] string itemName)
     {
         if (!(context.Interaction.Member.TryGet(out var member) && member.User.TryGet(out var user)))
