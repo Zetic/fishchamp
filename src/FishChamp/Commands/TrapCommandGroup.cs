@@ -11,6 +11,7 @@ using Remora.Discord.Commands.Feedback.Services;
 using Remora.Results;
 using FishChamp.Data.Repositories;
 using FishChamp.Data.Models;
+using FishChamp.Helpers;
 
 namespace FishChamp.Modules;
 
@@ -104,8 +105,7 @@ public class TrapCommandGroup(IInteractionCommandContext context,
             EquippedBait = equippedBait,
             DeployedAt = DateTime.UtcNow,
             CompletesAt = DateTime.UtcNow.AddHours(hours),
-            Durability = (int)(trapItem.Properties.TryGetValue("durability", out var dur) ? 
-                Convert.ToInt32(dur) : 100)
+            Durability = trapItem.Properties.GetInt("durability", 100)
         };
 
         await trapRepository.CreateTrapAsync(trap);
@@ -431,11 +431,7 @@ public class TrapCommandGroup(IInteractionCommandContext context,
         }
 
         // Determine number of catches based on trap efficiency
-        var efficiency = 1.0;
-        if (trap.Properties.TryGetValue("efficiency", out var effValue))
-        {
-            efficiency = Convert.ToDouble(effValue);
-        }
+        var efficiency = trap.Properties.GetDouble("efficiency", 1.0);
 
         var catchCount = 0;
         var adjustedTotalChance = totalChance * efficiency;
@@ -496,11 +492,7 @@ public class TrapCommandGroup(IInteractionCommandContext context,
         }
 
         // Reduce trap durability based on usage and trap type
-        var baseDurability = 100;
-        if (trap.Properties.TryGetValue("durability", out var durValue))
-        {
-            baseDurability = Convert.ToInt32(durValue);
-        }
+        var baseDurability = trap.Properties.GetInt("durability", 100);
         
         var durabilityLoss = Math.Max(1, (int)(hoursDuration * (100.0 / baseDurability) * 3)); // Better traps lose less durability
         trap.Durability = Math.Max(0, trap.Durability - durabilityLoss);
