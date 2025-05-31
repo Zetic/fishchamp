@@ -22,7 +22,6 @@ bld/
 *.userprefs
 
 # Data directory
-data/
 *.db
 *.db-shm
 *.db-wal
