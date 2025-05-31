@@ -84,6 +84,7 @@ public class Program
                 services.AddSingleton<IInventoryRepository, JsonInventoryRepository>();
                 services.AddSingleton<IAreaRepository, JsonAreaRepository>();
                 services.AddSingleton<ITrapRepository, JsonTrapRepository>();
+                services.AddSingleton<IAreaUnlockService, AreaUnlockService>();
 
                 services.AddSingleton<IInstanceTracker<FishingInstance>, InstanceTracker<FishingInstance>>();
                 services.AddHostedService<FishingInstanceUpdaterService>();

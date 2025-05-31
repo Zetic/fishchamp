@@ -2,6 +2,7 @@
 using FishChamp.Data.Repositories;
 using FishChamp.Modules;
 using FishChamp.Tracker;
+using FishChamp.Services;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.VisualBasic;
 using Polly;
@@ -29,6 +30,7 @@ public class FishingInteractionGroup(
     IInventoryRepository inventoryRepository,
     IAreaRepository areaRepository,
     IInstanceTracker<FishingInstance> fishingTracker,
+    IAreaUnlockService areaUnlockService,
     IServiceProvider services) : InteractionGroup
 {
     public const string CastLine = "fish_cast_line";
@@ -384,6 +386,12 @@ public class FishingInteractionGroup(
 
         await playerRepository.UpdatePlayerAsync(player);
 
+        // Check for newly unlocked areas
+        var newlyUnlockedAreas = await areaUnlockService.CheckAndUnlockAreasAsync(player);
+        var unlockMessage = newlyUnlockedAreas.Count > 0 
+            ? $"\n\n🗺️ **New area{(newlyUnlockedAreas.Count > 1 ? "s" : "")} unlocked:** {string.Join(", ", newlyUnlockedAreas)}!" 
+            : "";
+
         // Get rarity emoji
         string rarityEmoji = rarity switch
         {
@@ -428,7 +436,7 @@ public class FishingInteractionGroup(
         {
             Title = $"🎣 {GetTimingMessage(timingPercent)}",
             Description = $"**Success!** You caught a {rarityEmoji} {fishItem.Name}!\n\n" +
-                         $"Size: {fishItem.Properties["size"]}cm | Weight: {fishItem.Properties["weight"]}g (+{xpGained} XP)",
+                         $"Size: {fishItem.Properties["size"]}cm | Weight: {fishItem.Properties["weight"]}g (+{xpGained} XP){unlockMessage}",
             Colour = Color.Green,
             Timestamp = DateTimeOffset.UtcNow
         };
