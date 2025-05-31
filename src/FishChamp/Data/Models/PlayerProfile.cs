@@ -16,6 +16,8 @@ public class PlayerProfile
     public Dictionary<string, double> BiggestCatch { get; set; } = new(); // Fish type -> weight
     public List<string> UnlockedAreas { get; set; } = ["starter_lake"]; // Areas unlocked by this player
     public List<ActiveBuff> ActiveBuffs { get; set; } = new(); // Active meal buffs
+    public int CookingLevel { get; set; } = 1; // Cooking skill level
+    public int CookingExperience { get; set; } = 0; // Cooking XP
 }
 
 public class ActiveBuff
