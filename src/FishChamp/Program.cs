@@ -65,6 +65,7 @@ public class Program
                     .AddAutocompleteProvider<AreaFishSpotAutocompleteProvider>()
                     .AddAutocompleteProvider<AreaAutocompleteProvider>()
                     .AddAutocompleteProvider<ShopAutocompleteProvider>()
+                    .AddAutocompleteProvider<ShopItemsAutocompleteProvider>()
                     .AddAutocompleteProvider<AquariumFishAutocompleteProvider>()
                     .AddAutocompleteProvider<AquariumRemoveFishAutocompleteProvider>()
                     .AddAutocompleteProvider<FarmSpotAutocompleteProvider>()

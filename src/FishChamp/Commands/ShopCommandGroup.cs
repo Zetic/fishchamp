@@ -12,6 +12,7 @@ using Remora.Discord.Commands.Feedback.Services;
 using FishChamp.Helpers;
 using System.Text.Json;
 using Remora.Discord.Commands.Attributes;
+using FishChamp.Providers;
 
 namespace FishChamp.Modules;
 
@@ -115,8 +116,8 @@ public class ShopCommandGroup(IInteractionContext context,
     [Command("buy")]
     [Description("Buy an item from the shop")]
     public async Task<IResult> BuyItemAsync(
-        [Description("Shop name")] [AutocompleteProvider("autocomplete::shop")] string shopName,
-        [Description("Item to buy")] string itemName)
+        [Description("Shop name")] [AutocompleteProvider(ShopAutocompleteProvider.ID)] string shopName,
+        [Description("Item to buy")][AutocompleteProvider(ShopItemsAutocompleteProvider.ID)] string itemName)
     {
         if (!(context.Interaction.Member.TryGet(out var member) && member.User.TryGet(out var user)))
         {
@@ -136,7 +137,7 @@ public class ShopCommandGroup(IInteractionContext context,
             return await discordHelper.ErrorInteractionEphemeral(context.Interaction, "🏪 There are no shops in this area!");
         }
 
-        var shop = currentArea.Shops.Values.FirstOrDefault(s => s.Name.Equals(shopName, StringComparison.OrdinalIgnoreCase));
+        var shop = currentArea.Shops.Values.FirstOrDefault(s => s.ShopId.Equals(shopName, StringComparison.OrdinalIgnoreCase));
         
         if (shop == null)
         {
