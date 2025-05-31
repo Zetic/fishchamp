@@ -68,7 +68,13 @@ public class FishingInteractionGroup(
             f.SpotId.Equals(player.CurrentFishingSpot, StringComparison.OrdinalIgnoreCase));
 
         if (fishingSpot == null)
-            return Result.FromSuccess();
+        {
+            return await interactionAPI.CreateFollowupMessageAsync(
+                context.Interaction.ApplicationID,
+                context.Interaction.Token,
+                "🎣 You need to be at a fishing spot first! Use `/map goto <fishing spot>` to go to one.",
+                flags: MessageFlags.Ephemeral);
+        }
 
         // Simulate waiting for a bite (1-3 seconds)
         var random = new Random();

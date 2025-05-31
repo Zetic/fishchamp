@@ -222,6 +222,22 @@ public class FishingCommandGroup(IInteractionCommandContext context, IDiscordRes
         // Weight formula: size^1.5 * multiplier (approximates fish volume to weight)
         var fishWeight = Math.Round(Math.Pow(fishSize, 1.5) * weightMultiplier, 1);
 
+        // Check for Magnetic trait bonus catch (if enhanced by Lure rod ability)
+        bool bonusCatch = false;
+        if ((fishTraits & FishTrait.Magnetic) != 0)
+        {
+            double bonusChance = 0.2; // 20% base chance for bonus catch
+            if ((rodAbilities & RodAbility.Lure) != 0)
+            {
+                bonusChance = 0.4; // Enhanced to 40% with Lure ability
+            }
+            
+            if (random.NextDouble() < bonusChance)
+            {
+                bonusCatch = true;
+            }
+        }
+
         var fishItem = new InventoryItem
         {
             ItemId = caughtFish,
@@ -238,6 +254,31 @@ public class FishingCommandGroup(IInteractionCommandContext context, IDiscordRes
         };
 
         await inventoryRepository.AddItemAsync(user.ID.Value, fishItem);
+
+        // Handle bonus catch from Magnetic trait
+        if (bonusCatch)
+        {
+            // Create bonus fish (usually smaller and common)
+            var bonusFishSize = random.Next(minSize / 2, minSize + 10);
+            var bonusFishWeight = Math.Round(Math.Pow(bonusFishSize, 1.5) * 1.0, 1);
+            
+            var bonusFishItem = new InventoryItem
+            {
+                ItemId = potentialCatch,
+                ItemType = "Fish",
+                Name = FormatFishName(potentialCatch),
+                Quantity = 1,
+                Properties = new()
+                {
+                    ["size"] = bonusFishSize,
+                    ["weight"] = bonusFishWeight,
+                    ["rarity"] = "common",
+                    ["traits"] = 0 // Bonus fish don't have traits
+                }
+            };
+            
+            await inventoryRepository.AddItemAsync(user.ID.Value, bonusFishItem);
+        }
 
         // Calculate XP gained based on rarity
         int xpGained = rarity switch
@@ -303,9 +344,10 @@ public class FishingCommandGroup(IInteractionCommandContext context, IDiscordRes
 
         if (success)
         {
+            string bonusMessage = bonusCatch ? "\n✨ **Bonus catch!** The Magnetic trait attracted another fish!" : "";
             return await feedbackService.SendContextualContentAsync(
                 $"🎣 **Success!** You caught a {rarityEmoji} {fishItem.Name}!\n" +
-                $"Size: {fishItem.Properties["size"]}cm | Weight: {fishItem.Properties["weight"]}g (+{xpGained} XP){traitsDisplay}", Color.Green);
+                $"Size: {fishItem.Properties["size"]}cm | Weight: {fishItem.Properties["weight"]}g (+{xpGained} XP){traitsDisplay}{bonusMessage}", Color.Green);
         }
         else
         {
