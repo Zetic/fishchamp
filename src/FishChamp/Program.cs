@@ -62,6 +62,8 @@ public class Program
                 services.AddDiscordCommands(true)
                     .AddResponder<SlashCommandConfigurator>()
                     .AddAutocompleteProvider<AreaFishSpotAutocompleteProvider>()
+                    .AddAutocompleteProvider<AreaAutocompleteProvider>()
+                    .AddAutocompleteProvider<ShopAutocompleteProvider>()
 
                     .AddCommandTree()
                         .WithCommandGroup<FishingCommandGroup>()

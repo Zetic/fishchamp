@@ -13,6 +13,7 @@ using FishChamp.Data.Models;
 using Remora.Discord.Commands.Extensions;
 using Polly;
 using Remora.Discord.Commands.Feedback.Services;
+using Remora.Discord.Commands.Attributes;
 
 namespace FishChamp.Modules;
 
@@ -39,7 +40,10 @@ public class MapCommandGroup(IInteractionContext context,
         }
 
         var spotsText = string.Join("\n", currentArea.FishingSpots.Select(spot => 
-            $"• **{spot.Name}** ({spot.Type}) - {spot.AvailableFish.Count} fish species"));
+        {
+            var isCurrentSpot = spot.SpotId == player.CurrentFishingSpot ? " 📍 **(Current)**" : "";
+            return $"• **{spot.Name}** ({spot.Type}) - {spot.AvailableFish.Count} fish species{isCurrentSpot}";
+        }));
             
         var farmSpotsText = "None";
         if (currentArea.FarmSpots.Count > 0)
@@ -85,7 +89,7 @@ public class MapCommandGroup(IInteractionContext context,
 
     [Command("travel")]
     [Description("Travel to a connected area")]
-    public async Task<IResult> TravelToAreaAsync([Description("Area to travel to")] string targetAreaName)
+    public async Task<IResult> TravelToAreaAsync([Description("Area to travel to")] [AutocompleteProvider("autocomplete::area")] string targetAreaName)
     {
         if (!(context.Interaction.Member.TryGet(out var member) && member.User.TryGet(out var user)))
         {
@@ -115,7 +119,7 @@ public class MapCommandGroup(IInteractionContext context,
             return await feedbackService.SendContextualContentAsync($"🚫 You cannot travel to {targetArea.Name} from your current location!", Color.Red);
         }
 
-        if (!targetArea.IsUnlocked)
+        if (!player.UnlockedAreas.Contains(targetArea.AreaId))
         {
             return await feedbackService.SendContextualContentAsync($"🔒 {targetArea.Name} is locked! Requirement: {targetArea.UnlockRequirement}", Color.Red);
         }
@@ -131,7 +135,7 @@ public class MapCommandGroup(IInteractionContext context,
 
     [Command("goto")]
     [Description("Go to a specific fishing spot in your current area")]
-    public async Task<IResult> GoToFishingSpotAsync([Description("Fishing spot to go to")] string fishingSpotName)
+    public async Task<IResult> GoToFishingSpotAsync([Description("Fishing spot to go to")] [AutocompleteProvider("autocomplete::area_fishspot")] string fishingSpotName)
     {
         if (!(context.Interaction.Member.TryGet(out var member) && member.User.TryGet(out var user)))
         {
@@ -188,7 +192,7 @@ public class MapCommandGroup(IInteractionContext context,
 
         var areasText = string.Join("\n", allAreas.Select(area =>
         {
-            var status = area.IsUnlocked ? "🟢" : "🔒";
+            var status = player.UnlockedAreas.Contains(area.AreaId) ? "🟢" : "🔒";
             var current = area.AreaId == player.CurrentArea ? " **(Current)**" : "";
             return $"{status} **{area.Name}**{current}";
         }));
