@@ -3,6 +3,7 @@ using FishChamp.Data.Repositories;
 using FishChamp.Modules;
 using Polly;
 using Remora.Commands.Attributes;
+using Remora.Commands.Groups;
 using Remora.Discord.API.Objects;
 using Remora.Discord.Commands.Contexts;
 using Remora.Discord.Commands.Feedback.Services;
@@ -19,7 +20,7 @@ namespace FishChamp.Features.FishDex;
 public class FishDexCommand(IInteractionContext context,
     IFeedbackService feedbackService,
     IPlayerRepository playerRepository,
-    IInventoryRepository inventoryRepository)
+    IInventoryRepository inventoryRepository) : CommandGroup
 {
     [Command("fishdex")]
     [Description("View your fish collection catalog")]
