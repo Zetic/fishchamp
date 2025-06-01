@@ -83,6 +83,10 @@ public class Program
                         .WithCommandGroup<FarmCommandGroup>()
                         .WithCommandGroup<BoatCommandGroup>()
                         .WithCommandGroup<LandCommandGroup>()
+                        .WithCommandGroup<TradeCommandGroup>()
+                        .WithCommandGroup<TournamentCommandGroup>()
+                        .WithCommandGroup<GuildCommandGroup>()
+                        .WithCommandGroup<EventCommandGroup>()
                             .Finish()
 
                     .AddInteractivity()
@@ -100,6 +104,13 @@ public class Program
                 services.AddSingleton<IBoatRepository, JsonBoatRepository>();
                 services.AddSingleton<IPlotRepository, JsonPlotRepository>();
                 services.AddSingleton<IHouseRepository, JsonHouseRepository>();
+                
+                // Social System Repositories
+                services.AddSingleton<ITradeRepository, JsonTradeRepository>();
+                services.AddSingleton<ITournamentRepository, JsonTournamentRepository>();
+                services.AddSingleton<IGuildRepository, JsonGuildRepository>();
+                services.AddSingleton<IEventRepository, JsonEventRepository>();
+                
                 services.AddSingleton<IAreaUnlockService, AreaUnlockService>();
 
                 services.AddSingleton<IInstanceTracker<FishingInstance>, InstanceTracker<FishingInstance>>();
