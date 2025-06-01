@@ -120,6 +120,8 @@ public class Program
                 services.AddHostedService<TrapUpdaterService>();
                 services.AddHostedService<AquariumMaintenanceService>();
                 services.AddHostedService<CropGrowthService>();
+                services.AddHostedService<TournamentService>();
+                services.AddHostedService<EventService>();
 
                 
 
