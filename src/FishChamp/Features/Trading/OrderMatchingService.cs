@@ -123,14 +123,10 @@ public class OrderMatchingService
             }
         }
 
-        // Save the limit order regardless of fill status
+        // Save the limit order if it's not completely filled
         if (limitOrder.Status == OrderStatus.Pending || limitOrder.Status == OrderStatus.PartiallyFilled)
         {
             await _tradeRepository.CreateOrderAsync(limitOrder);
-        }
-        else
-        {
-            await _tradeRepository.UpdateOrderAsync(limitOrder);
         }
 
         return executions;
