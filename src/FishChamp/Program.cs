@@ -16,6 +16,7 @@ using FishChamp.Responders;
 using FishChamp.Helpers;
 using Remora.Discord.Interactivity.Extensions;
 using FishChamp.Services;
+using FishChamp.Services.Events;
 using FishChamp.Tracker;
 using System.Collections.Concurrent;
 using FishChamp.Minigames.Digging;
@@ -112,6 +113,9 @@ public class Program
                 services.AddSingleton<IEventRepository, JsonEventRepository>();
                 
                 services.AddSingleton<IAreaUnlockService, AreaUnlockService>();
+
+                // Event System
+                services.AddSingleton<IEventBus, EventBus>();
 
                 services.AddSingleton<IInstanceTracker<FishingInstance>, InstanceTracker<FishingInstance>>();
                 services.AddSingleton<IInstanceTracker<DirtDiggingInstance>, InstanceTracker<DirtDiggingInstance>>();

@@ -3,6 +3,7 @@ using FishChamp.Data.Repositories;
 using FishChamp.Modules;
 using FishChamp.Tracker;
 using FishChamp.Services;
+using FishChamp.Services.Events;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.VisualBasic;
 using Polly;
@@ -31,6 +32,7 @@ public class FishingInteractionGroup(
     IAreaRepository areaRepository,
     IInstanceTracker<FishingInstance> fishingTracker,
     IAreaUnlockService areaUnlockService,
+    IEventBus eventBus,
     IServiceProvider services) : InteractionGroup
 {
     public const string CastLine = "fish_cast_line";
@@ -413,6 +415,18 @@ public class FishingInteractionGroup(
         }
 
         await playerRepository.UpdatePlayerAsync(player);
+
+        // Publish OnFishCatch event for other systems (like tournaments) to handle
+        var fishCatchEvent = new OnFishCatchEvent(
+            user.ID.Value,
+            user.Username,
+            fishItem,
+            fishWeight,
+            player.CurrentArea,
+            player.CurrentFishingSpot,
+            timingPercent
+        );
+        await eventBus.PublishAsync(fishCatchEvent);
 
         // Check for newly unlocked areas
         var newlyUnlockedAreas = await areaUnlockService.CheckAndUnlockAreasAsync(player);
