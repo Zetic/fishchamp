@@ -207,41 +207,34 @@ public class FishingCommandGroup(IInteractionCommandContext context, IDiscordRes
         }
 
         var player = await GetOrCreatePlayerAsync(user.ID.Value, user.Username);
-        var inventory = await inventoryRepository.GetInventoryAsync(user.ID.Value);
 
-        if (inventory == null || !inventory.Items.Any(i => i.ItemType == "Fish"))
+        if (player.FishDex.Count == 0)
         {
             return await feedbackService.SendContextualContentAsync("📖 Your FishDex is empty! Catch some fish to fill it.", Color.Yellow);
         }
 
-        // Get all fish species the player has caught
-        var fishSpecies = inventory.Items
-            .Where(i => i.ItemType == "Fish")
-            .GroupBy(i => i.ItemId)
-            .Select(g => g.OrderByDescending(f => f.Properties.GetInt("size", 0)).First())
-            .ToList();
-
-        var totalSpecies = fishSpecies.Count;
+        // Get all discovered fish species from the persistent FishDex
+        var discoveredFish = player.FishDex.Values.OrderBy(f => f.FirstDiscovered).ToList();
+        var totalSpecies = discoveredFish.Count;
+        
+        // Get discovered rarities
+        var discoveredRarities = discoveredFish.Select(f => f.Rarity).Distinct().OrderBy(r => GetRarityOrder(r)).ToList();
         
         // Create a formatted list of fish with their stats and traits
         var fishEntries = new List<string>();
-        foreach (var fish in fishSpecies)
+        foreach (var fishRecord in discoveredFish)
         {
-            var size = fish.Properties.GetInt("size", 0);
-            var weight = fish.Properties.GetDouble("weight", 0);
-            var rarity = fish.Properties.GetString("rarity", "common");
-            var rarityEmoji = GetRarityEmoji(rarity);
+            var rarityEmoji = GetRarityEmoji(fishRecord.Rarity);
             
             // Get traits if any
             string traitsText = "";
-            var fishTraits = (FishTrait)fish.Properties.GetInt("traits", 0);
-            if (fishTraits != FishTrait.None)
+            if (fishRecord.ObservedTraits != FishTrait.None)
             {
                 var traitsList = new List<string>();
-                if ((fishTraits & FishTrait.Evasive) != 0) traitsList.Add("Evasive");
-                if ((fishTraits & FishTrait.Slippery) != 0) traitsList.Add("Slippery");
-                if ((fishTraits & FishTrait.Magnetic) != 0) traitsList.Add("Magnetic");
-                if ((fishTraits & FishTrait.Camouflage) != 0) traitsList.Add("Camouflage");
+                if ((fishRecord.ObservedTraits & FishTrait.Evasive) != 0) traitsList.Add("Evasive");
+                if ((fishRecord.ObservedTraits & FishTrait.Slippery) != 0) traitsList.Add("Slippery");
+                if ((fishRecord.ObservedTraits & FishTrait.Magnetic) != 0) traitsList.Add("Magnetic");
+                if ((fishRecord.ObservedTraits & FishTrait.Camouflage) != 0) traitsList.Add("Camouflage");
                 
                 if (traitsList.Count > 0)
                 {
@@ -249,21 +242,25 @@ public class FishingCommandGroup(IInteractionCommandContext context, IDiscordRes
                 }
             }
             
-            fishEntries.Add($"{rarityEmoji} **{fish.Name}** - Size: {size}cm | Weight: {weight}g{traitsText}");
+            var discoveryText = fishRecord.TimesDiscovered > 1 ? $" | Caught {fishRecord.TimesDiscovered}x" : "";
+            fishEntries.Add($"{rarityEmoji} **{fishRecord.FishName}** - Heaviest: {fishRecord.HeaviestWeight}g | Largest: {fishRecord.LargestSize}cm{traitsText}{discoveryText}");
         }
 
-        // Calculate progress percentage
-        int estimatedTotalSpecies = 50; // This would ideally come from a repository of all available fish
+        // Calculate progress (estimated total species for now - could be made dynamic later)
+        int estimatedTotalSpecies = 50;
         double completionPercentage = Math.Round((double)totalSpecies / estimatedTotalSpecies * 100, 1);
         
-        // Create embed with paginated fish entries (10 per page)
+        var rarityText = discoveredRarities.Count > 0 ? $"**Discovered Rarities:** {string.Join(", ", discoveredRarities.Select(r => $"{GetRarityEmoji(r)} {r}"))}\n\n" : "";
+        
+        // Create embed with fish entries
         var embed = new Embed
         {
             Title = $"📖 {player.Username}'s FishDex",
-            Description = $"You've discovered {totalSpecies} fish species ({completionPercentage}% complete)\n\n" +
+            Description = $"You've discovered **{totalSpecies}** fish species ({completionPercentage}% complete)\n\n" +
+                          rarityText +
                           string.Join("\n", fishEntries),
             Colour = Color.Gold,
-            Footer = new EmbedFooter("Catch more fish to complete your FishDex!"),
+            Footer = new EmbedFooter("Catch more fish to complete your FishDex! Persistent records track your discoveries."),
             Timestamp = DateTimeOffset.UtcNow
         };
 
@@ -474,6 +471,19 @@ public class FishingCommandGroup(IInteractionCommandContext context, IDiscordRes
             "epic" => "🟣",
             "legendary" => "🟡",
             _ => "⚪"
+        };
+    }
+    
+    private static int GetRarityOrder(string rarity)
+    {
+        return rarity.ToLower() switch
+        {
+            "common" => 1,
+            "uncommon" => 2,
+            "rare" => 3,
+            "epic" => 4,
+            "legendary" => 5,
+            _ => 0
         };
     }
 

@@ -25,7 +25,8 @@ public class InventoryCommandGroup(IInteractionContext context,
 {
     [Command("view")]
     [Description("View your inventory")]
-    public async Task<IResult> ViewInventoryAsync()
+    public async Task<IResult> ViewInventoryAsync(
+        [Description("Filter by item type (fish, rods, baits, meals, etc.)")] string? filter = null)
     {
         if (!(context.Interaction.Member.TryGet(out var member) && member.User.TryGet(out var user)))
         {
@@ -40,10 +41,29 @@ public class InventoryCommandGroup(IInteractionContext context,
             return await feedbackService.SendContextualContentAsync("🎒 Your inventory is empty! Try fishing to get some items.", Color.Yellow);
         }
 
-        var groupedItems = inventory.Items.GroupBy(i => i.ItemType);
+        var groupedItems = inventory.Items.AsEnumerable();
+        
+        // Apply filter if specified
+        if (!string.IsNullOrEmpty(filter))
+        {
+            var filterLower = filter.ToLower();
+            groupedItems = filterLower switch
+            {
+                "fish" => groupedItems.Where(i => i.ItemType == "Fish"),
+                "rods" or "rod" => groupedItems.Where(i => i.ItemType == "Rod"),
+                "baits" or "bait" => groupedItems.Where(i => i.ItemType == "Bait"),
+                "meals" or "meal" => groupedItems.Where(i => i.ItemType == "Meal"),
+                "crops" or "crop" => groupedItems.Where(i => i.ItemType == "Crop"),
+                "traps" or "trap" => groupedItems.Where(i => i.ItemType == "Trap"),
+                "tools" or "tool" => groupedItems.Where(i => i.ItemType == "Tool"),
+                _ => groupedItems.Where(i => i.ItemType.ToLower().Contains(filterLower))
+            };
+        }
+        
+        var filteredGroupedItems = groupedItems.GroupBy(i => i.ItemType);
         var fields = new List<EmbedField>();
 
-        foreach (var group in groupedItems)
+        foreach (var group in filteredGroupedItems)
         {
             var itemsText = string.Join("\n", group.Select(item =>
             {
@@ -95,10 +115,10 @@ public class InventoryCommandGroup(IInteractionContext context,
 
         var embed = new Embed
         {
-            Title = $"🎒 {player.Username}'s Inventory",
+            Title = !string.IsNullOrEmpty(filter) ? $"🎒 {player.Username}'s {char.ToUpper(filter[0])}{filter[1..]} Inventory" : $"🎒 {player.Username}'s Inventory",
             Colour = Color.Orange,
             Fields = fields,
-            Footer = new EmbedFooter($"Use /inventory fish, /inventory rods, or /inventory baits for more details\nLast updated: {inventory.LastUpdated:yyyy-MM-dd HH:mm} UTC"),
+            Footer = new EmbedFooter($"Use /inventory view [filter] to filter items (fish, rods, baits, meals, etc.)\nLast updated: {inventory.LastUpdated:yyyy-MM-dd HH:mm} UTC"),
             Timestamp = DateTimeOffset.UtcNow
         };
 
@@ -196,95 +216,6 @@ public class InventoryCommandGroup(IInteractionContext context,
         return await feedbackService.SendContextualEmbedAsync(embed);
     }
 
-    [Command("rods")]
-    [Description("View your fishing rod collection")]
-    public async Task<IResult> ViewRodsAsync()
-    {
-        if (!(context.Interaction.Member.TryGet(out var member) && member.User.TryGet(out var user)))
-        {
-            return Result.FromError(new NotFoundError("Failed to get user"));
-        }
-
-        var player = await GetOrCreatePlayerAsync(user.ID.Value, user.Username);
-        var inventory = await inventoryRepository.GetInventoryAsync(user.ID.Value);
-
-        if (inventory == null)
-        {
-            return await feedbackService.SendContextualContentAsync("🎣 You don't have any fishing rods yet! Visit a shop to buy one.", Color.Yellow);
-        }
-
-        var rods = inventory.Items.Where(i => i.ItemType == "Rod").ToList();
-        if (rods.Count == 0)
-        {
-            return await feedbackService.SendContextualContentAsync("🎣 You don't have any fishing rods yet! Visit a shop to buy one.", Color.Red);
-        }
-
-        var rodsText = string.Join("\n", rods.Select(r =>
-        {
-            var power = r.Properties.GetInt("power", 0);
-            var powerText = power > 0 ? $"Power: {power}" : "";
-            var durability = r.Properties.GetInt("durability", 0);
-            var durabilityText = durability > 0 ? $"Durability: {durability}" : "";
-            var equipped = r.ItemId == player.EquippedRod ? " **[EQUIPPED]**" : "";
-            
-            return $"• **{r.Name}** ({powerText}, {durabilityText}){equipped}";
-        }));
-
-        var embed = new Embed
-        {
-            Title = $"🎣 {player.Username}'s Fishing Rods",
-            Description = rodsText,
-            Colour = Color.Brown,
-            Footer = new EmbedFooter("Use /fishing equip-rod <rod name> to equip a rod"),
-            Timestamp = DateTimeOffset.UtcNow
-        };
-
-        return await feedbackService.SendContextualEmbedAsync(embed);
-    }
-
-    [Command("baits")]
-    [Description("View your bait collection")]
-    public async Task<IResult> ViewBaitsAsync()
-    {
-        if (!(context.Interaction.Member.TryGet(out var member) && member.User.TryGet(out var user)))
-        {
-            return Result.FromError(new NotFoundError("Failed to get user"));
-        }
-
-        var player = await GetOrCreatePlayerAsync(user.ID.Value, user.Username);
-        var inventory = await inventoryRepository.GetInventoryAsync(user.ID.Value);
-
-        if (inventory == null)
-        {
-            return await feedbackService.SendContextualContentAsync("🪱 You don't have any bait yet! Visit a shop to buy some.", Color.Yellow);
-        }
-
-        var baits = inventory.Items.Where(i => i.ItemType == "Bait").ToList();
-        if (baits.Count == 0)
-        {
-            return await feedbackService.SendContextualContentAsync("🪱 You don't have any bait yet! Visit a shop to buy some.", Color.Red);
-        }
-
-        var baitsText = string.Join("\n", baits.Select(b =>
-        {
-            var attraction = b.Properties.GetDouble("attraction", 1.0);
-            var attractionText = attraction != 1.0 ? $"Attraction: {attraction}x" : "";
-            var equipped = b.ItemId == player.EquippedBait ? " **[EQUIPPED]**" : "";
-            
-            return $"• **{b.Name}** x{b.Quantity} ({attractionText}){equipped}";
-        }));
-
-        var embed = new Embed
-        {
-            Title = $"🪱 {player.Username}'s Bait Collection",
-            Description = baitsText,
-            Colour = Color.SandyBrown,
-            Footer = new EmbedFooter("Use /fishing equip-bait <bait name> to equip bait"),
-            Timestamp = DateTimeOffset.UtcNow
-        };
-
-        return await feedbackService.SendContextualEmbedAsync(embed);
-    }
 
     [Command("consume")]
     [Description("Consume a meal to gain temporary buffs")]

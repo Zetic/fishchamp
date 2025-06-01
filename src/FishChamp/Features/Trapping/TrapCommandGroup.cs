@@ -138,6 +138,7 @@ public class TrapCommandGroup(IInteractionCommandContext context,
             return Result.FromError(new NotFoundError("Failed to get user"));
         }
 
+        var player = await GetOrCreatePlayerAsync(user.ID.Value, user.Username);
         var userTraps = await trapRepository.GetUserTrapsAsync(user.ID.Value);
 
         if (!userTraps.Any())
@@ -207,6 +208,38 @@ public class TrapCommandGroup(IInteractionCommandContext context,
                     };
 
                     await inventoryRepository.AddItemAsync(user.ID.Value, fishItem);
+                    
+                    // Update fish dex with trap-caught fish
+                    if (player.FishDex.TryGetValue(fish.FishType, out var existingDiscovery))
+                    {
+                        // Update existing discovery record
+                        existingDiscovery.TimesDiscovered++;
+                        existingDiscovery.LastDiscovered = DateTime.UtcNow;
+                        if (fish.Weight > existingDiscovery.HeaviestWeight)
+                        {
+                            existingDiscovery.HeaviestWeight = fish.Weight;
+                        }
+                        if (fish.Size > existingDiscovery.LargestSize)
+                        {
+                            existingDiscovery.LargestSize = fish.Size;
+                        }
+                        existingDiscovery.ObservedTraits |= fish.Traits; // Add any new traits observed
+                    }
+                    else
+                    {
+                        // First time catching this fish species
+                        player.FishDex[fish.FishType] = new FishDiscoveryRecord
+                        {
+                            FishName = fish.Name,
+                            Rarity = fish.Rarity,
+                            TimesDiscovered = 1,
+                            FirstDiscovered = DateTime.UtcNow,
+                            LastDiscovered = DateTime.UtcNow,
+                            HeaviestWeight = fish.Weight,
+                            LargestSize = fish.Size,
+                            ObservedTraits = fish.Traits
+                        };
+                    }
                 }
 
                 // Mark trap as checked
@@ -219,6 +252,8 @@ public class TrapCommandGroup(IInteractionCommandContext context,
             if (totalCaught > 0)
             {
                 description.AppendLine($"**Total fish collected: {totalCaught}** 🎉");
+                // Update player profile with any fish dex changes
+                await playerRepository.UpdatePlayerAsync(player);
             }
         }
 
@@ -612,6 +647,17 @@ public class TrapCommandGroup(IInteractionCommandContext context,
             },
             _ => null
         };
+    }
+
+    private async Task<PlayerProfile> GetOrCreatePlayerAsync(ulong userId, string username)
+    {
+        var player = await playerRepository.GetPlayerAsync(userId);
+        if (player == null)
+        {
+            player = await playerRepository.CreatePlayerAsync(userId, username);
+            await inventoryRepository.CreateInventoryAsync(userId);
+        }
+        return player;
     }
 }
 

@@ -14,6 +14,7 @@ public class PlayerProfile
     public string EquippedBait { get; set; } = string.Empty;
     public string CurrentFishingSpot { get; set; } = string.Empty;
     public Dictionary<string, double> BiggestCatch { get; set; } = new(); // Fish type -> weight
+    public Dictionary<string, FishDiscoveryRecord> FishDex { get; set; } = new(); // Fish species -> discovery record
     public List<string> UnlockedAreas { get; set; } = ["starter_lake"]; // Areas unlocked by this player
     public List<ActiveBuff> ActiveBuffs { get; set; } = new(); // Active meal buffs
     public int CookingLevel { get; set; } = 1; // Cooking skill level
@@ -39,4 +40,16 @@ public class ActiveBuff
     public string Name { get; set; } = string.Empty;
     public DateTime ExpiresAt { get; set; }
     public Dictionary<string, object> Effects { get; set; } = new();
+}
+
+public class FishDiscoveryRecord
+{
+    public string FishName { get; set; } = string.Empty;
+    public string Rarity { get; set; } = string.Empty;
+    public int TimesDiscovered { get; set; } = 0;
+    public DateTime FirstDiscovered { get; set; } = DateTime.UtcNow;
+    public DateTime LastDiscovered { get; set; } = DateTime.UtcNow;
+    public double HeaviestWeight { get; set; } = 0;
+    public int LargestSize { get; set; } = 0;
+    public FishTrait ObservedTraits { get; set; } = FishTrait.None;
 }
