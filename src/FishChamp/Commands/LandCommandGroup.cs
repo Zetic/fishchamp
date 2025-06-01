@@ -224,7 +224,9 @@ public class LandCommandGroup(IInteractionContext context,
         // Deduct coins and update plot
         player.FishCoins -= buildCost;
         plot.HouseId = createdHouse.HouseId;
-        
+
+        player.OwnedPlots = ownedPlots;
+
         // Update player (plot is updated via reference in player.OwnedPlots)
         await playerRepository.UpdatePlayerAsync(player);
 
