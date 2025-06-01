@@ -84,6 +84,12 @@ public class JsonAreaRepository : IAreaRepository
 
     private async Task SaveAreasAsync(List<AreaState> areas)
     {
+        var directory = Path.GetDirectoryName(_dataPath);
+        if (!string.IsNullOrEmpty(directory) && !Directory.Exists(directory))
+        {
+            Directory.CreateDirectory(directory);
+        }
+        
         var json = JsonSerializer.Serialize(areas, options: new JsonSerializerOptions() { WriteIndented = true });
         await File.WriteAllTextAsync(_dataPath, json);
     }
@@ -277,6 +283,54 @@ public class JsonAreaRepository : IAreaRepository
                         ]
                     }
                 },
+                AvailablePlots = 
+                [
+                    new()
+                    {
+                        PlotId = "lakeside_cottage_1",
+                        AreaId = "starter_lake",
+                        Name = "Peaceful Lakeside Cottage",
+                        Description = "A charming small plot overlooking the serene lake waters. Perfect for your first home.",
+                        Price = 500,
+                        Size = PlotSize.Small
+                    },
+                    new()
+                    {
+                        PlotId = "garden_plot_1",
+                        AreaId = "starter_lake", 
+                        Name = "Sunny Garden Plot",
+                        Description = "A medium-sized plot with fertile soil, ideal for both housing and gardening.",
+                        Price = 800,
+                        Size = PlotSize.Medium
+                    },
+                    new()
+                    {
+                        PlotId = "fishing_retreat_1",
+                        AreaId = "starter_lake",
+                        Name = "Angler's Retreat",
+                        Description = "A small plot near the best fishing spots, perfect for the dedicated angler.",
+                        Price = 450,
+                        Size = PlotSize.Small
+                    },
+                    new()
+                    {
+                        PlotId = "dock_front_1",
+                        AreaId = "starter_lake",
+                        Name = "Dockfront Property", 
+                        Description = "Premium medium plot with direct dock access. Wake up to the sound of gentle waves.",
+                        Price = 1200,
+                        Size = PlotSize.Medium
+                    },
+                    new()
+                    {
+                        PlotId = "hillside_view_1",
+                        AreaId = "starter_lake",
+                        Name = "Hillside View",
+                        Description = "A cozy small plot on elevated ground with panoramic lake views.",
+                        Price = 600,
+                        Size = PlotSize.Small
+                    }
+                ],
                 ConnectedAreas = ["mystic_lake"],
                 IsUnlocked = true
             },
@@ -359,6 +413,63 @@ public class JsonAreaRepository : IAreaRepository
                         ]
                     }
                 },
+                AvailablePlots =
+                [
+                    new()
+                    {
+                        PlotId = "misty_shore_1",
+                        AreaId = "mystic_lake",
+                        Name = "Misty Shore Retreat",
+                        Description = "A medium plot shrouded in mystical mist. The air here hums with magical energy.",
+                        Price = 1500,
+                        Size = PlotSize.Medium
+                    },
+                    new()
+                    {
+                        PlotId = "enchanted_grove_1", 
+                        AreaId = "mystic_lake",
+                        Name = "Enchanted Grove Estate",
+                        Description = "A large plot surrounded by ancient trees that glow softly at night.",
+                        Price = 2500,
+                        Size = PlotSize.Large
+                    },
+                    new()
+                    {
+                        PlotId = "crystal_waters_1",
+                        AreaId = "mystic_lake",
+                        Name = "Crystal Waters Plot",
+                        Description = "A small plot near the crystal-clear waters, where rare fish are easily spotted.",
+                        Price = 1000,
+                        Size = PlotSize.Small
+                    },
+                    new()
+                    {
+                        PlotId = "magic_springs_1",
+                        AreaId = "mystic_lake", 
+                        Name = "Magic Springs Sanctuary",
+                        Description = "A medium plot built around natural magic springs. The water here never freezes.",
+                        Price = 1800,
+                        Size = PlotSize.Medium
+                    },
+                    new()
+                    {
+                        PlotId = "twilight_peninsula_1",
+                        AreaId = "mystic_lake",
+                        Name = "Twilight Peninsula",
+                        Description = "An exclusive large plot extending into the lake, offering complete privacy.",
+                        Price = 3000,
+                        Size = PlotSize.Large
+                    },
+                    new()
+                    {
+                        PlotId = "mystic_overlook_1",
+                        AreaId = "mystic_lake",
+                        Name = "Mystic Overlook", 
+                        Description = "A small elevated plot with commanding views of the entire mystical lake.",
+                        Price = 1200,
+                        Size = PlotSize.Small
+                    }
+                ],
                 ConnectedAreas = ["starter_lake", "enchanted_forest"],
                 IsUnlocked = false,
                 UnlockRequirement = "Catch 5 different fish species"
@@ -467,6 +578,63 @@ public class JsonAreaRepository : IAreaRepository
                         ]
                     }
                 },
+                AvailablePlots =
+                [
+                    new()
+                    {
+                        PlotId = "crystal_spring_1",
+                        AreaId = "enchanted_forest",
+                        Name = "Crystal Spring Manor",
+                        Description = "A large estate built around the legendary crystal spring. The water grants eternal youth to plants.",
+                        Price = 5000,
+                        Size = PlotSize.Large
+                    },
+                    new()
+                    {
+                        PlotId = "fairy_circle_1",
+                        AreaId = "enchanted_forest",
+                        Name = "Fairy Circle Sanctuary",
+                        Description = "A medium plot within an ancient fairy circle. Magical creatures visit nightly.",
+                        Price = 3500,
+                        Size = PlotSize.Medium
+                    },
+                    new()
+                    {
+                        PlotId = "moonwell_1",
+                        AreaId = "enchanted_forest",
+                        Name = "Ancient Moonwell Estate",
+                        Description = "A premium large plot surrounding the ancient moonwell. Lunar magic flows freely here.",
+                        Price = 7500,
+                        Size = PlotSize.Large
+                    },
+                    new()
+                    {
+                        PlotId = "starlight_grove_1",
+                        AreaId = "enchanted_forest",
+                        Name = "Starlight Grove",
+                        Description = "A medium plot where starlight filters through ancient tree canopies all day long.",
+                        Price = 4000,
+                        Size = PlotSize.Medium
+                    },
+                    new()
+                    {
+                        PlotId = "ethereal_garden_1",
+                        AreaId = "enchanted_forest",
+                        Name = "Ethereal Garden",
+                        Description = "A medium plot where ethereal flowers bloom year-round, attracting mystical creatures.",
+                        Price = 3800,
+                        Size = PlotSize.Medium
+                    },
+                    new()
+                    {
+                        PlotId = "woodland_throne_1",
+                        AreaId = "enchanted_forest", 
+                        Name = "Woodland Throne",
+                        Description = "A magnificent large estate at the heart of the forest, fit for forest royalty.",
+                        Price = 10000,
+                        Size = PlotSize.Large
+                    }
+                ],
                 ConnectedAreas = ["mystic_lake", "deep_ocean"],
                 IsUnlocked = false,
                 UnlockRequirement = "Catch a rare or higher rarity fish in Mystic Lake"
@@ -557,6 +725,63 @@ public class JsonAreaRepository : IAreaRepository
                         ]
                     }
                 },
+                AvailablePlots =
+                [
+                    new()
+                    {
+                        PlotId = "abyssal_palace_1",
+                        AreaId = "deep_ocean",
+                        Name = "Abyssal Palace",
+                        Description = "A massive underwater palace plot in the deepest trenches. Home to legendary sea creatures.",
+                        Price = 25000,
+                        Size = PlotSize.Large
+                    },
+                    new()
+                    {
+                        PlotId = "coral_throne_1",
+                        AreaId = "deep_ocean",
+                        Name = "Coral Throne",
+                        Description = "A large plot built into a living coral reef. The coral provides natural protection and beauty.",
+                        Price = 20000,
+                        Size = PlotSize.Large
+                    },
+                    new()
+                    {
+                        PlotId = "kraken_lair_1",
+                        AreaId = "deep_ocean",
+                        Name = "Kraken's Lair",
+                        Description = "A legendary large plot in the abyssal depths. Only the bravest dare to claim this territory.",
+                        Price = 50000,
+                        Size = PlotSize.Large
+                    },
+                    new()
+                    {
+                        PlotId = "tsunami_peak_1",
+                        AreaId = "deep_ocean",
+                        Name = "Tsunami Peak",
+                        Description = "A medium plot on a sea mount that rises above the waves. Commands the entire ocean view.",
+                        Price = 15000,
+                        Size = PlotSize.Medium
+                    },
+                    new()
+                    {
+                        PlotId = "neptune_domain_1",
+                        AreaId = "deep_ocean",
+                        Name = "Neptune's Domain",
+                        Description = "The ultimate large estate, blessed by Neptune himself. Grants dominion over sea creatures.",
+                        Price = 100000,
+                        Size = PlotSize.Large
+                    },
+                    new()
+                    {
+                        PlotId = "whale_song_1",
+                        AreaId = "deep_ocean",
+                        Name = "Whale Song Sanctuary",
+                        Description = "A large plot where ancient whales sing their eternal songs. A place of deep peace and power.",
+                        Price = 30000,
+                        Size = PlotSize.Large
+                    }
+                ],
                 ConnectedAreas = ["enchanted_forest"],
                 IsUnlocked = false,
                 UnlockRequirement = "Catch 3 epic or legendary fish and own a rod with power 4+"
