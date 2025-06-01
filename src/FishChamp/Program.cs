@@ -29,6 +29,7 @@ using FishChamp.Features.Guilds;
 using FishChamp.Features.Shops;
 using FishChamp.Features.Crafting;
 using FishChamp.Features.Housing;
+using FishChamp.Features.FishDex;
 
 namespace FishChamp;
 
@@ -135,6 +136,7 @@ public class Program
                 services.AddHostedService<CropGrowthService>();
                 services.AddHostedService<TournamentService>();
                 services.AddHostedService<EventService>();
+                services.AddHostedService<FishDexUpdaterService>();
 
                 
 

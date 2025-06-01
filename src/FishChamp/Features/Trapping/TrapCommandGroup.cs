@@ -208,38 +208,6 @@ public class TrapCommandGroup(IInteractionCommandContext context,
                     };
 
                     await inventoryRepository.AddItemAsync(user.ID.Value, fishItem);
-                    
-                    // Update fish dex with trap-caught fish
-                    if (player.FishDex.TryGetValue(fish.FishType, out var existingDiscovery))
-                    {
-                        // Update existing discovery record
-                        existingDiscovery.TimesDiscovered++;
-                        existingDiscovery.LastDiscovered = DateTime.UtcNow;
-                        if (fish.Weight > existingDiscovery.HeaviestWeight)
-                        {
-                            existingDiscovery.HeaviestWeight = fish.Weight;
-                        }
-                        if (fish.Size > existingDiscovery.LargestSize)
-                        {
-                            existingDiscovery.LargestSize = fish.Size;
-                        }
-                        existingDiscovery.ObservedTraits |= fish.Traits; // Add any new traits observed
-                    }
-                    else
-                    {
-                        // First time catching this fish species
-                        player.FishDex[fish.FishType] = new FishDiscoveryRecord
-                        {
-                            FishName = fish.Name,
-                            Rarity = fish.Rarity,
-                            TimesDiscovered = 1,
-                            FirstDiscovered = DateTime.UtcNow,
-                            LastDiscovered = DateTime.UtcNow,
-                            HeaviestWeight = fish.Weight,
-                            LargestSize = fish.Size,
-                            ObservedTraits = fish.Traits
-                        };
-                    }
                 }
 
                 // Mark trap as checked
