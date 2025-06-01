@@ -100,6 +100,7 @@ public class Program
                         .WithCommandGroup<GuildCommandGroup>()
                         .WithCommandGroup<EventCommandGroup>()
                         .WithCommandGroup<WorldBossCommandGroup>()
+                        .WithCommandGroup<FishDexCommand>()
                             .Finish()
 
                     .AddInteractivity()
