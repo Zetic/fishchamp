@@ -35,24 +35,39 @@ public class MainGameHubCommandGroup(
         }
 
         // Auto-register player if they don't exist
+        var existingPlayer = await playerRepository.GetPlayerAsync(user.ID.Value);
+        var isNewPlayer = existingPlayer == null;
         var player = await GetOrCreatePlayerAsync(user.ID.Value, user.Username);
         
         // Create main menu embed
+        var welcomeMessage = isNewPlayer 
+            ? $"🎉 Welcome to FishChamp, **{user.Username}**! You've been automatically registered as a new angler." 
+            : $"🐟 Welcome back, **{user.Username}**!";
+
+        var fields = new List<EmbedField>
+        {
+            new("🎣 Fish", "Cast your line and catch fish!", true),
+            new("🚜 Farm", "Plant and harvest crops", true), 
+            new("🎒 Inventory", "Manage your items", true),
+            new("🏪 Shop", "Buy and sell goods", true),
+            new("🏡 Home", "Your personal space", true),
+            new("🗺 Map", "Navigate the world", true)
+        };
+
+        if (isNewPlayer)
+        {
+            fields.Add(new EmbedField("✨ Getting Started", 
+                "• Click 🗺 **Map** to explore areas\n• Click 🎣 **Fish** to start fishing\n• Click 🎒 **Inventory** to see your starter items", 
+                false));
+        }
+            
         var embed = new Embed
         {
-            Title = "🐟 Welcome to FishChamp!",
-            Description = $"Hello **{user.Username}**! Choose what you'd like to do:",
-            Fields = new List<EmbedField>
-            {
-                new("🎣 Fish", "Cast your line and catch fish!", true),
-                new("🚜 Farm", "Plant and harvest crops", true), 
-                new("🎒 Inventory", "Manage your items", true),
-                new("🏪 Shop", "Buy and sell goods", true),
-                new("🏡 Home", "Your personal space", true),
-                new("🗺 Map", "Navigate the world", true)
-            },
+            Title = "🐟 FishChamp Game Hub",
+            Description = $"{welcomeMessage}\n\nChoose what you'd like to do:",
+            Fields = fields,
             Colour = Color.DeepSkyBlue,
-            Footer = new EmbedFooter($"Level {player.Level} • {player.FishCoins} 🪙"),
+            Footer = new EmbedFooter($"Level {player.Level} • {player.FishCoins} 🪙 • {player.CurrentArea}"),
             Timestamp = DateTimeOffset.UtcNow
         };
 

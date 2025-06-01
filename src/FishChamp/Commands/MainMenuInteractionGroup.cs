@@ -1,4 +1,5 @@
 using System.ComponentModel;
+using System.Linq;
 using Remora.Discord.API.Abstractions.Objects;
 using Remora.Discord.API.Abstractions.Rest;
 using Remora.Discord.API.Objects;
@@ -17,6 +18,7 @@ public class MainMenuInteractionGroup(
     IInteractionContext context,
     IPlayerRepository playerRepository,
     IInventoryRepository inventoryRepository,
+    IAreaRepository areaRepository,
     DiscordHelper discordHelper,
     FeedbackService feedbackService) : InteractionGroup
 {
@@ -34,22 +36,66 @@ public class MainMenuInteractionGroup(
             return Result.FromSuccess();
 
         var player = await GetOrCreatePlayerAsync(user.ID.Value, user.Username);
-
-        // Check if player is at a fishing spot
-        if (string.IsNullOrEmpty(player.CurrentFishingSpot))
+        
+        // Check current area and fishing spots
+        var currentArea = await areaRepository.GetAreaAsync(player.CurrentArea);
+        if (currentArea == null)
         {
             return await interactionAPI.CreateFollowupMessageAsync(
                 context.Interaction.ApplicationID,
                 context.Interaction.Token,
-                "🎣 **Fishing Module**\n\nTo start fishing, first go to a fishing spot using `/map goto <fishing spot>`, then use this fish button again to cast your line!",
+                "🗺️ **Location Error**\n\nYour current area wasn't found. Use `/map current` to check your location!",
                 flags: MessageFlags.Ephemeral);
         }
 
-        // Player is at a fishing spot, redirect to actual fishing
+        // Check if player is at a fishing spot
+        if (string.IsNullOrEmpty(player.CurrentFishingSpot))
+        {
+            // Show available fishing spots in current area
+            if (currentArea.FishingSpots.Any())
+            {
+                var spotsText = string.Join("\n", currentArea.FishingSpots.Take(5).Select(spot => $"• **{spot.SpotId}** ({spot.Type})"));
+                
+                return await interactionAPI.CreateFollowupMessageAsync(
+                    context.Interaction.ApplicationID,
+                    context.Interaction.Token,
+                    $"🎣 **Available Fishing Spots in {currentArea.AreaId}**\n\n{spotsText}\n\n" +
+                    "📍 Use `/map goto <fishing_spot>` to travel to a spot, then click 🎣 Fish again!",
+                    flags: MessageFlags.Ephemeral);
+            }
+            else
+            {
+                return await interactionAPI.CreateFollowupMessageAsync(
+                    context.Interaction.ApplicationID,
+                    context.Interaction.Token,
+                    $"🎣 **No Fishing Spots Here**\n\nThere are no fishing spots in **{currentArea.AreaId}**.\n\n" +
+                    "🗺️ Use `/map areas` to see other areas with fishing spots!",
+                    flags: MessageFlags.Ephemeral);
+            }
+        }
+
+        // Player is at a fishing spot - provide fishing guidance
+        var fishingSpot = currentArea.FishingSpots.FirstOrDefault(f => 
+            f.SpotId.Equals(player.CurrentFishingSpot, StringComparison.OrdinalIgnoreCase));
+            
+        if (fishingSpot != null)
+        {
+            var equipmentInfo = $"🎣 **Rod:** {player.EquippedRod ?? "Basic Rod"}\n🪱 **Bait:** {player.EquippedBait ?? "None"}";
+            var spotInfo = $"📍 **Location:** {fishingSpot.SpotId} ({fishingSpot.Type})";
+            
+            return await interactionAPI.CreateFollowupMessageAsync(
+                context.Interaction.ApplicationID,
+                context.Interaction.Token,
+                $"🎣 **Ready to Fish!**\n\n{spotInfo}\n{equipmentInfo}\n\n" +
+                "🚀 Use `/start-fishing` to cast your line and start fishing!\n" +
+                "⚙️ Use `/inventory equip` to change your equipment",
+                flags: MessageFlags.Ephemeral);
+        }
+
         return await interactionAPI.CreateFollowupMessageAsync(
             context.Interaction.ApplicationID,
             context.Interaction.Token,
-            "🎣 **Ready to Fish!**\n\nYou're at a fishing spot! Use `/start-fishing` to cast your line and start the fishing minigame!",
+            "🎣 **Fishing spot not found!** Use `/map goto <fishing_spot>` to go to a valid spot.",
             flags: MessageFlags.Ephemeral);
     }
 
@@ -107,10 +153,37 @@ public class MainMenuInteractionGroup(
     [Button(MapButton)]
     public async Task<IResult> MapAsync()
     {
+        if (!context.Interaction.Member.TryGet(out var member) || !member.User.TryGet(out var user))
+            return Result.FromSuccess();
+
+        var player = await GetOrCreatePlayerAsync(user.ID.Value, user.Username);
+        var currentArea = await areaRepository.GetAreaAsync(player.CurrentArea);
+        
+        if (currentArea == null)
+        {
+            return await interactionAPI.CreateFollowupMessageAsync(
+                context.Interaction.ApplicationID,
+                context.Interaction.Token,
+                "🗺️ **Map Module**\n\nLocation error! Use `/map current` to refresh your location.",
+                flags: MessageFlags.Ephemeral);
+        }
+
+        var locationInfo = $"📍 **Current Area:** {currentArea.AreaId}";
+        var fishingSpotInfo = string.IsNullOrEmpty(player.CurrentFishingSpot) 
+            ? "🎣 **Fishing Spot:** None" 
+            : $"🎣 **Fishing Spot:** {player.CurrentFishingSpot}";
+            
+        var availableSpots = currentArea.FishingSpots.Any() 
+            ? $"🎯 **Available Spots:** {currentArea.FishingSpots.Count}"
+            : "🚫 **No fishing spots here**";
+
         return await interactionAPI.CreateFollowupMessageAsync(
             context.Interaction.ApplicationID,
             context.Interaction.Token,
-            "🗺 **Map & Navigation**\n\nUse `/map current` to see where you are and `/map goto` to travel to new areas!",
+            $"🗺️ **Map & Navigation**\n\n{locationInfo}\n{fishingSpotInfo}\n{availableSpots}\n\n" +
+            "📍 Use `/map current` for detailed area info\n" +
+            "🧭 Use `/map areas` to see all areas\n" +
+            "🚶 Use `/map goto <area/spot>` to travel",
             flags: MessageFlags.Ephemeral);
     }
 }

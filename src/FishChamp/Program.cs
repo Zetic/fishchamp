@@ -30,6 +30,7 @@ using FishChamp.Features.Shops;
 using FishChamp.Features.Crafting;
 using FishChamp.Features.Housing;
 using FishChamp.Features.FishDex;
+using FishChamp.Commands;
 
 namespace FishChamp;
 
@@ -85,6 +86,7 @@ public class Program
                     .AddCommandTree()
                         .WithCommandGroup<FishingCommandGroup>()
                         .WithCommandGroup<FishCommandGroup>()
+                        .WithCommandGroup<MainGameHubCommandGroup>()
                         .WithCommandGroup<MapCommandGroup>()
                         .WithCommandGroup<InventoryCommandGroup>()
                         .WithCommandGroup<ShopCommandGroup>()
@@ -105,7 +107,8 @@ public class Program
 
                     .AddInteractivity()
                     .AddInteractionGroup<FishingInteractionGroup>()
-                    .AddInteractionGroup<DirtDiggingInteractionGroup>();
+                    .AddInteractionGroup<DirtDiggingInteractionGroup>()
+                    .AddInteractionGroup<MainMenuInteractionGroup>();
 
                 // Repositories and Services
                 services.AddSingleton<DiscordHelper>();
