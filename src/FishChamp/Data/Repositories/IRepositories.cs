@@ -84,3 +84,66 @@ public interface IHouseRepository
     Task UpdateHouseAsync(House house);
     Task DeleteHouseAsync(string houseId);
 }
+
+// Social Systems Repositories
+
+public interface ITradeRepository
+{
+    Task<Trade?> GetTradeAsync(string tradeId);
+    Task<List<Trade>> GetUserTradesAsync(ulong userId);
+    Task<List<Trade>> GetPendingTradesAsync(ulong? targetUserId = null);
+    Task<Trade> CreateTradeAsync(Trade trade);
+    Task UpdateTradeAsync(Trade trade);
+    Task DeleteTradeAsync(string tradeId);
+    Task<List<MarketListing>> GetMarketListingsAsync();
+    Task<List<MarketListing>> GetUserListingsAsync(ulong userId);
+    Task<MarketListing> CreateMarketListingAsync(MarketListing listing);
+    Task UpdateMarketListingAsync(MarketListing listing);
+    Task DeleteMarketListingAsync(string listingId);
+}
+
+public interface ITournamentRepository
+{
+    Task<Tournament?> GetTournamentAsync(string tournamentId);
+    Task<List<Tournament>> GetActiveTournamentsAsync();
+    Task<List<Tournament>> GetUpcomingTournamentsAsync();
+    Task<List<Tournament>> GetCompletedTournamentsAsync();
+    Task<Tournament> CreateTournamentAsync(Tournament tournament);
+    Task UpdateTournamentAsync(Tournament tournament);
+    Task DeleteTournamentAsync(string tournamentId);
+    Task<List<TournamentEntry>> GetTournamentEntriesAsync(string tournamentId);
+    Task<TournamentEntry?> GetUserTournamentEntryAsync(string tournamentId, ulong userId);
+    Task UpdateTournamentEntryAsync(TournamentEntry entry);
+    Task<Leaderboard> GetLeaderboardAsync(LeaderboardType type);
+    Task UpdateLeaderboardAsync(Leaderboard leaderboard);
+}
+
+public interface IGuildRepository
+{
+    Task<Guild?> GetGuildAsync(string guildId);
+    Task<Guild?> GetUserGuildAsync(ulong userId);
+    Task<List<Guild>> GetPublicGuildsAsync();
+    Task<List<Guild>> GetAllGuildsAsync();
+    Task<Guild> CreateGuildAsync(Guild guild);
+    Task UpdateGuildAsync(Guild guild);
+    Task DeleteGuildAsync(string guildId);
+    Task<List<GuildInvitation>> GetUserInvitationsAsync(ulong userId);
+    Task<GuildInvitation> CreateInvitationAsync(GuildInvitation invitation);
+    Task UpdateInvitationAsync(GuildInvitation invitation);
+    Task DeleteInvitationAsync(string invitationId);
+}
+
+public interface IEventRepository
+{
+    Task<SeasonalEvent?> GetEventAsync(string eventId);
+    Task<List<SeasonalEvent>> GetActiveEventsAsync();
+    Task<List<SeasonalEvent>> GetUpcomingEventsAsync();
+    Task<List<SeasonalEvent>> GetAllEventsAsync();
+    Task<SeasonalEvent> CreateEventAsync(SeasonalEvent seasonalEvent);
+    Task UpdateEventAsync(SeasonalEvent seasonalEvent);
+    Task DeleteEventAsync(string eventId);
+    Task<EventParticipation?> GetEventParticipationAsync(string eventId, ulong userId);
+    Task<List<EventParticipation>> GetUserEventParticipationsAsync(ulong userId);
+    Task<EventParticipation> CreateEventParticipationAsync(EventParticipation participation);
+    Task UpdateEventParticipationAsync(EventParticipation participation);
+}
