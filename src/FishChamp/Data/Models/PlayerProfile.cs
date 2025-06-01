@@ -24,6 +24,13 @@ public class PlayerProfile
     public Dictionary<string, DateTime> ActiveCraftingJobs { get; set; } = new(); // Item ID -> completion time
     public string? EquippedBoat { get; set; } = null; // Currently equipped boat ID
     public List<OwnedPlot> OwnedPlots { get; set; } = new(); // Player-owned land plots
+    
+    // Social Systems
+    public string? GuildId { get; set; } = null; // Current guild membership
+    public List<string> TournamentTitles { get; set; } = new(); // Earned tournament titles
+    public Dictionary<string, int> TournamentStats { get; set; } = new(); // Tournament wins, participations, etc.
+    public List<string> EventParticipations { get; set; } = new(); // Event IDs participated in
+    public Dictionary<string, object> SocialStats { get; set; } = new(); // Trading stats, guild contributions, etc.
 }
 
 public class ActiveBuff
