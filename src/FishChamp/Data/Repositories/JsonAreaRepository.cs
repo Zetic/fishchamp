@@ -143,144 +143,11 @@ public class JsonAreaRepository : IAreaRepository
                     {
                         ShopId = "tackle_shop",
                         Name = "Bob's Tackle Shop",
-                        Items = 
-                        [
-                            new()
-                            {
-                                ItemId = "basic_rod",
-                                Name = "Basic Fishing Rod",
-                                ItemType = "Rod",
-                                Price = 50,
-                                Description = "A simple fishing rod for beginners.",
-                                Properties = new() { ["power"] = 1, ["durability"] = 100 }
-                            },
-                            new()
-                            {
-                                ItemId = "worm_bait",
-                                Name = "Worm Bait",
-                                ItemType = "Bait",
-                                Price = 5,
-                                Description = "Common bait that attracts most fish.",
-                                Properties = new() { ["attraction"] = 1.1 }
-                            },
-                            new()
-                            {
-                                ItemId = "spinner_lure",
-                                Name = "Spinner Lure",
-                                ItemType = "Bait",
-                                Price = 15,
-                                Description = "Attracts predatory fish like ember bass.",
-                                Properties = new() { ["attraction"] = 1.2 }
-                            },
-                            new()
-                            {
-                                ItemId = "basic_trap",
-                                Name = "Basic Fish Trap",
-                                ItemType = "Trap",
-                                Price = 100,
-                                Description = "A simple fish trap for passive fishing. Lasts for several deployments.",
-                                Properties = new() { ["durability"] = 100, ["efficiency"] = 1.0 }
-                            },
-                            new()
-                            {
-                                ItemId = "shallow_trap",
-                                Name = "Shallow Water Trap",
-                                ItemType = "Trap",
-                                Price = 200,
-                                Description = "Specialized trap for shallow waters. Better catch rate for shore fish.",
-                                Properties = new() { ["durability"] = 120, ["efficiency"] = 1.3, ["water_type"] = "shallow" }
-                            },
-                            new()
-                            {
-                                ItemId = "bread_bait",
-                                Name = "Bread Crumbs",
-                                ItemType = "Bait",
-                                Price = 3,
-                                Description = "Simple bait made from bread. Works well for common fish.",
-                                Properties = new() { ["attraction"] = 1.05 }
-                            },
-                            new()
-                            {
-                                ItemId = "deep_trap",
-                                Name = "Deep Water Trap",
-                                ItemType = "Trap",
-                                Price = 350,
-                                Description = "Specialized trap for deep waters. Better catch rate for large fish.",
-                                Properties = new() { ["durability"] = 150, ["efficiency"] = 1.5, ["water_type"] = "deep" }
-                            },
-                            new()
-                            {
-                                ItemId = "rare_bait",
-                                Name = "Golden Lure",
-                                ItemType = "Bait",
-                                Price = 50,
-                                Description = "Premium bait that significantly attracts rare fish.",
-                                Properties = new() { ["attraction"] = 1.8, ["rare_bonus"] = true }
-                            },
-                            new()
-                            {
-                                ItemId = "trap_material",
-                                Name = "Trap Materials",
-                                ItemType = "Material",
-                                Price = 25,
-                                Description = "Basic materials for crafting traps: rope, wire, and wooden planks.",
-                                Properties = new() { ["stack_size"] = 10 }
-                            },
-                            new()
-                            {
-                                ItemId = "sturdy_rod",
-                                Name = "Sturdy Fishing Rod",
-                                ItemType = "Rod",
-                                Price = 150,
-                                Description = "A more durable rod with basic fish-finding capabilities.",
-                                Properties = new() { ["power"] = 2, ["durability"] = 150, ["abilities"] = (int)RodAbility.FishFinder }
-                            },
-                            new()
-                            {
-                                ItemId = "hook_master_rod",
-                                Name = "Hook Master Rod",  
-                                ItemType = "Rod",
-                                Price = 200,
-                                Description = "Features sharp hooks that prevent fish from slipping away.",
-                                Properties = new() { ["power"] = 2, ["durability"] = 120, ["abilities"] = (int)RodAbility.SharpHook }
-                            },
-                            new()
-                            {
-                                ItemId = "corn_seeds",
-                                Name = "Corn Seeds",
-                                ItemType = "Seed",
-                                Price = 10,
-                                Description = "Basic corn seeds that grow in 4 hours. Yields corn for bait crafting.",
-                                Properties = new() { ["growth_time"] = 4 }
-                            },
-                            new()
-                            {
-                                ItemId = "tomato_seeds",
-                                Name = "Tomato Seeds",
-                                ItemType = "Seed",
-                                Price = 15,
-                                Description = "Fresh tomato seeds that grow in 6 hours. Great for cooking.",
-                                Properties = new() { ["growth_time"] = 6 }
-                            },
-                            new()
-                            {
-                                ItemId = "algae_spores",
-                                Name = "Algae Spores",
-                                ItemType = "Seed",
-                                Price = 20,
-                                Description = "Aquatic algae spores that grow quickly in 2 hours. Used for aquarium food.",
-                                Properties = new() { ["growth_time"] = 2 }
-                            },
-                            new()
-                            {
-                                ItemId = "herb_seeds",
-                                Name = "Spice Herb Seeds",
-                                ItemType = "Seed",
-                                Price = 25,
-                                Description = "Aromatic herb seeds that take 8 hours to grow. Used in premium bait crafting.",
-                                Properties = new() { ["growth_time"] = 8 }
-                            }
-                        ]
+                        Items = ItemRegistry.GetItems(
+                            "basic_rod", "worm_bait", "spinner_lure", "basic_trap", "shallow_trap",
+                            "bread_bait", "deep_trap", "rare_bait", "trap_material", "sturdy_rod",
+                            "hook_master_rod", "corn_seeds", "tomato_seeds", "algae_spores", "herb_seeds"
+                        ).ToList()
                     }
                 },
                 AvailablePlots = 
@@ -372,45 +239,7 @@ public class JsonAreaRepository : IAreaRepository
                     {
                         ShopId = "mystic_fishing_supplies",
                         Name = "Mystic Fishing Supplies",
-                        Items = 
-                        [
-                            new()
-                            {
-                                ItemId = "enchanted_rod",
-                                Name = "Enchanted Fishing Rod",
-                                ItemType = "Rod",
-                                Price = 500,
-                                Description = "A rod imbued with mysterious powers.",
-                                Properties = new() { ["power"] = 3, ["durability"] = 200, ["abilities"] = (int)RodAbility.Precision }
-                            },
-                            new()
-                            {
-                                ItemId = "glowing_lure",
-                                Name = "Glowing Lure",
-                                ItemType = "Bait",
-                                Price = 50,
-                                Description = "Attracts rare fish from the depths.",
-                                Properties = new() { ["attraction"] = 1.5 }
-                            },
-                            new()
-                            {
-                                ItemId = "skiff",
-                                Name = "Small Skiff",
-                                ItemType = "Boat",
-                                Price = 200,
-                                Description = "A simple wooden boat perfect for shallow waters.",
-                                Properties = new() { ["boat_type"] = "skiff" }
-                            },
-                            new()
-                            {
-                                ItemId = "canoe",
-                                Name = "Sturdy Canoe",
-                                ItemType = "Boat",
-                                Price = 500,
-                                Description = "A reliable canoe that can handle rougher waters.",
-                                Properties = new() { ["boat_type"] = "canoe" }
-                            }
-                        ]
+                        Items = ItemRegistry.GetItems("enchanted_rod", "glowing_lure", "skiff", "canoe").ToList()
                     }
                 },
                 AvailablePlots =
@@ -519,63 +348,10 @@ public class JsonAreaRepository : IAreaRepository
                     {
                         ShopId = "arcane_angler",
                         Name = "The Arcane Angler",
-                        Items = 
-                        [
-                            new()
-                            {
-                                ItemId = "precision_rod",
-                                Name = "Rod of Precision",
-                                ItemType = "Rod",
-                                Price = 750,
-                                Description = "A masterwork rod that helps target evasive fish.",
-                                Properties = new() { ["power"] = 4, ["durability"] = 250, ["abilities"] = (int)RodAbility.Precision }
-                            },
-                            new()
-                            {
-                                ItemId = "sharp_hook_rod",
-                                Name = "Sharp Hook Rod",
-                                ItemType = "Rod",
-                                Price = 650,
-                                Description = "Prevents slippery fish from escaping your grasp.",
-                                Properties = new() { ["power"] = 3, ["durability"] = 200, ["abilities"] = (int)RodAbility.SharpHook }
-                            },
-                            new()
-                            {
-                                ItemId = "fish_finder_rod",
-                                Name = "Fish Finder Rod",
-                                ItemType = "Rod",
-                                Price = 800,
-                                Description = "Reveals camouflaged fish hiding in the depths.",
-                                Properties = new() { ["power"] = 4, ["durability"] = 280, ["abilities"] = (int)RodAbility.FishFinder }
-                            },
-                            new()
-                            {
-                                ItemId = "lure_master_rod",
-                                Name = "Lure Master Rod",
-                                ItemType = "Rod",
-                                Price = 900,
-                                Description = "Enhances magnetic fish to attract schools.",
-                                Properties = new() { ["power"] = 5, ["durability"] = 300, ["abilities"] = (int)RodAbility.Lure }
-                            },
-                            new()
-                            {
-                                ItemId = "ethereal_bait",
-                                Name = "Ethereal Bait",
-                                ItemType = "Bait",
-                                Price = 75,
-                                Description = "Mystical bait that draws rare ethereal fish.",
-                                Properties = new() { ["attraction"] = 2.0, ["rare_bonus"] = true }
-                            },
-                            new()
-                            {
-                                ItemId = "starlight_lure",
-                                Name = "Starlight Lure",
-                                ItemType = "Bait",
-                                Price = 100,
-                                Description = "Captures the essence of starlight to attract celestial fish.",
-                                Properties = new() { ["attraction"] = 2.5, ["rare_bonus"] = true }
-                            }
-                        ]
+                        Items = ItemRegistry.GetItems(
+                            "precision_rod", "sharp_hook_rod", "fish_finder_rod",
+                            "lure_master_rod", "ethereal_bait", "starlight_lure"
+                        ).ToList()
                     }
                 },
                 AvailablePlots =
@@ -684,45 +460,7 @@ public class JsonAreaRepository : IAreaRepository
                     {
                         ShopId = "neptunes_arsenal",
                         Name = "Neptune's Arsenal",
-                        Items = 
-                        [
-                            new()
-                            {
-                                ItemId = "legendary_trident_rod",
-                                Name = "Legendary Trident Rod",
-                                ItemType = "Rod",
-                                Price = 2000,
-                                Description = "A divine rod forged by Neptune himself. Combines all rod abilities.",
-                                Properties = new() { ["power"] = 7, ["durability"] = 500, ["abilities"] = (int)(RodAbility.Precision | RodAbility.SharpHook | RodAbility.FishFinder | RodAbility.Lure) }
-                            },
-                            new()
-                            {
-                                ItemId = "kraken_bait",
-                                Name = "Kraken Bait",
-                                ItemType = "Bait",
-                                Price = 200,
-                                Description = "Legendary bait that can attract even the mightiest sea creatures.",
-                                Properties = new() { ["attraction"] = 3.0, ["legendary_bonus"] = true }
-                            },
-                            new()
-                            {
-                                ItemId = "pearl_lure",
-                                Name = "Black Pearl Lure",
-                                ItemType = "Bait",
-                                Price = 150,
-                                Description = "A rare black pearl that mesmerizes deep sea creatures.",
-                                Properties = new() { ["attraction"] = 2.2, ["deep_water_bonus"] = true }
-                            },
-                            new()
-                            {
-                                ItemId = "speedboat",
-                                Name = "Fast Speedboat",
-                                ItemType = "Boat",
-                                Price = 1500,
-                                Description = "A modern speedboat for deep sea exploration.",
-                                Properties = new() { ["boat_type"] = "speedboat" }
-                            }
-                        ]
+                        Items = ItemRegistry.GetItems("legendary_trident_rod", "kraken_bait", "pearl_lure", "speedboat").ToList()
                     }
                 },
                 AvailablePlots =
