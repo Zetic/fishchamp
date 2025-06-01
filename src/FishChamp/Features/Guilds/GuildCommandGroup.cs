@@ -12,6 +12,8 @@ using Remora.Discord.Commands.Feedback.Services;
 using FishChamp.Helpers;
 using GuildModel = FishChamp.Data.Models.Guild;
 using GuildMemberModel = FishChamp.Data.Models.GuildMember;
+using Remora.Discord.Commands.Attributes;
+using FishChamp.Providers;
 
 namespace FishChamp.Features.Guilds;
 
@@ -259,7 +261,10 @@ public class GuildCommandGroup(IInteractionContext context,
 
     [Command("accept")]
     [Description("Accept a guild invitation")]
-    public async Task<IResult> AcceptInvitationAsync([Description("Invitation number from list")] int invitationNumber)
+    public async Task<IResult> AcceptInvitationAsync(
+        [Description("Invitation guild name")]
+        [AutocompleteProvider(GuildInviteAutocompleteProvider.ID)]
+        string guildId)
     {
         if (!(context.Interaction.Member.TryGet(out var member) && member.User.TryGet(out var user)))
         {
@@ -268,17 +273,17 @@ public class GuildCommandGroup(IInteractionContext context,
 
         var invitations = await guildRepository.GetUserInvitationsAsync(user.ID.Value);
         
-        if (!invitations.Any())
+        if (invitations.Count == 0)
         {
             return await feedbackService.SendContextualContentAsync("📭 You have no pending guild invitations!", Color.Red);
         }
 
-        if (invitationNumber < 1 || invitationNumber > invitations.Count)
-        {
-            return await feedbackService.SendContextualContentAsync($"❌ Invalid invitation number! Please choose between 1 and {invitations.Count}.", Color.Red);
-        }
+        var invitation = invitations.FirstOrDefault(i => i.GuildId == guildId);
 
-        var invitation = invitations[invitationNumber - 1];
+        if (invitation == null)
+        {
+            return await feedbackService.SendContextualContentAsync("📭 You have no pending guild invitations from this guild!", Color.Red);
+        }
 
         var guild = await guildRepository.GetGuildAsync(invitation.GuildId);
         if (guild == null)
