@@ -93,6 +93,7 @@ public class Program
                         .WithCommandGroup<BoatCommandGroup>()
                         .WithCommandGroup<LandCommandGroup>()
                         .WithCommandGroup<TradeCommandGroup>()
+                        .WithCommandGroup<MarketCommandGroup>()
                         .WithCommandGroup<TournamentCommandGroup>()
                         .WithCommandGroup<GuildCommandGroup>()
                         .WithCommandGroup<EventCommandGroup>()

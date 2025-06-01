@@ -14,7 +14,7 @@ using FishChamp.Helpers;
 namespace FishChamp.Features.Trading;
 
 [Group("trade")]
-[Description("Trading and market commands")]
+[Description("Trading commands")]
 public class TradeCommandGroup(IInteractionContext context,
     IPlayerRepository playerRepository, IInventoryRepository inventoryRepository,
     ITradeRepository tradeRepository, DiscordHelper discordHelper, FeedbackService feedbackService) : CommandGroup
@@ -262,46 +262,6 @@ public class TradeCommandGroup(IInteractionContext context,
         return await feedbackService.SendContextualContentAsync("❌ Trade offer rejected.", Color.Orange);
     }
 
-    [Command("market")]
-    [Description("Browse the global market")]
-    public async Task<IResult> BrowseMarketAsync([Description("Filter by item type")] string? itemType = null)
-    {
-        var listings = await tradeRepository.GetMarketListingsAsync();
-
-        if (!string.IsNullOrEmpty(itemType))
-        {
-            listings = listings.Where(l => l.Item.ItemType.ToLower() == itemType.ToLower()).ToList();
-        }
-
-        if (!listings.Any())
-        {
-            return await feedbackService.SendContextualContentAsync("🏪 No items are currently listed on the market!", Color.Yellow);
-        }
-
-        var description = "**Available Items:**\n\n";
-        foreach (var listing in listings.Take(10))
-        {
-            description += $"• **{listing.Item.Name}** ({listing.Item.Quantity}x) - {listing.Price} coins\n" +
-                          $"  Seller: {listing.SellerUsername}\n\n";
-        }
-
-        if (listings.Count > 10)
-        {
-            description += $"... and {listings.Count - 10} more items";
-        }
-
-        var embed = new Embed
-        {
-            Title = "🏪 Global Market",
-            Description = description,
-            Colour = Color.Blue,
-            Footer = new EmbedFooter("Use /trade buy <listing_id> to purchase items"),
-            Timestamp = DateTimeOffset.UtcNow
-        };
-
-        return await feedbackService.SendContextualEmbedAsync(embed);
-    }
-
     private async Task<PlayerProfile> GetOrCreatePlayerAsync(ulong userId, string username)
     {
         var player = await playerRepository.GetPlayerAsync(userId);
@@ -311,5 +271,18 @@ public class TradeCommandGroup(IInteractionContext context,
             await inventoryRepository.CreateInventoryAsync(userId);
         }
         return player;
+    }
+
+    private static string GetRarityEmoji(string? rarity)
+    {
+        return rarity?.ToLower() switch
+        {
+            "common" => "⚪",
+            "uncommon" => "🟢",
+            "rare" => "🔵",
+            "epic" => "🟣",
+            "legendary" => "🟡",
+            _ => "⚪"
+        };
     }
 }
