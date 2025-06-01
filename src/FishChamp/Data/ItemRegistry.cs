@@ -39,6 +39,25 @@ public static class ItemRegistry
         return _items.AsReadOnly();
     }
 
+    /// <summary>
+    /// Creates an InventoryItem from a registered item by ID.
+    /// </summary>
+    public static InventoryItem? CreateInventoryItem(string itemId, int quantity = 1)
+    {
+        var shopItem = GetItem(itemId);
+        if (shopItem == null) return null;
+
+        return new InventoryItem
+        {
+            ItemId = shopItem.ItemId,
+            ItemType = shopItem.ItemType,
+            Name = shopItem.Name,
+            Quantity = quantity,
+            Properties = new Dictionary<string, object>(shopItem.Properties),
+            AcquiredAt = DateTime.UtcNow
+        };
+    }
+
     private static void InitializeItems()
     {
         // Rods
