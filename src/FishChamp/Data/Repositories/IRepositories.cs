@@ -95,11 +95,25 @@ public interface ITradeRepository
     Task<Trade> CreateTradeAsync(Trade trade);
     Task UpdateTradeAsync(Trade trade);
     Task DeleteTradeAsync(string tradeId);
+    
+    // Legacy market listing methods (kept for backward compatibility during transition)
     Task<List<MarketListing>> GetMarketListingsAsync();
     Task<List<MarketListing>> GetUserListingsAsync(ulong userId);
     Task<MarketListing> CreateMarketListingAsync(MarketListing listing);
     Task UpdateMarketListingAsync(MarketListing listing);
     Task DeleteMarketListingAsync(string listingId);
+    
+    // Order Book System Methods
+    Task<MarketOrder> CreateOrderAsync(MarketOrder order);
+    Task<MarketOrder?> GetOrderAsync(string orderId);
+    Task<List<MarketOrder>> GetUserOrdersAsync(ulong userId, OrderStatus? status = null);
+    Task<List<MarketOrder>> GetOrderBookAsync(string itemId, OrderType? orderType = null);
+    Task UpdateOrderAsync(MarketOrder order);
+    Task CancelOrderAsync(string orderId);
+    Task<TradeExecution> CreateTradeExecutionAsync(TradeExecution execution);
+    Task<List<TradeExecution>> GetTradeHistoryAsync(string itemId, int hours = 24);
+    Task<MarketStatistics?> GetMarketStatisticsAsync(string itemId);
+    Task UpdateMarketStatisticsAsync(MarketStatistics stats);
 }
 
 public interface ITournamentRepository
