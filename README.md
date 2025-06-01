@@ -191,6 +191,15 @@ dotnet run
 - **Mystic Lake**: Mysterious waters with rare fish (unlockable)
 - Area-specific shops with unique items and trap materials
 
+### Event System (PHASE 11 - COMPLETE!)
+- **World Events**: Dynamic, time-limited events that alter gameplay
+- **Multi-Phase Progression**: Events progress through phases (e.g., Storm Gathering → Storm Peak → Calm Waters)
+- **Dynamic Event Types**: Fishing Frenzy, Flood Season, Volcanic Unrest, Celestial Drift
+- **World Boss Encounters**: Cooperative legendary hunts requiring multiple players (The Abyssal King)
+- **Event Effects**: Bite rate bonuses, special fish spawning, area restrictions, equipment requirements
+- **Event Commands**: Comprehensive event management and participation system
+- **Admin Triggers**: Manually trigger events for testing or special occasions
+
 ### Persistence
 - Player profiles with levels, experience, and currency
 - Inventory management with fish collection

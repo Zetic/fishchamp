@@ -25,6 +25,7 @@ public class FishingInteractionGroup(
     IInstanceTracker<FishingInstance> fishingTracker,
     IAreaUnlockService areaUnlockService,
     IEventBus eventBus,
+    IEventRepository eventRepository,
     IServiceProvider services) : InteractionGroup
 {
     public const string CastLine = "fish_cast_line";
@@ -94,26 +95,33 @@ public class FishingInteractionGroup(
         // Wait for the random amount of time
         await Task.Delay(waitTime);
 
-        // Generate random fishing event
-        var eventRoll = random.NextDouble();
+        // Phase 11 addition - Check for active event effects
+        var eventModifiers = await GetActiveEventModifiersAsync();
+        var biteRateBonus = eventModifiers.GetValueOrDefault("bite_rate_bonus", 0.0);
+
+        // Generate random fishing event (with event modifiers)
+        var baseEventRoll = random.NextDouble();
+        var adjustedEventRoll = baseEventRoll * (1.0 - biteRateBonus); // Lower roll = better chance
+
         string eventText;
         bool canCatch = false;
 
-        if (eventRoll < 0.15) // 15% - Line snapped
+        if (adjustedEventRoll < 0.15) // 15% - Line snapped
         {
             eventText = "💥 **Line snapped!**\nYour fishing line broke! Maybe try with better equipment next time.";
         }
-        else if (eventRoll < 0.3) // 15% - Fish escaped
+        else if (adjustedEventRoll < 0.3) // 15% - Fish escaped
         {
             eventText = "🐟 **Fish escaped!**\nA fish took the bait but swam away before you could react!";
         }
-        else if (eventRoll < 0.5) // 20% - Nothing
+        else if (adjustedEventRoll < 0.5) // 20% - Nothing
         {
             eventText = "💧 **Nothing...**\nThe waters are quiet. No fish seem interested in your bait.";
         }
-        else // 50% - Bite!
+        else // 50%+ - Bite! (improved with bite rate bonus)
         {
-            eventText = "🐟 **You feel a tug on the line...**\nSomething's biting! What will you do?";
+            var eventBonus = biteRateBonus > 0 ? "\n🎣 *Event bonus active!*" : "";
+            eventText = "🐟 **You feel a tug on the line...**\nSomething's biting! What will you do?" + eventBonus;
             canCatch = true;
         }
 
@@ -364,6 +372,23 @@ public class FishingInteractionGroup(
         // Calculate success chance and fish details (simplified version of original logic)
         var potentialCatch = availableFish[random.Next(availableFish.Count)];
 
+        // Phase 11 addition - Check for event fish spawning
+        var eventModifiers = await GetActiveEventModifiersAsync();
+        var eventFish = await GetAvailableEventFishAsync();
+        if (eventFish.Any())
+        {
+            var eventFishRoll = random.NextDouble();
+            var eventSpawnBonus = eventModifiers.GetValueOrDefault("eerie_fish_spawn", 0.0) +
+                                eventModifiers.GetValueOrDefault("storm_fish_spawn", 0.0) +
+                                eventModifiers.GetValueOrDefault("cosmic_fish_everywhere", 0.0);
+
+            if (eventFishRoll < eventSpawnBonus)
+            {
+                var selectedEventFish = eventFish[random.Next(eventFish.Count)];
+                potentialCatch = selectedEventFish.FishId;
+            }
+        }
+
         // Determine fish rarity (with rare fish bonus from meals)
         var rarityRoll = random.NextDouble() * (1.0 - rareBonus); // Lower roll means better chance
         string rarity = rarityRoll < 0.7 ? "common" :
@@ -524,5 +549,66 @@ public class FishingInteractionGroup(
     private static string FormatFishName(string fishId)
     {
         return fishId.Replace("_", " ").ToTitleCase();
+    }
+
+    // Phase 11 addition - Helper methods for event integration
+    private async Task<Dictionary<string, double>> GetActiveEventModifiersAsync()
+    {
+        var activeEvents = await eventRepository.GetActiveEventsAsync();
+        var combinedModifiers = new Dictionary<string, double>();
+
+        foreach (var ev in activeEvents)
+        {
+            foreach (var modifier in ev.EffectModifiers)
+            {
+                if (combinedModifiers.ContainsKey(modifier.Key))
+                {
+                    combinedModifiers[modifier.Key] += modifier.Value;
+                }
+                else
+                {
+                    combinedModifiers[modifier.Key] = modifier.Value;
+                }
+            }
+
+            // Add phase-specific modifiers for multi-phase events
+            if (ev.Phases.Any() && ev.CurrentPhase < ev.Phases.Count)
+            {
+                var currentPhase = ev.Phases[ev.CurrentPhase];
+                foreach (var modifier in currentPhase.PhaseModifiers)
+                {
+                    if (combinedModifiers.ContainsKey(modifier.Key))
+                    {
+                        combinedModifiers[modifier.Key] += modifier.Value;
+                    }
+                    else
+                    {
+                        combinedModifiers[modifier.Key] = modifier.Value;
+                    }
+                }
+            }
+        }
+
+        return combinedModifiers;
+    }
+
+    private async Task<List<EventFish>> GetAvailableEventFishAsync()
+    {
+        var activeEvents = await eventRepository.GetActiveEventsAsync();
+        var eventFish = new List<EventFish>();
+
+        foreach (var ev in activeEvents)
+        {
+            eventFish.AddRange(ev.SpecialFish);
+
+            // Add phase-specific fish for multi-phase events
+            if (ev.Phases.Any() && ev.CurrentPhase < ev.Phases.Count)
+            {
+                var currentPhase = ev.Phases[ev.CurrentPhase];
+                eventFish.AddRange(currentPhase.PhaseFish);
+            }
+        }
+
+        return eventFish;
     }
 }
