@@ -116,7 +116,11 @@ public class MainMenuInteractionGroup(
         return await interactionAPI.CreateFollowupMessageAsync(
             context.Interaction.ApplicationID,
             context.Interaction.Token,
-            "🚜 **Farming Module**\n\nUse farming commands like `/farm plant` and `/farm harvest` to manage your crops!",
+            "🚜 **Farming Module**\n\n" +
+            "🌱 Use `/farm plant <seed>` to plant crops\n" +
+            "🌾 Use `/farm harvest` to collect mature crops\n" +
+            "💧 Use `/farm water` to speed up growth\n" +
+            "🗺️ First find farmable land using `/map goto <farm_area>`",
             flags: MessageFlags.Ephemeral);
     }
 
@@ -126,7 +130,11 @@ public class MainMenuInteractionGroup(
         return await interactionAPI.CreateFollowupMessageAsync(
             context.Interaction.ApplicationID,
             context.Interaction.Token,
-            "🎒 **Inventory Module**\n\nUse `/inventory view` to see your items and `/inventory use` to use consumables!",
+            "🎒 **Inventory Module**\n\n" +
+            "📦 Use `/inventory view` to see your items\n" +
+            "🔧 Use `/inventory equip <item>` to equip rods and bait\n" +
+            "⚗️ Use `/inventory use <item>` to use consumables\n" +
+            "📊 Use `/inventory stats` to see detailed item information",
             flags: MessageFlags.Ephemeral);
     }
 
@@ -136,7 +144,11 @@ public class MainMenuInteractionGroup(
         return await interactionAPI.CreateFollowupMessageAsync(
             context.Interaction.ApplicationID,
             context.Interaction.Token,
-            "🏪 **Shop Module**\n\nUse `/shop browse` to see what's available in your current area!",
+            "🏪 **Shop Module**\n\n" +
+            "🛒 Use `/shop browse` to see what's available in your current area\n" +
+            "💰 Use `/shop buy <item>` to purchase items\n" +
+            "💸 Use `/shop sell <item>` to sell your items\n" +
+            "⛵ Visit different areas to find specialized shops!",
             flags: MessageFlags.Ephemeral);
     }
 
