@@ -28,7 +28,7 @@ public class FishCommandGroup(
     IPlayerRepository playerRepository, IInventoryRepository inventoryRepository, IDiscordRestInteractionAPI interactionAPI,
     IAreaRepository areaRepository, IBoatRepository boatRepository, DiscordHelper discordHelper, FeedbackService feedbackService) : CommandGroup
 {
-    [Command("fish")]
+    [Command("start-fishing")]
     [Description("Start fishing at your current fishing spot")]
     public async Task<IResult> StartFishingAsync()
     {
