@@ -11,7 +11,7 @@ using FishChamp.Data.Models;
 using Remora.Discord.Commands.Feedback.Services;
 using FishChamp.Helpers;
 
-namespace FishChamp.Modules;
+namespace FishChamp.Features.Trading;
 
 [Group("trade")]
 [Description("Trading and market commands")]
@@ -193,7 +193,7 @@ public class TradeCommandGroup(IInteractionContext context,
         {
             // Remove from initiator, add to target
             await inventoryRepository.RemoveItemAsync(trade.InitiatorUserId, tradeItem.ItemId, tradeItem.Quantity);
-            
+
             var newItem = new InventoryItem
             {
                 ItemId = tradeItem.ItemId,

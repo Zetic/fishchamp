@@ -5,14 +5,14 @@ using Remora.Discord.API.Objects;
 using Remora.Discord.Commands.Autocomplete;
 using Remora.Discord.Commands.Contexts;
 
-namespace FishChamp.Providers;
+namespace FishChamp.Features.Shops;
 
-public class ShopItemsAutocompleteProvider(IInteractionContext context, 
-    IPlayerRepository playerRepository, 
+public class ShopAutocompleteProvider(IInteractionContext context,
+    IPlayerRepository playerRepository,
     IInventoryRepository inventoryRepository,
     IAreaRepository areaRepository) : IAutocompleteProvider
 {
-    public const string ID = "autocomplete::shop_items";
+    public const string ID = "autocomplete::shop";
 
     public string Identity => ID;
 
@@ -28,7 +28,7 @@ public class ShopItemsAutocompleteProvider(IInteractionContext context,
     }
 
     public async ValueTask<IReadOnlyList<IApplicationCommandOptionChoice>> GetSuggestionsAsync(IReadOnlyList<IApplicationCommandInteractionDataOption> options,
-        string userInput, 
+        string userInput,
         CancellationToken ct = default)
     {
         if (!context.Interaction.Member.TryGet(out var member) || !member.User.TryGet(out var user))
@@ -49,27 +49,13 @@ public class ShopItemsAutocompleteProvider(IInteractionContext context,
             return await new ValueTask<IReadOnlyList<IApplicationCommandOptionChoice>>(new List<IApplicationCommandOptionChoice>());
         }
 
-        var shopOption = options.First().Options.Value.FirstOrDefault(o => o.Name.Contains("shop", StringComparison.OrdinalIgnoreCase));
-
-        if (shopOption == null)
-        {
-            return await new ValueTask<IReadOnlyList<IApplicationCommandOptionChoice>>(new List<IApplicationCommandOptionChoice>());
-        }
-
-        var shop = currentArea.Shops.Values.FirstOrDefault(s => s.ShopId == shopOption.Value.Value.AsT0);
-
-        if (shop == null)
-        {
-            return await new ValueTask<IReadOnlyList<IApplicationCommandOptionChoice>>(new List<IApplicationCommandOptionChoice>());
-        }
-
-        // Get items in defined shop
-        var availableItems = shop.Items
-            .Where(item => string.IsNullOrEmpty(userInput) || item.Name.Contains(userInput, StringComparison.OrdinalIgnoreCase))
+        // Get shops in current area
+        var availableShops = currentArea.Shops.Values
+            .Where(shop => string.IsNullOrEmpty(userInput) || shop.Name.Contains(userInput, StringComparison.OrdinalIgnoreCase))
             .Take(25) // Discord limit
-            .Select(item => new ApplicationCommandOptionChoice(item.Name, item.ItemId))
+            .Select(shop => new ApplicationCommandOptionChoice(shop.Name, shop.ShopId))
             .ToList();
 
-        return await new ValueTask<IReadOnlyList<IApplicationCommandOptionChoice>>(availableItems);
+        return await new ValueTask<IReadOnlyList<IApplicationCommandOptionChoice>>(availableShops);
     }
 }

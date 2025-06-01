@@ -11,8 +11,9 @@ using Remora.Discord.Commands.Feedback.Services;
 using Remora.Results;
 using FishChamp.Data.Repositories;
 using FishChamp.Data.Models;
+using FishChamp.Modules;
 
-namespace FishChamp.Modules;
+namespace FishChamp.Features.Crafting;
 
 [Group("craft")]
 [Description("Crafting commands for creating traps, equipment, and cooking meals")]
@@ -54,9 +55,9 @@ public class CraftingCommandGroup(IInteractionCommandContext context,
         // Check if player has required materials
         foreach (var requirement in recipe.Requirements)
         {
-            var item = inventory.Items.FirstOrDefault(i => 
+            var item = inventory.Items.FirstOrDefault(i =>
                 i.ItemId == requirement.Key && i.Quantity >= requirement.Value);
-            
+
             if (item == null)
             {
                 var missing = inventory.Items.FirstOrDefault(i => i.ItemId == requirement.Key);
@@ -90,12 +91,12 @@ public class CraftingCommandGroup(IInteractionCommandContext context,
             Title = "🔨 Crafting Successful!",
             Description = $"You crafted a **{recipe.Result.Name}**!\n\n" +
                          $"**Materials Used:**\n" +
-                         string.Join("\n", recipe.Requirements.Select(r => 
+                         string.Join("\n", recipe.Requirements.Select(r =>
                              $"• {r.Value}x {GetItemDisplayName(r.Key)}")) +
                          $"\n\n**Trap Properties:**\n" +
                          $"• Durability: {recipe.Result.Properties["durability"]}\n" +
                          $"• Efficiency: {recipe.Result.Properties["efficiency"]}x\n" +
-                         (recipe.Result.Properties.ContainsKey("water_type") ? 
+                         (recipe.Result.Properties.ContainsKey("water_type") ?
                              $"• Specialized for: {recipe.Result.Properties["water_type"]} water" : ""),
             Colour = Color.Gold,
             Timestamp = DateTimeOffset.UtcNow
@@ -145,9 +146,9 @@ public class CraftingCommandGroup(IInteractionCommandContext context,
         // Check if cooking station is required
         if (!string.IsNullOrEmpty(recipe.RequiredStation))
         {
-            var station = inventory.Items.FirstOrDefault(i => 
+            var station = inventory.Items.FirstOrDefault(i =>
                 i.ItemType == "CookingStation" && i.ItemId == recipe.RequiredStation);
-            
+
             if (station == null)
             {
                 var stationName = GetItemDisplayName(recipe.RequiredStation);
@@ -159,9 +160,9 @@ public class CraftingCommandGroup(IInteractionCommandContext context,
         // Check if player has required ingredients
         foreach (var ingredient in recipe.Ingredients)
         {
-            var item = inventory.Items.FirstOrDefault(i => 
+            var item = inventory.Items.FirstOrDefault(i =>
                 i.ItemId == ingredient.Key && i.Quantity >= ingredient.Value);
-            
+
             if (item == null)
             {
                 var missing = inventory.Items.FirstOrDefault(i => i.ItemId == ingredient.Key);
@@ -193,7 +194,7 @@ public class CraftingCommandGroup(IInteractionCommandContext context,
         // Gain cooking experience
         var cookingXpGained = recipe.RequiredCookingLevel > 0 ? recipe.RequiredCookingLevel * 5 : 5;
         player.CookingExperience += cookingXpGained;
-        
+
         // Check for cooking level up
         var newCookingLevel = CalculateCookingLevel(player.CookingExperience);
         var levelUpMessage = "";
@@ -202,7 +203,7 @@ public class CraftingCommandGroup(IInteractionCommandContext context,
             player.CookingLevel = newCookingLevel;
             levelUpMessage = $"\n\n🎉 **Cooking Level Up!** You are now cooking level {newCookingLevel}!";
         }
-        
+
         await playerRepository.UpdatePlayerAsync(player);
 
         var embed = new Embed
@@ -210,7 +211,7 @@ public class CraftingCommandGroup(IInteractionCommandContext context,
             Title = "🍽️ Cooking Successful!",
             Description = $"You cooked a **{recipe.Result.Name}**!\n\n" +
                          $"**Ingredients Used:**\n" +
-                         string.Join("\n", recipe.Ingredients.Select(r => 
+                         string.Join("\n", recipe.Ingredients.Select(r =>
                              $"• {r.Value}x {GetItemDisplayName(r.Key)}")) +
                          $"\n\n**Meal Effects:**\n" +
                          GetMealEffectsDescription(recipe.Result.Properties) +
@@ -258,9 +259,9 @@ public class CraftingCommandGroup(IInteractionCommandContext context,
         // Check if player has required materials
         foreach (var requirement in recipe.Requirements)
         {
-            var item = inventory.Items.FirstOrDefault(i => 
+            var item = inventory.Items.FirstOrDefault(i =>
                 i.ItemId == requirement.Key && i.Quantity >= requirement.Value);
-            
+
             if (item == null)
             {
                 var missing = inventory.Items.FirstOrDefault(i => i.ItemId == requirement.Key);
@@ -294,7 +295,7 @@ public class CraftingCommandGroup(IInteractionCommandContext context,
             Title = "🔨 Cooking Station Crafted!",
             Description = $"You crafted a **{recipe.Result.Name}**!\n\n" +
                          $"**Materials Used:**\n" +
-                         string.Join("\n", recipe.Requirements.Select(r => 
+                         string.Join("\n", recipe.Requirements.Select(r =>
                              $"• {r.Value}x {GetItemDisplayName(r.Key)}")) +
                          $"\n\n**Station Features:**\n" +
                          GetStationFeaturesDescription(recipe.Result.Properties),
@@ -350,7 +351,7 @@ public class CraftingCommandGroup(IInteractionCommandContext context,
             player.UnlockedBlueprints.Add(blueprint.BlueprintId);
             await playerRepository.UpdatePlayerAsync(player);
         }
-        
+
         if (!HasUnlockedBlueprint(player.UnlockedBlueprints, blueprint))
         {
             var missingPrereq = blueprint.Requirements.UnlockedBy.FirstOrDefault(p => !player.UnlockedBlueprints.Contains(p));
@@ -361,9 +362,9 @@ public class CraftingCommandGroup(IInteractionCommandContext context,
         // Check if crafting station is required
         if (!string.IsNullOrEmpty(blueprint.Requirements.RequiredStation))
         {
-            var station = inventory.Items.FirstOrDefault(i => 
+            var station = inventory.Items.FirstOrDefault(i =>
                 i.ItemType == "CraftingStation" && i.ItemId == blueprint.Requirements.RequiredStation);
-            
+
             if (station == null)
             {
                 var stationName = GetItemDisplayName(blueprint.Requirements.RequiredStation);
@@ -375,9 +376,9 @@ public class CraftingCommandGroup(IInteractionCommandContext context,
         // Check if player has required materials
         foreach (var material in blueprint.Materials)
         {
-            var item = inventory.Items.FirstOrDefault(i => 
+            var item = inventory.Items.FirstOrDefault(i =>
                 i.ItemId == material.Key && i.Quantity >= material.Value);
-            
+
             if (item == null)
             {
                 var missing = inventory.Items.FirstOrDefault(i => i.ItemId == material.Key);
@@ -422,7 +423,7 @@ public class CraftingCommandGroup(IInteractionCommandContext context,
                 Title = "🔨 Crafting Started!",
                 Description = $"You started crafting **{blueprint.Name}**!\n\n" +
                              $"**Materials Used:**\n" +
-                             string.Join("\n", blueprint.Materials.Select(m => 
+                             string.Join("\n", blueprint.Materials.Select(m =>
                                  $"• {m.Value}x {GetItemDisplayName(m.Key)}")) +
                              $"\n\n**Time Required:** {blueprint.Difficulty.CraftingTimeMinutes} minutes\n" +
                              $"**Success Rate:** {Math.Round(successRate * 100)}%\n\n" +
@@ -458,7 +459,7 @@ public class CraftingCommandGroup(IInteractionCommandContext context,
 
         // Gain crafting experience
         player.CraftingExperience += blueprint.Difficulty.ExperienceGained;
-        
+
         // Check for crafting level up
         var newCraftingLevel = CalculateCraftingLevel(player.CraftingExperience);
         var levelUpMessage = "";
@@ -467,22 +468,22 @@ public class CraftingCommandGroup(IInteractionCommandContext context,
             player.CraftingLevel = newCraftingLevel;
             levelUpMessage = $"\n\n🎉 **Crafting Level Up!** You are now crafting level {newCraftingLevel}!";
         }
-        
+
         await playerRepository.UpdatePlayerAsync(player);
 
         var resultEmbed = new Embed
         {
             Title = craftingSuccess ? "🔨 Crafting Successful!" : "💥 Crafting Failed!",
-            Description = craftingSuccess 
+            Description = craftingSuccess
                 ? $"You crafted a **{blueprint.Name}**!\n\n" +
                   $"**Materials Used:**\n" +
-                  string.Join("\n", blueprint.Materials.Select(m => 
+                  string.Join("\n", blueprint.Materials.Select(m =>
                       $"• {m.Value}x {GetItemDisplayName(m.Key)}")) +
                   $"\n\n**Crafting XP:** +{blueprint.Difficulty.ExperienceGained}" +
                   levelUpMessage
                 : $"Crafting **{blueprint.Name}** failed!\n\n" +
                   $"**Materials Lost:**\n" +
-                  string.Join("\n", blueprint.Materials.Select(m => 
+                  string.Join("\n", blueprint.Materials.Select(m =>
                       $"• {m.Value}x {GetItemDisplayName(m.Key)}")) +
                   $"\n\n**Success Rate:** {Math.Round(successRate * 100)}%\n" +
                   $"**Crafting XP:** +{blueprint.Difficulty.ExperienceGained}" +
@@ -652,9 +653,9 @@ public class CraftingCommandGroup(IInteractionCommandContext context,
         // Check if player has required materials (excluding the base item)
         foreach (var material in upgradeBlueprint.Materials)
         {
-            var item = inventory.Items.FirstOrDefault(i => 
+            var item = inventory.Items.FirstOrDefault(i =>
                 i.ItemId == material.Key && i.Quantity >= material.Value);
-            
+
             if (item == null)
             {
                 var missing = inventory.Items.FirstOrDefault(i => i.ItemId == material.Key);
@@ -701,23 +702,23 @@ public class CraftingCommandGroup(IInteractionCommandContext context,
             player.CraftingLevel = newCraftingLevel;
             levelUpMessage = $"\n\n🎉 **Crafting Level Up!** You are now crafting level {newCraftingLevel}!";
         }
-        
+
         await playerRepository.UpdatePlayerAsync(player);
 
         var embed = new Embed
         {
             Title = upgradeSuccess ? "⬆️ Upgrade Successful!" : "💥 Upgrade Failed!",
-            Description = upgradeSuccess 
+            Description = upgradeSuccess
                 ? $"You upgraded **{itemToUpgrade.Name}** to **{upgradeBlueprint.Name}**!\n\n" +
                   $"**Materials Used:**\n" +
-                  string.Join("\n", upgradeBlueprint.Materials.Select(m => 
+                  string.Join("\n", upgradeBlueprint.Materials.Select(m =>
                       $"• {m.Value}x {GetItemDisplayName(m.Key)}")) +
                   $"\n• 1x {itemToUpgrade.Name}" +
                   $"\n\n**Crafting XP:** +{upgradeBlueprint.Difficulty.ExperienceGained}" +
                   levelUpMessage
                 : $"Upgrade of **{itemToUpgrade.Name}** failed!\n\n" +
                   $"**Materials Lost:**\n" +
-                  string.Join("\n", upgradeBlueprint.Materials.Select(m => 
+                  string.Join("\n", upgradeBlueprint.Materials.Select(m =>
                       $"• {m.Value}x {GetItemDisplayName(m.Key)}")) +
                   $"\n• 1x {itemToUpgrade.Name}" +
                   $"\n\n**Success Rate:** {Math.Round(successRate * 100)}%" +
@@ -748,7 +749,7 @@ public class CraftingCommandGroup(IInteractionCommandContext context,
         {
             return await ViewBlueprintRecipesAsync();
         }
-        
+
         var recipes = GetAllTrapRecipes();
         var description = new StringBuilder();
 
@@ -795,7 +796,7 @@ public class CraftingCommandGroup(IInteractionCommandContext context,
                 description.AppendLine($"• {ingredient.Value}x {GetItemDisplayName(ingredient.Key)}");
             }
             description.AppendLine($"Effects: {GetMealEffectsDescription(recipe.Result.Properties)}");
-            
+
             // Add requirements
             if (recipe.RequiredCookingLevel > 1)
             {
@@ -805,7 +806,7 @@ public class CraftingCommandGroup(IInteractionCommandContext context,
             {
                 description.AppendLine($"Station: {GetItemDisplayName(recipe.RequiredStation)}");
             }
-            
+
             description.AppendLine();
         }
 
@@ -937,7 +938,7 @@ public class CraftingCommandGroup(IInteractionCommandContext context,
     private static string GetStationFeaturesDescription(Dictionary<string, object> properties)
     {
         var features = new List<string>();
-        
+
         if (properties.ContainsKey("unlocks_recipes"))
         {
             var unlockedRecipe = properties["unlocks_recipes"]?.ToString() ?? "";
@@ -946,7 +947,7 @@ public class CraftingCommandGroup(IInteractionCommandContext context,
                 features.Add($"Unlocks advanced recipe: {GetItemDisplayName(unlockedRecipe)}");
             }
         }
-        
+
         if (properties.ContainsKey("station_type"))
         {
             var stationType = properties["station_type"].ToString();
@@ -988,8 +989,8 @@ public class CraftingCommandGroup(IInteractionCommandContext context,
                 {
                     ItemId = "simple_salad",
                     Name = "Simple Salad",
-                    Properties = new() 
-                    { 
+                    Properties = new()
+                    {
                         ["catch_rate_bonus"] = 0.1,
                         ["duration_minutes"] = 30,
                         ["buff_type"] = "catch_rate"
@@ -1004,8 +1005,8 @@ public class CraftingCommandGroup(IInteractionCommandContext context,
                 {
                     ItemId = "hearty_stew",
                     Name = "Hearty Stew",
-                    Properties = new() 
-                    { 
+                    Properties = new()
+                    {
                         ["xp_bonus"] = 0.25,
                         ["duration_minutes"] = 45,
                         ["buff_type"] = "xp_gain"
@@ -1020,8 +1021,8 @@ public class CraftingCommandGroup(IInteractionCommandContext context,
                 {
                     ItemId = "algae_smoothie",
                     Name = "Algae Smoothie",
-                    Properties = new() 
-                    { 
+                    Properties = new()
+                    {
                         ["rare_fish_bonus"] = 0.15,
                         ["duration_minutes"] = 25,
                         ["buff_type"] = "rare_discovery"
@@ -1037,8 +1038,8 @@ public class CraftingCommandGroup(IInteractionCommandContext context,
                 {
                     ItemId = "herb_boost",
                     Name = "Herb Energy Boost",
-                    Properties = new() 
-                    { 
+                    Properties = new()
+                    {
                         ["catch_rate_bonus"] = 0.15,
                         ["xp_bonus"] = 0.2,
                         ["trait_discovery_bonus"] = 0.2,
@@ -1057,8 +1058,8 @@ public class CraftingCommandGroup(IInteractionCommandContext context,
                 {
                     ItemId = "gourmet_fish_stew",
                     Name = "Gourmet Fish Stew",
-                    Properties = new() 
-                    { 
+                    Properties = new()
+                    {
                         ["catch_rate_bonus"] = 0.25,
                         ["xp_bonus"] = 0.3,
                         ["rare_fish_bonus"] = 0.2,
@@ -1078,8 +1079,8 @@ public class CraftingCommandGroup(IInteractionCommandContext context,
                 {
                     ItemId = "power_smoothie",
                     Name = "Ultimate Power Smoothie",
-                    Properties = new() 
-                    { 
+                    Properties = new()
+                    {
                         ["catch_rate_bonus"] = 0.35,
                         ["xp_bonus"] = 0.4,
                         ["rare_fish_bonus"] = 0.3,
@@ -1110,14 +1111,14 @@ public class CraftingCommandGroup(IInteractionCommandContext context,
     {
         // Simple level calculation: Level = 1 + floor(experience / 100)
         // Level 1: 0-99 XP, Level 2: 100-199 XP, etc.
-        return 1 + (experience / 100);
+        return 1 + experience / 100;
     }
 
     private static int CalculateCraftingLevel(int experience)
     {
         // Similar level calculation for crafting: Level = 1 + floor(experience / 150)
         // Slightly harder progression than cooking
-        return 1 + (experience / 150);
+        return 1 + experience / 150;
     }
 
     private static double CalculateSuccessRate(Blueprint blueprint, int craftingLevel)
@@ -1189,7 +1190,7 @@ public class CraftingCommandGroup(IInteractionCommandContext context,
     private static bool HasUnlockedBlueprint(List<string> unlockedBlueprints, Blueprint blueprint)
     {
         // Check if all prerequisites are met
-        return blueprint.Requirements.UnlockedBy.All(prereq => 
+        return blueprint.Requirements.UnlockedBy.All(prereq =>
             unlockedBlueprints.Contains(prereq));
     }
 
@@ -1213,22 +1214,22 @@ public class CraftingCommandGroup(IInteractionCommandContext context,
         description.AppendLine("**Available Item Blueprints:**\n");
 
         var groupedBlueprints = blueprints.GroupBy(b => b.Type);
-        
+
         foreach (var group in groupedBlueprints)
         {
             description.AppendLine($"**{group.Key}s:**");
-            
+
             foreach (var blueprint in group.OrderBy(b => b.Tier))
             {
                 description.AppendLine($"• **{blueprint.Name}** (`/craft item {blueprint.BlueprintId}`)");
                 description.AppendLine($"  Tier: {blueprint.Tier} | Level: {blueprint.Requirements.CraftingLevel}");
-                
+
                 if (blueprint.Requirements.UnlockedBy.Count > 0)
                 {
                     var prereqs = string.Join(", ", blueprint.Requirements.UnlockedBy.Select(GetItemDisplayName));
                     description.AppendLine($"  Prerequisites: {prereqs}");
                 }
-                
+
                 description.AppendLine($"  Materials: {string.Join(", ", blueprint.Materials.Select(m => $"{m.Value}x {GetItemDisplayName(m.Key)}"))}");
                 description.AppendLine($"  Success Rate: {Math.Round(blueprint.Difficulty.BaseSuccessRate * 100)}% | Time: {(blueprint.Difficulty.CraftingTimeMinutes > 0 ? $"{blueprint.Difficulty.CraftingTimeMinutes}min" : "Instant")}");
                 description.AppendLine();
@@ -1250,31 +1251,31 @@ public class CraftingCommandGroup(IInteractionCommandContext context,
     private static string GetMealEffectsDescription(Dictionary<string, object> properties)
     {
         var effects = new List<string>();
-        
+
         if (properties.ContainsKey("catch_rate_bonus"))
         {
             var bonus = Math.Round((double)properties["catch_rate_bonus"] * 100);
             effects.Add($"+{bonus}% catch rate");
         }
-        
+
         if (properties.ContainsKey("xp_bonus"))
         {
             var bonus = Math.Round((double)properties["xp_bonus"] * 100);
             effects.Add($"+{bonus}% XP gain");
         }
-        
+
         if (properties.ContainsKey("rare_fish_bonus"))
         {
             var bonus = Math.Round((double)properties["rare_fish_bonus"] * 100);
             effects.Add($"+{bonus}% rare fish chance");
         }
-        
+
         if (properties.ContainsKey("trait_discovery_bonus"))
         {
             var bonus = Math.Round((double)properties["trait_discovery_bonus"] * 100);
             effects.Add($"+{bonus}% trait discovery");
         }
-        
+
         if (properties.ContainsKey("duration_minutes"))
         {
             var duration = properties["duration_minutes"];

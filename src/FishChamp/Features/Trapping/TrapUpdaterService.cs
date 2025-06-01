@@ -2,14 +2,14 @@ using FishChamp.Data.Repositories;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
 
-namespace FishChamp.Services;
+namespace FishChamp.Features.Trapping;
 
 public class TrapUpdaterService(ITrapRepository trapRepository, ILogger<TrapUpdaterService> logger) : BackgroundService
 {
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
     {
         logger.LogInformation("TrapUpdaterService started");
-        
+
         while (!stoppingToken.IsCancellationRequested)
         {
             try
@@ -28,7 +28,7 @@ public class TrapUpdaterService(ITrapRepository trapRepository, ILogger<TrapUpda
                 await Task.Delay(TimeSpan.FromMinutes(1), stoppingToken); // Wait before retrying
             }
         }
-        
+
         logger.LogInformation("TrapUpdaterService stopped");
     }
 
@@ -36,14 +36,14 @@ public class TrapUpdaterService(ITrapRepository trapRepository, ILogger<TrapUpda
     {
         var activeTraps = await trapRepository.GetActiveTrapsAsync();
         var now = DateTime.UtcNow;
-        
+
         foreach (var trap in activeTraps)
         {
             // Check if trap has completed
             if (now >= trap.CompletesAt && !trap.IsCompleted)
             {
                 logger.LogInformation("Trap {TrapId} completed for user {UserId}", trap.TrapId, trap.UserId);
-                
+
                 // Mark as completed - fish generation will happen when checked by user
                 trap.IsCompleted = true;
                 await trapRepository.UpdateTrapAsync(trap);

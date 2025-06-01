@@ -1,4 +1,4 @@
-namespace FishChamp.Services.Events;
+namespace FishChamp.Events;
 
 /// <summary>
 /// Base interface for all events in the system
@@ -9,7 +9,7 @@ public interface IEvent
     /// When the event was created
     /// </summary>
     DateTime CreatedAt { get; }
-    
+
     /// <summary>
     /// Unique identifier for this event instance
     /// </summary>

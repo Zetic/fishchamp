@@ -1,11 +1,11 @@
 using FishChamp.Data.Models;
 using FishChamp.Data.Repositories;
-using FishChamp.Services.Events;
+using FishChamp.Events;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
 
-namespace FishChamp.Services;
+namespace FishChamp.Features.Tournaments;
 
 public class TournamentService : BackgroundService, IEventHandler<OnFishCatchEvent>
 {
@@ -24,9 +24,9 @@ public class TournamentService : BackgroundService, IEventHandler<OnFishCatchEve
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
     {
         _logger.LogInformation("Tournament Service started");
-        
+
         // Subscribe to fish catch events
-        _eventBus.Subscribe<OnFishCatchEvent>(this);
+        _eventBus.Subscribe(this);
         _logger.LogInformation("Tournament Service subscribed to OnFishCatch events");
 
         while (!stoppingToken.IsCancellationRequested)
@@ -47,9 +47,9 @@ public class TournamentService : BackgroundService, IEventHandler<OnFishCatchEve
 
             await Task.Delay(_updateInterval, stoppingToken);
         }
-        
+
         // Unsubscribe when service is stopping
-        _eventBus.Unsubscribe<OnFishCatchEvent>(this);
+        _eventBus.Unsubscribe(this);
         _logger.LogInformation("Tournament Service unsubscribed from OnFishCatch events");
     }
 
@@ -70,17 +70,17 @@ public class TournamentService : BackgroundService, IEventHandler<OnFishCatchEve
         foreach (var tournament in activeTournaments.Where(t => t.EndTime <= DateTime.UtcNow))
         {
             tournament.Status = TournamentStatus.Ended;
-            
+
             // Calculate final rankings
             var sortedEntries = tournament.Entries.OrderByDescending(e => e.Score).ToList();
             for (int i = 0; i < sortedEntries.Count; i++)
             {
                 sortedEntries[i].Rank = i + 1;
             }
-            
+
             // Award prizes
             await AwardTournamentPrizesAsync(tournament, playerRepository);
-            
+
             await tournamentRepository.UpdateTournamentAsync(tournament);
             _logger.LogInformation($"Ended tournament: {tournament.Name} with {tournament.Entries.Count} participants");
         }
@@ -116,7 +116,7 @@ public class TournamentService : BackgroundService, IEventHandler<OnFishCatchEve
 
                     if (reward.Rank == 1)
                         player.TournamentStats["tournaments_won"]++;
-                    
+
                     player.TournamentStats["tournaments_participated"]++;
 
                     await playerRepository.UpdatePlayerAsync(player);
@@ -250,19 +250,19 @@ public class TournamentService : BackgroundService, IEventHandler<OnFishCatchEve
         {
             using var scope = _serviceProvider.CreateScope();
             var tournamentRepository = scope.ServiceProvider.GetRequiredService<ITournamentRepository>();
-            
+
             // Get all active tournaments
             var activeTournaments = await tournamentRepository.GetActiveTournamentsAsync();
-            
+
             foreach (var tournament in activeTournaments)
             {
                 // Skip tournaments with area restrictions that don't match
-                if (!string.IsNullOrEmpty(tournament.AreaRestriction) && 
+                if (!string.IsNullOrEmpty(tournament.AreaRestriction) &&
                     !tournament.AreaRestriction.Equals(eventData.AreaId, StringComparison.OrdinalIgnoreCase))
                 {
                     continue;
                 }
-                
+
                 await UpdateTournamentEntryForFishCatch(tournament, eventData, tournamentRepository);
             }
         }
@@ -333,13 +333,13 @@ public class TournamentService : BackgroundService, IEventHandler<OnFishCatchEve
         if (entryUpdated)
         {
             entry.LastUpdated = DateTime.UtcNow;
-            
+
             // Update rankings (simple approach - could be optimized)
             UpdateTournamentRankings(tournament);
-            
+
             await tournamentRepository.UpdateTournamentAsync(tournament);
-            
-            _logger.LogDebug("Updated tournament entry for user {UserId} in tournament {TournamentName} with score {Score}", 
+
+            _logger.LogDebug("Updated tournament entry for user {UserId} in tournament {TournamentName} with score {Score}",
                 fishCatch.UserId, tournament.Name, entry.Score);
         }
     }
@@ -350,7 +350,7 @@ public class TournamentService : BackgroundService, IEventHandler<OnFishCatchEve
     private static void UpdateTournamentRankings(Tournament tournament)
     {
         var sortedEntries = tournament.Entries.OrderByDescending(e => e.Score).ToList();
-        
+
         for (int i = 0; i < sortedEntries.Count; i++)
         {
             sortedEntries[i].Rank = i + 1;

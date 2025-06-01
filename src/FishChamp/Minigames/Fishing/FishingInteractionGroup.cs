@@ -3,24 +3,16 @@ using FishChamp.Data.Repositories;
 using FishChamp.Modules;
 using FishChamp.Tracker;
 using FishChamp.Services;
-using FishChamp.Services.Events;
 using Microsoft.Extensions.DependencyInjection;
-using Microsoft.VisualBasic;
-using Polly;
-using Remora.Discord.API.Abstractions.Gateway.Events;
 using Remora.Discord.API.Abstractions.Objects;
 using Remora.Discord.API.Abstractions.Rest;
 using Remora.Discord.API.Objects;
 using Remora.Discord.Commands.Contexts;
 using Remora.Discord.Interactivity;
 using Remora.Results;
-using System;
-using System.Collections.Concurrent;
-using System.Collections.Generic;
 using System.Drawing;
-using System.Linq;
 using System.Text;
-using System.Threading.Tasks;
+using FishChamp.Events;
 
 namespace FishChamp.Minigames.Fishing;
 

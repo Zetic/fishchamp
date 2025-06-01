@@ -14,7 +14,7 @@ using FishChamp.Data.Models;
 using FishChamp.Helpers;
 using FishChamp.Providers;
 
-namespace FishChamp.Commands;
+namespace FishChamp.Features.Aquariums;
 
 [Group("aquarium")]
 [Description("Aquarium management commands")]
@@ -35,7 +35,7 @@ public class AquariumCommandGroup(IInteractionCommandContext context,
         var aquarium = await GetOrCreateAquariumAsync(user.ID.Value);
 
         // Apply degradation when viewing
-        Services.AquariumMaintenanceService.ApplyDegradation(aquarium);
+        AquariumMaintenanceService.ApplyDegradation(aquarium);
         await aquariumRepository.UpdateAquariumAsync(aquarium);
 
         var fields = new List<EmbedField>
@@ -48,15 +48,15 @@ public class AquariumCommandGroup(IInteractionCommandContext context,
         // Add maintenance status
         var timeSinceLastFed = DateTime.UtcNow - aquarium.LastFed;
         var timeSinceLastCleaned = DateTime.UtcNow - aquarium.LastCleaned;
-        
+
         var feedingStatus = timeSinceLastFed.TotalHours switch
         {
             < 4 => "🟢 Well Fed",
-            < 6 => "🟡 Getting Hungry", 
+            < 6 => "🟡 Getting Hungry",
             < 12 => "🟠 Hungry",
             _ => "🔴 Starving"
         };
-        
+
         var cleanlinessStatus = aquarium.Cleanliness switch
         {
             >= 80 => "🟢 Sparkling Clean",
@@ -77,20 +77,20 @@ public class AquariumCommandGroup(IInteractionCommandContext context,
         }
 
         string description = "";
-        
+
         // Fish list
         if (aquarium.Fish.Any())
         {
             var fishText = new StringBuilder();
             var livingFish = aquarium.Fish.Where(f => f.IsAlive).Take(15);
             var deadFish = aquarium.Fish.Where(f => !f.IsAlive).Take(5);
-            
+
             foreach (var fish in livingFish)
             {
                 var rarityEmoji = GetRarityEmoji(fish.Rarity);
                 var healthEmoji = fish.Health > 80 ? "💚" : fish.Health > 50 ? "💛" : "❤️";
                 var happinessEmoji = fish.Happiness > 80 ? "😊" : fish.Happiness > 50 ? "😐" : "😢";
-                
+
                 fishText.AppendLine($"{rarityEmoji} **{fish.Name}** {healthEmoji}{happinessEmoji}");
             }
 
@@ -155,8 +155,8 @@ public class AquariumCommandGroup(IInteractionCommandContext context,
         }
 
         // Find the fish in inventory
-        var fishItem = inventory.Items.FirstOrDefault(i => i.ItemType == "Fish" && 
-            (i.ItemId.Equals(fishType, StringComparison.OrdinalIgnoreCase) || 
+        var fishItem = inventory.Items.FirstOrDefault(i => i.ItemType == "Fish" &&
+            (i.ItemId.Equals(fishType, StringComparison.OrdinalIgnoreCase) ||
              i.Name.Equals(fishType, StringComparison.OrdinalIgnoreCase)));
 
         if (fishItem == null)
@@ -212,7 +212,7 @@ public class AquariumCommandGroup(IInteractionCommandContext context,
         }
 
         // Find the fish in aquarium
-        var fish = aquarium.Fish.FirstOrDefault(f => 
+        var fish = aquarium.Fish.FirstOrDefault(f =>
             f.Name.Equals(fishIdentifier, StringComparison.OrdinalIgnoreCase) ||
             f.FishType.Equals(fishIdentifier, StringComparison.OrdinalIgnoreCase) ||
             f.FishId.Equals(fishIdentifier, StringComparison.OrdinalIgnoreCase));
@@ -255,7 +255,7 @@ public class AquariumCommandGroup(IInteractionCommandContext context,
         }
 
         var aquarium = await GetOrCreateAquariumAsync(user.ID.Value);
-        Services.AquariumMaintenanceService.ApplyDegradation(aquarium);
+        AquariumMaintenanceService.ApplyDegradation(aquarium);
 
         // Cleaning improves cleanliness but takes time and has a cooldown
         var timeSinceLastCleaned = DateTime.UtcNow - aquarium.LastCleaned;
@@ -297,7 +297,7 @@ public class AquariumCommandGroup(IInteractionCommandContext context,
         }
 
         var aquarium = await GetOrCreateAquariumAsync(user.ID.Value);
-        Services.AquariumMaintenanceService.ApplyDegradation(aquarium);
+        AquariumMaintenanceService.ApplyDegradation(aquarium);
 
         if (!aquarium.Fish.Any())
         {
@@ -356,7 +356,7 @@ public class AquariumCommandGroup(IInteractionCommandContext context,
         }
 
         var aquarium = await GetOrCreateAquariumAsync(user.ID.Value);
-        Services.AquariumMaintenanceService.ApplyDegradation(aquarium);
+        AquariumMaintenanceService.ApplyDegradation(aquarium);
 
         if (aquarium.Fish.Count >= aquarium.Capacity)
         {
@@ -364,9 +364,9 @@ public class AquariumCommandGroup(IInteractionCommandContext context,
         }
 
         // Find parent fish
-        var parent1 = aquarium.Fish.FirstOrDefault(f => 
+        var parent1 = aquarium.Fish.FirstOrDefault(f =>
             f.FishId.Equals(parent1Name, StringComparison.OrdinalIgnoreCase) && f.IsAlive);
-        var parent2 = aquarium.Fish.FirstOrDefault(f => 
+        var parent2 = aquarium.Fish.FirstOrDefault(f =>
             f.FishId.Equals(parent2Name, StringComparison.OrdinalIgnoreCase) && f.IsAlive);
 
         if (parent1 == null)
@@ -425,7 +425,7 @@ public class AquariumCommandGroup(IInteractionCommandContext context,
         return await feedbackService.SendContextualEmbedAsync(embed);
     }
 
-    private static (bool CanBreed, string Reason) CheckBreedingCompatibility(Data.Models.AquariumFish parent1, Data.Models.AquariumFish parent2)
+    private static (bool CanBreed, string Reason) CheckBreedingCompatibility(AquariumFish parent1, AquariumFish parent2)
     {
         // Check if both fish can breed
         if (!parent1.CanBreed)
@@ -473,18 +473,18 @@ public class AquariumCommandGroup(IInteractionCommandContext context,
         return (true, "");
     }
 
-    private static Data.Models.AquariumFish CreateOffspring(Data.Models.AquariumFish parent1, Data.Models.AquariumFish parent2)
+    private static AquariumFish CreateOffspring(AquariumFish parent1, AquariumFish parent2)
     {
         var random = new Random();
-        
+
         // Choose which parent's species the offspring will be
         var isPrimarySpecies = random.NextDouble() < 0.7; // 70% chance to be parent1's species
         var baseSpecies = isPrimarySpecies ? parent1 : parent2;
         var otherParent = isPrimarySpecies ? parent2 : parent1;
-        
+
         // Inherit traits from both parents
-        var inheritedTraits = Data.Models.FishTrait.None;
-        
+        var inheritedTraits = FishTrait.None;
+
         // Each parent has a chance to pass on their traits
         if (random.NextDouble() < 0.6) // 60% chance to inherit from parent1
         {
@@ -494,43 +494,43 @@ public class AquariumCommandGroup(IInteractionCommandContext context,
         {
             inheritedTraits |= parent2.Traits;
         }
-        
+
         // Rare chance for mutation (new trait)
         if (random.NextDouble() < 0.1) // 10% chance for mutation
         {
-            var possibleTraits = new[] { Data.Models.FishTrait.Evasive, Data.Models.FishTrait.Slippery, Data.Models.FishTrait.Magnetic, Data.Models.FishTrait.Camouflage };
+            var possibleTraits = new[] { FishTrait.Evasive, FishTrait.Slippery, FishTrait.Magnetic, FishTrait.Camouflage };
             inheritedTraits |= possibleTraits[random.Next(possibleTraits.Length)];
         }
-        
+
         // Determine offspring rarity (chance for improvement)
         var parentRarities = new[] { parent1.Rarity, parent2.Rarity };
         var rarityHierarchy = new[] { "common", "uncommon", "rare", "epic", "legendary", "mythic" };
-        
+
         var maxParentRarityIndex = parentRarities.Max(r => Array.IndexOf(rarityHierarchy, r));
         var offspringRarityIndex = maxParentRarityIndex;
-        
+
         // Small chance to improve rarity
         if (random.NextDouble() < 0.15 && maxParentRarityIndex < rarityHierarchy.Length - 1) // 15% chance to improve
         {
             offspringRarityIndex++;
         }
-        
+
         var offspringRarity = rarityHierarchy[offspringRarityIndex];
-        
+
         // Size and weight are averages with some variation
         var avgSize = (parent1.Size + parent2.Size) / 2.0;
         var avgWeight = (parent1.Weight + parent2.Weight) / 2.0;
-        
+
         var sizeVariation = random.NextDouble() * 0.4 - 0.2; // ±20% variation
         var weightVariation = random.NextDouble() * 0.4 - 0.2; // ±20% variation
-        
+
         var offspringSize = Math.Max(1, (int)(avgSize * (1 + sizeVariation)));
         var offspringWeight = Math.Max(0.1, avgWeight * (1 + weightVariation));
-        
+
         // Generate name
         var offspringName = GenerateOffspringName(baseSpecies.Name, otherParent.Name);
-        
-        return new Data.Models.AquariumFish
+
+        return new AquariumFish
         {
             FishId = Guid.NewGuid().ToString(),
             FishType = baseSpecies.FishType,
@@ -559,7 +559,7 @@ public class AquariumCommandGroup(IInteractionCommandContext context,
     private static string GenerateOffspringName(string parent1Name, string parent2Name)
     {
         var random = new Random();
-        
+
         // Simple name generation: take parts from both parents
         var names = new[]
         {
@@ -571,7 +571,7 @@ public class AquariumCommandGroup(IInteractionCommandContext context,
             "Fry", // Young fish
             "Fingerling"
         };
-        
+
         return names[random.Next(names.Length)];
     }
 
@@ -587,7 +587,7 @@ public class AquariumCommandGroup(IInteractionCommandContext context,
         }
 
         var aquarium = await GetOrCreateAquariumAsync(user.ID.Value);
-        Services.AquariumMaintenanceService.ApplyDegradation(aquarium);
+        AquariumMaintenanceService.ApplyDegradation(aquarium);
 
         // Validate decoration type
         var validDecorations = new[] { "plant", "pebbles", "statue", "coral", "cave" };
@@ -595,7 +595,7 @@ public class AquariumCommandGroup(IInteractionCommandContext context,
         {
             return await feedbackService.SendContextualErrorAsync($"Invalid decoration type! Valid types: {string.Join(", ", validDecorations)}");
         }
-        
+
         decorationType = decorationType.ToLower(); // Normalize
 
         // Check if decoration already exists
@@ -720,7 +720,7 @@ public class AquariumCommandGroup(IInteractionCommandContext context,
         }
 
         var aquarium = await GetOrCreateAquariumAsync(user.ID.Value);
-        Services.AquariumMaintenanceService.ApplyDegradation(aquarium);
+        AquariumMaintenanceService.ApplyDegradation(aquarium);
 
         var oldTemperature = aquarium.Temperature;
         aquarium.Temperature = targetTemperature;
@@ -731,7 +731,7 @@ public class AquariumCommandGroup(IInteractionCommandContext context,
         {
             >= 20 and <= 25 => "🌡️ Perfect temperature range!",
             >= 18 and < 20 => "❄️ A bit cool, but acceptable",
-            > 25 and <= 28 => "🔥 A bit warm, but acceptable", 
+            > 25 and <= 28 => "🔥 A bit warm, but acceptable",
             _ => "⚠️ Extreme temperature - your fish may become stressed!"
         };
 
@@ -762,7 +762,7 @@ public class AquariumCommandGroup(IInteractionCommandContext context,
             Colour = Color.Blue,
             Fields = new List<EmbedField>
             {
-                new("📋 Basic Commands", 
+                new("📋 Basic Commands",
                     "`/aquarium view` - View your aquarium and fish\n" +
                     "`/aquarium add <fish>` - Add a fish from inventory\n" +
                     "`/aquarium remove <fish>` - Remove a fish to inventory\n" +
@@ -824,7 +824,7 @@ public class AquariumCommandGroup(IInteractionCommandContext context,
         {
             "common" => "⚪",
             "uncommon" => "🟢",
-            "rare" => "🔵", 
+            "rare" => "🔵",
             "epic" => "🟣",
             "legendary" => "🟡",
             "mythic" => "🔴",

@@ -6,10 +6,10 @@ using Remora.Discord.Commands.Autocomplete;
 using Remora.Discord.Commands.Contexts;
 using Remora.Results;
 
-namespace FishChamp.Providers;
+namespace FishChamp.Features.Farming;
 
-public class FarmSpotAutocompleteProvider(IInteractionContext context, 
-    IPlayerRepository playerRepository, 
+public class FarmSpotAutocompleteProvider(IInteractionContext context,
+    IPlayerRepository playerRepository,
     IAreaRepository areaRepository) : IAutocompleteProvider
 {
     public const string ID = "autocomplete::farm_spot";
@@ -17,8 +17,8 @@ public class FarmSpotAutocompleteProvider(IInteractionContext context,
     public string Identity => ID;
 
     public async ValueTask<IReadOnlyList<IApplicationCommandOptionChoice>> GetSuggestionsAsync(
-        IReadOnlyList<IApplicationCommandInteractionDataOption> options, 
-        string userInput, 
+        IReadOnlyList<IApplicationCommandInteractionDataOption> options,
+        string userInput,
         CancellationToken ct = default)
     {
         if (!context.Interaction.Member.TryGet(out var member) || !member.User.TryGet(out var user))
@@ -28,7 +28,7 @@ public class FarmSpotAutocompleteProvider(IInteractionContext context,
 
         var player = await GetOrCreatePlayerAsync(user.ID.Value, user.Username);
         var currentArea = await areaRepository.GetAreaAsync(player.CurrentArea);
-        
+
         if (currentArea == null || currentArea.FarmSpots.Count == 0)
         {
             return Array.Empty<IApplicationCommandOptionChoice>();
@@ -50,7 +50,7 @@ public class FarmSpotAutocompleteProvider(IInteractionContext context,
     }
 }
 
-public class SeedTypeAutocompleteProvider(IInteractionContext context, 
+public class SeedTypeAutocompleteProvider(IInteractionContext context,
     IInventoryRepository inventoryRepository) : IAutocompleteProvider
 {
     public const string ID = "autocomplete::seed_type";
@@ -58,8 +58,8 @@ public class SeedTypeAutocompleteProvider(IInteractionContext context,
     public string Identity => ID;
 
     public async ValueTask<IReadOnlyList<IApplicationCommandOptionChoice>> GetSuggestionsAsync(
-        IReadOnlyList<IApplicationCommandInteractionDataOption> options, 
-        string userInput, 
+        IReadOnlyList<IApplicationCommandInteractionDataOption> options,
+        string userInput,
         CancellationToken ct = default)
     {
         if (!context.Interaction.Member.TryGet(out var member) || !member.User.TryGet(out var user))
@@ -68,7 +68,7 @@ public class SeedTypeAutocompleteProvider(IInteractionContext context,
         }
 
         var inventory = await inventoryRepository.GetInventoryAsync(user.ID.Value);
-        
+
         if (inventory == null)
         {
             return Array.Empty<IApplicationCommandOptionChoice>();

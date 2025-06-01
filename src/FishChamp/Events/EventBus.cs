@@ -1,7 +1,7 @@
 using System.Collections.Concurrent;
 using Microsoft.Extensions.Logging;
 
-namespace FishChamp.Services.Events;
+namespace FishChamp.Events;
 
 /// <summary>
 /// In-memory event bus implementation for publishing and subscribing to events
@@ -17,7 +17,7 @@ public class EventBus : IEventBus
         _logger = logger;
     }
 
-    public async Task PublishAsync<TEvent>(TEvent eventData, CancellationToken cancellationToken = default) 
+    public async Task PublishAsync<TEvent>(TEvent eventData, CancellationToken cancellationToken = default)
         where TEvent : IEvent
     {
         if (eventData == null)
@@ -39,7 +39,7 @@ public class EventBus : IEventBus
             currentHandlers = new List<object>(handlerList);
         }
 
-        _logger.LogDebug("Publishing event {EventType} with ID {EventId} to {HandlerCount} handlers", 
+        _logger.LogDebug("Publishing event {EventType} with ID {EventId} to {HandlerCount} handlers",
             eventType.Name, eventData.EventId, currentHandlers.Count);
 
         var tasks = currentHandlers
@@ -70,7 +70,7 @@ public class EventBus : IEventBus
             if (!handlerList.Contains(handler))
             {
                 handlerList.Add(handler);
-                _logger.LogDebug("Subscribed handler {HandlerType} to event type {EventType}", 
+                _logger.LogDebug("Subscribed handler {HandlerType} to event type {EventType}",
                     handler.GetType().Name, eventType.Name);
             }
         }
@@ -90,14 +90,14 @@ public class EventBus : IEventBus
             {
                 if (handlerList.Remove(handler))
                 {
-                    _logger.LogDebug("Unsubscribed handler {HandlerType} from event type {EventType}", 
+                    _logger.LogDebug("Unsubscribed handler {HandlerType} from event type {EventType}",
                         handler.GetType().Name, eventType.Name);
                 }
             }
         }
     }
 
-    private async Task HandleEventSafely<TEvent>(IEventHandler<TEvent> handler, TEvent eventData, 
+    private async Task HandleEventSafely<TEvent>(IEventHandler<TEvent> handler, TEvent eventData,
         CancellationToken cancellationToken) where TEvent : IEvent
     {
         try
@@ -106,7 +106,7 @@ public class EventBus : IEventBus
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "Error handling event {EventType} with ID {EventId} in handler {HandlerType}", 
+            _logger.LogError(ex, "Error handling event {EventType} with ID {EventId} in handler {HandlerType}",
                 typeof(TEvent).Name, eventData.EventId, handler.GetType().Name);
         }
     }

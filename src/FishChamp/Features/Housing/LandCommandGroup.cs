@@ -11,13 +11,13 @@ using FishChamp.Data.Models;
 using Remora.Discord.Commands.Feedback.Services;
 using FishChamp.Helpers;
 
-namespace FishChamp.Modules;
+namespace FishChamp.Features.Housing;
 
 [Group("land")]
 [Description("Land ownership and housing commands")]
 public class LandCommandGroup(IInteractionContext context,
-    IPlayerRepository playerRepository, IAreaRepository areaRepository, 
-    IPlotRepository plotRepository, IHouseRepository houseRepository, 
+    IPlayerRepository playerRepository, IAreaRepository areaRepository,
+    IPlotRepository plotRepository, IHouseRepository houseRepository,
     IInventoryRepository inventoryRepository, FeedbackService feedbackService) : CommandGroup
 {
     [Command("browse")]
@@ -95,7 +95,7 @@ public class LandCommandGroup(IInteractionContext context,
             return await feedbackService.SendContextualContentAsync("🚫 Current area not found!", Color.Red);
         }
 
-        var plot = currentArea.AvailablePlots?.FirstOrDefault(p => 
+        var plot = currentArea.AvailablePlots?.FirstOrDefault(p =>
             p.Name.Equals(plotName, StringComparison.OrdinalIgnoreCase));
 
         if (plot == null)
@@ -180,7 +180,7 @@ public class LandCommandGroup(IInteractionContext context,
         }
 
         var ownedPlots = await plotRepository.GetUserPlotsAsync(user.ID.Value);
-        var plot = ownedPlots.FirstOrDefault(p => 
+        var plot = ownedPlots.FirstOrDefault(p =>
             p.Name.Equals(plotName, StringComparison.OrdinalIgnoreCase));
 
         if (plot == null)
@@ -257,7 +257,7 @@ public class LandCommandGroup(IInteractionContext context,
         }
 
         var ownedPlots = await plotRepository.GetUserPlotsAsync(user.ID.Value);
-        var plot = ownedPlots.FirstOrDefault(p => 
+        var plot = ownedPlots.FirstOrDefault(p =>
             p.Name.Equals(plotName, StringComparison.OrdinalIgnoreCase));
 
         if (plot == null)
@@ -276,7 +276,7 @@ public class LandCommandGroup(IInteractionContext context,
             return await feedbackService.SendContextualContentAsync("❌ House not found! Please contact an administrator.", Color.Red);
         }
 
-        var roomsText = house.Rooms.Count > 0 
+        var roomsText = house.Rooms.Count > 0
             ? string.Join("\n", house.Rooms.Select(room =>
                 $"🏠 **{room.Name}** ({room.Type})\n" +
                 $"   {room.Description}\n" +
@@ -310,7 +310,7 @@ public class LandCommandGroup(IInteractionContext context,
         }
 
         var ownedPlots = await plotRepository.GetUserPlotsAsync(user.ID.Value);
-        var plot = ownedPlots.FirstOrDefault(p => 
+        var plot = ownedPlots.FirstOrDefault(p =>
             p.Name.Equals(plotName, StringComparison.OrdinalIgnoreCase));
 
         if (plot == null || plot.HouseId == null)
@@ -324,7 +324,7 @@ public class LandCommandGroup(IInteractionContext context,
             return await feedbackService.SendContextualContentAsync("❌ House not found!", Color.Red);
         }
 
-        var room = house.Rooms.FirstOrDefault(r => 
+        var room = house.Rooms.FirstOrDefault(r =>
             r.Name.Equals(roomName, StringComparison.OrdinalIgnoreCase));
 
         if (room == null)
@@ -339,9 +339,9 @@ public class LandCommandGroup(IInteractionContext context,
             return await feedbackService.SendContextualContentAsync("📦 Your inventory is empty!", Color.Red);
         }
 
-        var item = inventory.Items.FirstOrDefault(i => 
-            i.Name.Equals(itemName, StringComparison.OrdinalIgnoreCase) && 
-            (i.ItemType.Equals("Furniture", StringComparison.OrdinalIgnoreCase) || 
+        var item = inventory.Items.FirstOrDefault(i =>
+            i.Name.Equals(itemName, StringComparison.OrdinalIgnoreCase) &&
+            (i.ItemType.Equals("Furniture", StringComparison.OrdinalIgnoreCase) ||
              i.ItemType.Equals("Decoration", StringComparison.OrdinalIgnoreCase)));
 
         if (item == null)
@@ -359,8 +359,8 @@ public class LandCommandGroup(IInteractionContext context,
         {
             ItemId = item.ItemId,
             Name = item.Name,
-            Type = item.ItemType.Equals("Furniture", StringComparison.OrdinalIgnoreCase) 
-                ? FurnitureType.Decoration 
+            Type = item.ItemType.Equals("Furniture", StringComparison.OrdinalIgnoreCase)
+                ? FurnitureType.Decoration
                 : FurnitureType.Decoration,
             Position = "center",
             Properties = new Dictionary<string, object>(item.Properties)
@@ -417,7 +417,7 @@ public class LandCommandGroup(IInteractionContext context,
         }
 
         var ownedPlots = await plotRepository.GetUserPlotsAsync(user.ID.Value);
-        var plot = ownedPlots.FirstOrDefault(p => 
+        var plot = ownedPlots.FirstOrDefault(p =>
             p.Name.Equals(plotName, StringComparison.OrdinalIgnoreCase));
 
         if (plot == null || plot.HouseId == null)
@@ -431,7 +431,7 @@ public class LandCommandGroup(IInteractionContext context,
             return await feedbackService.SendContextualContentAsync("❌ House not found!", Color.Red);
         }
 
-        var room = house.Rooms.FirstOrDefault(r => 
+        var room = house.Rooms.FirstOrDefault(r =>
             r.Name.Equals(roomName, StringComparison.OrdinalIgnoreCase));
 
         if (room == null)
@@ -485,7 +485,7 @@ public class LandCommandGroup(IInteractionContext context,
         }
 
         var ownedPlots = await plotRepository.GetUserPlotsAsync(user.ID.Value);
-        var plot = ownedPlots.FirstOrDefault(p => 
+        var plot = ownedPlots.FirstOrDefault(p =>
             p.Name.Equals(plotName, StringComparison.OrdinalIgnoreCase));
 
         if (plot == null || plot.HouseId == null)
@@ -499,7 +499,7 @@ public class LandCommandGroup(IInteractionContext context,
             return await feedbackService.SendContextualContentAsync("❌ House not found!", Color.Red);
         }
 
-        var room = house.Rooms.FirstOrDefault(r => 
+        var room = house.Rooms.FirstOrDefault(r =>
             r.Name.Equals(roomName, StringComparison.OrdinalIgnoreCase));
 
         if (room == null)

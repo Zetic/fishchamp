@@ -3,14 +3,14 @@ using Microsoft.Extensions.Logging;
 using FishChamp.Data.Repositories;
 using FishChamp.Data.Models;
 
-namespace FishChamp.Services;
+namespace FishChamp.Features.Farming;
 
 public class CropGrowthService(IFarmRepository farmRepository, ILogger<CropGrowthService> logger) : BackgroundService
 {
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
     {
         logger.LogInformation("CropGrowthService started");
-        
+
         while (!stoppingToken.IsCancellationRequested)
         {
             try
@@ -29,7 +29,7 @@ public class CropGrowthService(IFarmRepository farmRepository, ILogger<CropGrowt
                 await Task.Delay(TimeSpan.FromMinutes(1), stoppingToken); // Wait before retrying
             }
         }
-        
+
         logger.LogInformation("CropGrowthService stopped");
     }
 
@@ -44,7 +44,7 @@ public class CropGrowthService(IFarmRepository farmRepository, ILogger<CropGrowt
             foreach (var farm in allFarms)
             {
                 bool farmUpdated = false;
-                
+
                 foreach (var crop in farm.Crops)
                 {
                     if (crop.Stage == CropStage.Planted && now >= crop.PlantedAt.AddMinutes(5))

@@ -5,13 +5,13 @@ using Remora.Discord.API.Objects;
 using Remora.Discord.Commands.Autocomplete;
 using Remora.Discord.Commands.Contexts;
 
-namespace FishChamp.Providers;
+namespace FishChamp.Features.Aquariums;
 
 public class AquariumFishAutocompleteProvider(IInteractionContext context,
     IPlayerRepository playerRepository, IInventoryRepository inventoryRepository) : IAutocompleteProvider
 {
     public const string ID = "autocomplete::aquarium_fish";
-    
+
     public string Identity => ID;
     public async ValueTask<IReadOnlyList<IApplicationCommandOptionChoice>> GetSuggestionsAsync(
         IReadOnlyList<IApplicationCommandInteractionDataOption> options,
@@ -32,12 +32,12 @@ public class AquariumFishAutocompleteProvider(IInteractionContext context,
         // Get only fish from inventory
         var fishItems = inventory.Items
             .Where(i => i.ItemType == "Fish")
-            .Where(i => string.IsNullOrEmpty(userInput) || 
+            .Where(i => string.IsNullOrEmpty(userInput) ||
                        i.Name.Contains(userInput, StringComparison.OrdinalIgnoreCase) ||
                        i.ItemId.Contains(userInput, StringComparison.OrdinalIgnoreCase))
             .Take(25) // Discord limit
             .Select(f => new ApplicationCommandOptionChoice(
-                $"{f.Name} (x{f.Quantity})", 
+                $"{f.Name} (x{f.Quantity})",
                 f.ItemId))
             .ToList();
 
@@ -49,7 +49,7 @@ public class AquariumRemoveFishAutocompleteProvider(IInteractionContext context,
     IPlayerRepository playerRepository, IAquariumRepository aquariumRepository) : IAutocompleteProvider
 {
     public const string ID = "autocomplete::aquarium_remove_fish";
-    
+
     public string Identity => ID;
     public async ValueTask<IReadOnlyList<IApplicationCommandOptionChoice>> GetSuggestionsAsync(
         IReadOnlyList<IApplicationCommandInteractionDataOption> options,
@@ -69,12 +69,12 @@ public class AquariumRemoveFishAutocompleteProvider(IInteractionContext context,
 
         // Get fish from aquarium
         var aquariumFish = aquarium.Fish
-            .Where(f => string.IsNullOrEmpty(userInput) || 
+            .Where(f => string.IsNullOrEmpty(userInput) ||
                        f.Name.Contains(userInput, StringComparison.OrdinalIgnoreCase) ||
                        f.FishType.Contains(userInput, StringComparison.OrdinalIgnoreCase))
             .Take(25) // Discord limit
             .Select(f => new ApplicationCommandOptionChoice(
-                $"{f.Name} ({f.Rarity})", 
+                $"{f.Name} ({f.Rarity})",
                 f.FishId))
             .ToList();
 

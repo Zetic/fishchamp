@@ -13,7 +13,7 @@ using FishChamp.Helpers;
 using GuildModel = FishChamp.Data.Models.Guild;
 using GuildMemberModel = FishChamp.Data.Models.GuildMember;
 
-namespace FishChamp.Modules;
+namespace FishChamp.Features.Guilds;
 
 [Group("guild")]
 [Description("Guild management commands")]
@@ -116,7 +116,7 @@ public class GuildCommandGroup(IInteractionContext context,
         }
 
         var owner = guild.Members.FirstOrDefault(m => m.Role == GuildRole.Owner);
-        var memberList = string.Join("\n", guild.Members.Take(10).Select(m => 
+        var memberList = string.Join("\n", guild.Members.Take(10).Select(m =>
             $"• {m.Username} ({m.Role}) - {m.ContributionPoints} points"));
 
         if (guild.Members.Count > 10)
@@ -124,8 +124,8 @@ public class GuildCommandGroup(IInteractionContext context,
             memberList += $"\n... and {guild.Members.Count - 10} more members";
         }
 
-        var goalsText = guild.Goals.Any() 
-            ? string.Join("\n", guild.Goals.Take(3).Select(g => 
+        var goalsText = guild.Goals.Any()
+            ? string.Join("\n", guild.Goals.Take(3).Select(g =>
                 $"• {g.Name}: {g.CurrentAmount}/{g.TargetAmount} {(g.IsCompleted ? "✅" : "⏳")}"))
             : "No active goals";
 
@@ -135,7 +135,7 @@ public class GuildCommandGroup(IInteractionContext context,
             Description = guild.Description,
             Fields = new List<EmbedField>
             {
-                new("📊 Guild Stats", 
+                new("📊 Guild Stats",
                     $"**Level:** {guild.Level}\n" +
                     $"**Members:** {guild.Members.Count}/{guild.MaxMembers}\n" +
                     $"**Created:** {guild.CreatedAt:yyyy-MM-dd}\n" +
@@ -171,7 +171,7 @@ public class GuildCommandGroup(IInteractionContext context,
         }
 
         var memberRole = guild.Members.FirstOrDefault(m => m.UserId == user.ID.Value)?.Role;
-        if (memberRole == null || (memberRole != GuildRole.Owner && memberRole != GuildRole.Leader && memberRole != GuildRole.Officer))
+        if (memberRole == null || memberRole != GuildRole.Owner && memberRole != GuildRole.Leader && memberRole != GuildRole.Officer)
         {
             return await feedbackService.SendContextualContentAsync("🚫 You don't have permission to invite members!", Color.Red);
         }

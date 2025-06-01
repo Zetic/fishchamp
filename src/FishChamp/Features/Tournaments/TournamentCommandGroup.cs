@@ -11,7 +11,7 @@ using FishChamp.Data.Models;
 using Remora.Discord.Commands.Feedback.Services;
 using FishChamp.Helpers;
 
-namespace FishChamp.Modules;
+namespace FishChamp.Features.Tournaments;
 
 [Group("tournament")]
 [Description("Tournament and leaderboard commands")]
@@ -145,7 +145,7 @@ public class TournamentCommandGroup(IInteractionContext context,
             var trophy = rank switch
             {
                 1 => "🥇",
-                2 => "🥈", 
+                2 => "🥈",
                 3 => "🥉",
                 _ => $"{rank}."
             };
@@ -198,7 +198,7 @@ public class TournamentCommandGroup(IInteractionContext context,
         var sortedEntries = tournament.Entries.OrderByDescending(e => e.Score).ToList();
 
         var description = $"**{tournament.Name}** ({tournament.Type})\n\n";
-        
+
         for (int i = 0; i < Math.Min(10, sortedEntries.Count); i++)
         {
             var entry = sortedEntries[i];

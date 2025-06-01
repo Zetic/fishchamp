@@ -1,4 +1,4 @@
-namespace FishChamp.Services.Events;
+namespace FishChamp.Events;
 
 /// <summary>
 /// Interface for handling specific types of events

@@ -12,8 +12,9 @@ using Remora.Results;
 using FishChamp.Data.Repositories;
 using FishChamp.Data.Models;
 using FishChamp.Helpers;
+using FishChamp.Modules;
 
-namespace FishChamp.Modules;
+namespace FishChamp.Features.Trapping;
 
 [Group("trap")]
 [Description("Fish trap commands for passive fishing")]
@@ -34,7 +35,7 @@ public class TrapCommandGroup(IInteractionCommandContext context,
         }
 
         var player = await playerRepository.GetPlayerAsync(user.ID.Value);
-        
+
         if (player == null)
         {
             return await feedbackService.SendContextualErrorAsync("Player profile not found. Use `/fish` to get started!");
@@ -49,7 +50,7 @@ public class TrapCommandGroup(IInteractionCommandContext context,
         // Check if player has a trap available
         var inventory = await inventoryRepository.GetInventoryAsync(user.ID.Value);
         var trapItem = inventory?.Items.FirstOrDefault(i => i.ItemType == "Trap" && i.Quantity > 0);
-        
+
         if (trapItem == null)
         {
             return await feedbackService.SendContextualErrorAsync("You don't have any traps! Buy one from the shop first.");
@@ -57,11 +58,11 @@ public class TrapCommandGroup(IInteractionCommandContext context,
 
         // Check if player already has a trap deployed in this area
         var existingTraps = await trapRepository.GetUserTrapsAsync(user.ID.Value);
-        var activeTrap = existingTraps.FirstOrDefault(t => 
-            t.CurrentArea == player.CurrentArea && 
-            t.FishingSpot == player.CurrentFishingSpot && 
+        var activeTrap = existingTraps.FirstOrDefault(t =>
+            t.CurrentArea == player.CurrentArea &&
+            t.FishingSpot == player.CurrentFishingSpot &&
             !t.IsCompleted && DateTime.UtcNow < t.CompletesAt);
-            
+
         if (activeTrap != null)
         {
             var timeRemaining = activeTrap.CompletesAt - DateTime.UtcNow;
@@ -73,16 +74,16 @@ public class TrapCommandGroup(IInteractionCommandContext context,
         string? equippedBait = null;
         if (!string.IsNullOrEmpty(bait))
         {
-            var baitItem = inventory?.Items.FirstOrDefault(i => 
-                i.ItemType == "Bait" && 
-                (i.ItemId.Contains(bait.ToLower()) || i.Name.ToLower().Contains(bait.ToLower())) && 
+            var baitItem = inventory?.Items.FirstOrDefault(i =>
+                i.ItemType == "Bait" &&
+                (i.ItemId.Contains(bait.ToLower()) || i.Name.ToLower().Contains(bait.ToLower())) &&
                 i.Quantity > 0);
-                
+
             if (baitItem == null)
             {
                 return await feedbackService.SendContextualErrorAsync($"You don't have any '{bait}' bait!");
             }
-            
+
             equippedBait = baitItem.ItemId;
             // Consume bait
             await inventoryRepository.RemoveItemAsync(user.ID.Value, baitItem.ItemId, 1);
@@ -109,7 +110,7 @@ public class TrapCommandGroup(IInteractionCommandContext context,
         };
 
         await trapRepository.CreateTrapAsync(trap);
-        
+
         // Consume trap item
         await inventoryRepository.RemoveItemAsync(user.ID.Value, trapItem.ItemId, 1);
 
@@ -121,7 +122,7 @@ public class TrapCommandGroup(IInteractionCommandContext context,
                          $"⏰ **Duration:** {hours} hour(s)\n" +
                          $"⚡ **Completes:** <t:{((DateTimeOffset)trap.CompletesAt).ToUnixTimeSeconds()}:R>\n\n" +
                          $"Use `/trap check` to see your active traps and collect any catches!",
-            Colour = System.Drawing.Color.Green,
+            Colour = Color.Green,
             Timestamp = DateTimeOffset.UtcNow
         };
 
@@ -138,7 +139,7 @@ public class TrapCommandGroup(IInteractionCommandContext context,
         }
 
         var userTraps = await trapRepository.GetUserTrapsAsync(user.ID.Value);
-        
+
         if (!userTraps.Any())
         {
             return await feedbackService.SendContextualErrorAsync("You don't have any traps deployed!");
@@ -150,7 +151,7 @@ public class TrapCommandGroup(IInteractionCommandContext context,
         var embed = new Embed
         {
             Title = "🪤 Your Fish Traps",
-            Colour = System.Drawing.Color.Blue,
+            Colour = Color.Blue,
             Timestamp = DateTimeOffset.UtcNow
         };
 
@@ -173,19 +174,19 @@ public class TrapCommandGroup(IInteractionCommandContext context,
         {
             description.AppendLine("**🎣 Ready to Collect:**");
             var totalCaught = 0;
-            
+
             foreach (var trap in completedTraps)
             {
                 // Generate catches for completed trap
                 await GenerateTrapCatches(trap);
-                
+
                 var catchCount = trap.CaughtFish.Count;
                 totalCaught += catchCount;
-                
+
                 var baitText = !string.IsNullOrEmpty(trap.EquippedBait) ? $" (with bait)" : "";
                 description.AppendLine($"• **{trap.CurrentArea}** - {trap.FishingSpot}{baitText}");
                 description.AppendLine($"  🐟 Caught {catchCount} fish!");
-                
+
                 // Add caught fish to inventory
                 foreach (var fish in trap.CaughtFish)
                 {
@@ -204,17 +205,17 @@ public class TrapCommandGroup(IInteractionCommandContext context,
                             ["caught_at"] = fish.CaughtAt
                         }
                     };
-                    
+
                     await inventoryRepository.AddItemAsync(user.ID.Value, fishItem);
                 }
-                
+
                 // Mark trap as checked
                 trap.HasBeenChecked = true;
                 await trapRepository.UpdateTrapAsync(trap);
-                
+
                 description.AppendLine();
             }
-            
+
             if (totalCaught > 0)
             {
                 description.AppendLine($"**Total fish collected: {totalCaught}** 🎉");
@@ -241,7 +242,7 @@ public class TrapCommandGroup(IInteractionCommandContext context,
         }
 
         var userTraps = await trapRepository.GetUserTrapsAsync(user.ID.Value);
-        
+
         if (!userTraps.Any())
         {
             return await feedbackService.SendContextualErrorAsync("You haven't deployed any traps yet!");
@@ -250,7 +251,7 @@ public class TrapCommandGroup(IInteractionCommandContext context,
         var embed = new Embed
         {
             Title = "🪤 Trap History",
-            Colour = System.Drawing.Color.Purple,
+            Colour = Color.Purple,
             Timestamp = DateTimeOffset.UtcNow
         };
 
@@ -261,7 +262,7 @@ public class TrapCommandGroup(IInteractionCommandContext context,
         {
             var status = trap.IsCompleted || DateTime.UtcNow >= trap.CompletesAt ? "✅ Completed" : "🟡 Active";
             var baitText = !string.IsNullOrEmpty(trap.EquippedBait) ? " with bait" : "";
-            
+
             description.AppendLine($"**{trap.CurrentArea}** - {trap.FishingSpot}");
             description.AppendLine($"Status: {status} | Deployed: <t:{((DateTimeOffset)trap.DeployedAt).ToUnixTimeSeconds()}:R>");
             if (trap.CaughtFish.Any())
@@ -294,7 +295,7 @@ public class TrapCommandGroup(IInteractionCommandContext context,
                 Colour = Color.Teal,
                 Timestamp = DateTimeOffset.UtcNow
             };
-            
+
             return await feedbackService.SendContextualEmbedAsync(embed);
         }
 
@@ -318,7 +319,7 @@ public class TrapCommandGroup(IInteractionCommandContext context,
             Colour = Color.DarkSlateBlue,
             Timestamp = DateTimeOffset.UtcNow
         };
-        
+
         return await feedbackService.SendContextualEmbedAsync(detailEmbed);
     }
 
@@ -412,7 +413,7 @@ public class TrapCommandGroup(IInteractionCommandContext context,
     {
         // Don't regenerate if already has catches
         if (trap.CaughtFish.Any()) return;
-        
+
         var area = await areaRepository.GetAreaAsync(trap.CurrentArea);
         if (area?.FishingSpots == null) return;
 
@@ -435,7 +436,7 @@ public class TrapCommandGroup(IInteractionCommandContext context,
 
         var catchCount = 0;
         var adjustedTotalChance = totalChance * efficiency;
-        
+
         for (int i = 0; i < Math.Ceiling(hoursDuration); i++)
         {
             if (random.NextDouble() < adjustedTotalChance)
@@ -448,23 +449,23 @@ public class TrapCommandGroup(IInteractionCommandContext context,
         for (int i = 0; i < catchCount; i++)
         {
             var fishId = fishingSpot.AvailableFish[random.Next(fishingSpot.AvailableFish.Count)];
-            
+
             // Determine rarity (better traps get better rates)
             var rarityRoll = random.NextDouble();
             var baseRarityBonus = efficiency > 1.5 ? 0.1 : efficiency > 1.2 ? 0.05 : 0.0;
-            
+
             // Special bait bonus for rare fish
             var baitRareBonus = 0.0;
             if (!string.IsNullOrEmpty(trap.EquippedBait) && trap.EquippedBait.Contains("rare"))
             {
                 baitRareBonus = 0.15;
             }
-            
+
             var adjustedRarityRoll = rarityRoll - baseRarityBonus - baitRareBonus;
             var rarity = adjustedRarityRoll switch
             {
                 < 0.65 => "common",
-                < 0.85 => "uncommon", 
+                < 0.85 => "uncommon",
                 < 0.96 => "rare",
                 _ => "epic"
             };
@@ -493,11 +494,11 @@ public class TrapCommandGroup(IInteractionCommandContext context,
 
         // Reduce trap durability based on usage and trap type
         var baseDurability = trap.Properties.GetInt("durability", 100);
-        
+
         var durabilityLoss = Math.Max(1, (int)(hoursDuration * (100.0 / baseDurability) * 3)); // Better traps lose less durability
         trap.Durability = Math.Max(0, trap.Durability - durabilityLoss);
         trap.IsCompleted = true;
-        
+
         await trapRepository.UpdateTrapAsync(trap);
     }
 
@@ -516,13 +517,13 @@ public class TrapCommandGroup(IInteractionCommandContext context,
 
         if (random.NextDouble() < traitChance)
             traits |= FishTrait.Evasive;
-        
+
         if (random.NextDouble() < traitChance)
             traits |= FishTrait.Slippery;
-        
+
         if (random.NextDouble() < traitChance)
             traits |= FishTrait.Magnetic;
-        
+
         if (random.NextDouble() < traitChance)
             traits |= FishTrait.Camouflage;
 
@@ -566,7 +567,7 @@ public class TrapCommandGroup(IInteractionCommandContext context,
             _ => fishId.Replace("_", " ").ToTitleCase()
         };
     }
-    
+
     private static TrapTypeDetails? GetTrapTypeDetails(string trapType)
     {
         return trapType switch
