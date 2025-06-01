@@ -18,6 +18,10 @@ public class PlayerProfile
     public List<ActiveBuff> ActiveBuffs { get; set; } = new(); // Active meal buffs
     public int CookingLevel { get; set; } = 1; // Cooking skill level
     public int CookingExperience { get; set; } = 0; // Cooking XP
+    public int CraftingLevel { get; set; } = 1; // General crafting skill level
+    public int CraftingExperience { get; set; } = 0; // General crafting XP
+    public List<string> UnlockedBlueprints { get; set; } = new(); // Unlocked blueprint IDs
+    public Dictionary<string, DateTime> ActiveCraftingJobs { get; set; } = new(); // Item ID -> completion time
     public string? EquippedBoat { get; set; } = null; // Currently equipped boat ID
     public List<OwnedPlot> OwnedPlots { get; set; } = new(); // Player-owned land plots
 }
