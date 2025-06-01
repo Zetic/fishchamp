@@ -73,13 +73,14 @@ public class Program
                 services.AddDiscordCommands(true)
                     .AddResponder<SlashCommandConfigurator>()
                     .AddAutocompleteProvider<AreaFishSpotAutocompleteProvider>()
-                    .AddAutocompleteProvider<AreaAutocompleteProvider>()
+                    .AddAutocompleteProvider<GuildInviteAutocompleteProvider>()
                     .AddAutocompleteProvider<ShopAutocompleteProvider>()
                     .AddAutocompleteProvider<ShopItemsAutocompleteProvider>()
                     .AddAutocompleteProvider<AquariumFishAutocompleteProvider>()
                     .AddAutocompleteProvider<AquariumRemoveFishAutocompleteProvider>()
                     .AddAutocompleteProvider<FarmSpotAutocompleteProvider>()
                     .AddAutocompleteProvider<SeedTypeAutocompleteProvider>()
+                    .AddAutocompleteProvider<GuildInviteAutocompleteProvider>()
 
                     .AddCommandTree()
                         .WithCommandGroup<FishingCommandGroup>()
@@ -98,6 +99,7 @@ public class Program
                         .WithCommandGroup<TournamentCommandGroup>()
                         .WithCommandGroup<GuildCommandGroup>()
                         .WithCommandGroup<EventCommandGroup>()
+                        .WithCommandGroup<WorldBossCommandGroup>()
                             .Finish()
 
                     .AddInteractivity()
@@ -138,7 +140,7 @@ public class Program
                 services.AddHostedService<EventService>();
                 services.AddHostedService<FishDexUpdaterService>();
 
-                
+
 
                 // Ensure data directory exists
                 var dataDir = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "data");

@@ -5,6 +5,7 @@ using Remora.Commands.Attributes;
 using Remora.Commands.Groups;
 using Remora.Discord.API.Abstractions.Objects;
 using Remora.Discord.API.Objects;
+using Remora.Discord.Commands.Attributes;
 using Remora.Discord.Commands.Contexts;
 using Remora.Discord.Commands.Feedback.Services;
 using Remora.Discord.Extensions.Formatting;
@@ -38,27 +39,8 @@ public class MarketCommandGroup(IInteractionContext context,
             listings = listings.Where(l => l.Item.ItemType.ToLower() == itemType.ToLower()).ToList();
         }
 
-        var description = "";
-
-        // Show legacy listings if any exist
-        if (listings.Any())
-        {
-            description += "**🏪 Legacy Market Listings:**\n\n";
-            foreach (var listing in listings.Take(5))
-            {
-                description += $"• **{listing.Item.Name}** ({listing.Item.Quantity}x) - {listing.Price} coins\n" +
-                              $"  Seller: {listing.SellerUsername}\n" +
-                              $"  ID: {listing.ListingId}\n\n";
-            }
-
-            if (listings.Count > 5)
-            {
-                description += $"... and {listings.Count - 5} more legacy listings\n\n";
-            }
-        }
-
         // Show active order book summary
-        description += "**📊 Active Order Books:**\n\n";
+        var description = "**📊 Active Order Books:**\n\n";
         
         // Get all active orders and group by item
         var allBuyOrders = new List<MarketOrder>();
@@ -249,7 +231,7 @@ public class MarketCommandGroup(IInteractionContext context,
     [Command("order")]
     [Description("Place a limit or market order")]
     public async Task<IResult> PlaceOrderAsync(
-        [Description("Buy or Sell")] string orderTypeStr,
+        [Description("Buy or Sell")] [Autocomplete] OrderType orderType,
         [Description("Item name")] string itemName,
         [Description("Quantity")] int quantity = 1,
         [Description("Price per unit (0 for market order)")] int price = 0)
@@ -262,12 +244,6 @@ public class MarketCommandGroup(IInteractionContext context,
         if (quantity <= 0)
         {
             return await feedbackService.SendContextualContentAsync("❌ Quantity must be greater than 0!", Color.Red);
-        }
-
-        // Parse order type
-        if (!Enum.TryParse<OrderType>(orderTypeStr, true, out var orderType))
-        {
-            return await feedbackService.SendContextualContentAsync("❌ Order type must be 'Buy' or 'Sell'!", Color.Red);
         }
 
         var player = await GetOrCreatePlayerAsync(user.ID.Value, user.Username);
