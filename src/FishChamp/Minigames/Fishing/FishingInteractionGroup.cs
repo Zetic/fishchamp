@@ -395,6 +395,39 @@ public class FishingInteractionGroup(
 
         await inventoryRepository.AddItemAsync(user.ID.Value, fishItem);
 
+        // Update fish dex with new discovery
+        var fishTraits = (FishTrait)fishItem.Properties.GetValueOrDefault("traits", 0);
+        if (player.FishDex.TryGetValue(fishItem.ItemId, out var existingDiscovery))
+        {
+            // Update existing discovery record
+            existingDiscovery.TimesDiscovered++;
+            existingDiscovery.LastDiscovered = DateTime.UtcNow;
+            if (fishWeight > existingDiscovery.HeaviestWeight)
+            {
+                existingDiscovery.HeaviestWeight = fishWeight;
+            }
+            if (fishSize > existingDiscovery.LargestSize)
+            {
+                existingDiscovery.LargestSize = fishSize;
+            }
+            existingDiscovery.ObservedTraits |= fishTraits; // Add any new traits observed
+        }
+        else
+        {
+            // First time catching this fish species
+            player.FishDex[fishItem.ItemId] = new FishDiscoveryRecord
+            {
+                FishName = fishItem.Name,
+                Rarity = rarity,
+                TimesDiscovered = 1,
+                FirstDiscovered = DateTime.UtcNow,
+                LastDiscovered = DateTime.UtcNow,
+                HeaviestWeight = fishWeight,
+                LargestSize = fishSize,
+                ObservedTraits = fishTraits
+            };
+        }
+
         // Update player stats (with XP bonus from meals)
         int baseXp = rarity switch { "uncommon" => 20, "rare" => 40, "epic" => 70, _ => 10 };
         int xpGained = (int)Math.Round(baseXp * (1.0 + xpBonus));

@@ -237,13 +237,12 @@ public class GuildCommandGroup(IInteractionContext context,
         }
 
         var description = "**Pending Invitations:**\n\n";
-        foreach (var invitation in invitations.Take(5))
+        foreach (var (invitation, index) in invitations.Take(5).Select((inv, i) => (inv, i)))
         {
             var timeLeft = invitation.ExpiresAt - DateTime.UtcNow;
-            description += $"• **{invitation.GuildName}**\n" +
+            description += $"`{index + 1}.` **{invitation.GuildName}**\n" +
                           $"  From: {invitation.InviterUsername}\n" +
-                          $"  Expires in: {timeLeft.Days}d {timeLeft.Hours}h\n" +
-                          $"  ID: `{invitation.InvitationId}`\n\n";
+                          $"  Expires in: {timeLeft.Days}d {timeLeft.Hours}h\n\n";
         }
 
         var embed = new Embed
@@ -251,7 +250,7 @@ public class GuildCommandGroup(IInteractionContext context,
             Title = "📨 Guild Invitations",
             Description = description,
             Colour = Color.Blue,
-            Footer = new EmbedFooter("Use /guild accept or /guild decline to respond"),
+            Footer = new EmbedFooter("Use /guild accept <number> or /guild decline <number> to respond"),
             Timestamp = DateTimeOffset.UtcNow
         };
 
@@ -260,7 +259,7 @@ public class GuildCommandGroup(IInteractionContext context,
 
     [Command("accept")]
     [Description("Accept a guild invitation")]
-    public async Task<IResult> AcceptInvitationAsync([Description("Invitation ID")] string invitationId)
+    public async Task<IResult> AcceptInvitationAsync([Description("Invitation number from list")] int invitationNumber)
     {
         if (!(context.Interaction.Member.TryGet(out var member) && member.User.TryGet(out var user)))
         {
@@ -268,12 +267,18 @@ public class GuildCommandGroup(IInteractionContext context,
         }
 
         var invitations = await guildRepository.GetUserInvitationsAsync(user.ID.Value);
-        var invitation = invitations.FirstOrDefault(i => i.InvitationId == invitationId);
-
-        if (invitation == null)
+        
+        if (!invitations.Any())
         {
-            return await feedbackService.SendContextualContentAsync("🚫 Invitation not found or expired!", Color.Red);
+            return await feedbackService.SendContextualContentAsync("📭 You have no pending guild invitations!", Color.Red);
         }
+
+        if (invitationNumber < 1 || invitationNumber > invitations.Count)
+        {
+            return await feedbackService.SendContextualContentAsync($"❌ Invalid invitation number! Please choose between 1 and {invitations.Count}.", Color.Red);
+        }
+
+        var invitation = invitations[invitationNumber - 1];
 
         var guild = await guildRepository.GetGuildAsync(invitation.GuildId);
         if (guild == null)
