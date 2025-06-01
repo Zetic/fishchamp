@@ -344,7 +344,13 @@ public class CraftingCommandGroup(IInteractionCommandContext context,
                 $"You need crafting level {blueprint.Requirements.CraftingLevel} to craft {blueprint.Name}. Your crafting level is {player.CraftingLevel}.");
         }
 
-        // Check if blueprint is unlocked
+        // Check if blueprint is unlocked (auto-unlock basic tier blueprints)
+        if (blueprint.Tier == BlueprintTier.Basic && !player.UnlockedBlueprints.Contains(blueprint.BlueprintId))
+        {
+            player.UnlockedBlueprints.Add(blueprint.BlueprintId);
+            await playerRepository.UpdatePlayerAsync(player);
+        }
+        
         if (!HasUnlockedBlueprint(player.UnlockedBlueprints, blueprint))
         {
             var missingPrereq = blueprint.Requirements.UnlockedBy.FirstOrDefault(p => !player.UnlockedBlueprints.Contains(p));
@@ -1276,6 +1282,22 @@ public class CraftingCommandGroup(IInteractionCommandContext context,
         }
 
         return string.Join(", ", effects);
+    }
+
+    private static string ToTitleCase(string input)
+    {
+        if (string.IsNullOrEmpty(input))
+            return input;
+
+        var words = input.Split(' ');
+        for (int i = 0; i < words.Length; i++)
+        {
+            if (words[i].Length > 0)
+            {
+                words[i] = char.ToUpper(words[i][0]) + (words[i].Length > 1 ? words[i][1..].ToLower() : "");
+            }
+        }
+        return string.Join(" ", words);
     }
 
     private static Blueprint? GetBlueprint(string blueprintId)
