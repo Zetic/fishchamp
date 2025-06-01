@@ -1,26 +1,33 @@
 using FishChamp.Data.Models;
 using FishChamp.Data.Repositories;
+using FishChamp.Services.Events;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
 
 namespace FishChamp.Services;
 
-public class TournamentService : BackgroundService
+public class TournamentService : BackgroundService, IEventHandler<OnFishCatchEvent>
 {
     private readonly ILogger<TournamentService> _logger;
     private readonly IServiceProvider _serviceProvider;
+    private readonly IEventBus _eventBus;
     private readonly TimeSpan _updateInterval = TimeSpan.FromMinutes(5); // Check every 5 minutes
 
-    public TournamentService(ILogger<TournamentService> logger, IServiceProvider serviceProvider)
+    public TournamentService(ILogger<TournamentService> logger, IServiceProvider serviceProvider, IEventBus eventBus)
     {
         _logger = logger;
         _serviceProvider = serviceProvider;
+        _eventBus = eventBus;
     }
 
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
     {
         _logger.LogInformation("Tournament Service started");
+        
+        // Subscribe to fish catch events
+        _eventBus.Subscribe<OnFishCatchEvent>(this);
+        _logger.LogInformation("Tournament Service subscribed to OnFishCatch events");
 
         while (!stoppingToken.IsCancellationRequested)
         {
@@ -40,6 +47,10 @@ public class TournamentService : BackgroundService
 
             await Task.Delay(_updateInterval, stoppingToken);
         }
+        
+        // Unsubscribe when service is stopping
+        _eventBus.Unsubscribe<OnFishCatchEvent>(this);
+        _logger.LogInformation("Tournament Service unsubscribed from OnFishCatch events");
     }
 
     private async Task ProcessTournamentsAsync(ITournamentRepository tournamentRepository, IPlayerRepository playerRepository)
@@ -228,5 +239,121 @@ public class TournamentService : BackgroundService
             new() { Rank = 2, FishCoins = 1000, Items = [], Title = "Weekly Runner-up" },
             new() { Rank = 3, FishCoins = 500, Items = [], Title = "Weekly Bronze" }
         };
+    }
+
+    /// <summary>
+    /// Handle fish catch events and update tournament entries in real-time
+    /// </summary>
+    public async Task HandleAsync(OnFishCatchEvent eventData, CancellationToken cancellationToken = default)
+    {
+        try
+        {
+            using var scope = _serviceProvider.CreateScope();
+            var tournamentRepository = scope.ServiceProvider.GetRequiredService<ITournamentRepository>();
+            
+            // Get all active tournaments
+            var activeTournaments = await tournamentRepository.GetActiveTournamentsAsync();
+            
+            foreach (var tournament in activeTournaments)
+            {
+                // Skip tournaments with area restrictions that don't match
+                if (!string.IsNullOrEmpty(tournament.AreaRestriction) && 
+                    !tournament.AreaRestriction.Equals(eventData.AreaId, StringComparison.OrdinalIgnoreCase))
+                {
+                    continue;
+                }
+                
+                await UpdateTournamentEntryForFishCatch(tournament, eventData, tournamentRepository);
+            }
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error handling OnFishCatch event for user {UserId}", eventData.UserId);
+        }
+    }
+
+    /// <summary>
+    /// Update a specific tournament entry based on the fish catch
+    /// </summary>
+    private async Task UpdateTournamentEntryForFishCatch(Tournament tournament, OnFishCatchEvent fishCatch, ITournamentRepository tournamentRepository)
+    {
+        // Find or create tournament entry for the user
+        var entry = tournament.Entries.FirstOrDefault(e => e.UserId == fishCatch.UserId);
+        if (entry == null)
+        {
+            entry = new TournamentEntry
+            {
+                TournamentId = tournament.TournamentId,
+                UserId = fishCatch.UserId,
+                Username = fishCatch.Username,
+                LastUpdated = DateTime.UtcNow
+            };
+            tournament.Entries.Add(entry);
+        }
+
+        bool entryUpdated = false;
+
+        // Update based on tournament type
+        switch (tournament.Type)
+        {
+            case TournamentType.HeaviestCatch:
+                if (fishCatch.FishWeight > entry.Score)
+                {
+                    entry.Score = fishCatch.FishWeight;
+                    entry.FishType = fishCatch.FishItem.ItemId;
+                    entryUpdated = true;
+                }
+                break;
+
+            case TournamentType.MostUniqueFish:
+                if (!entry.UniqueFishCaught.Contains(fishCatch.FishItem.ItemId))
+                {
+                    entry.UniqueFishCaught.Add(fishCatch.FishItem.ItemId);
+                    entry.Score = entry.UniqueFishCaught.Count;
+                    entryUpdated = true;
+                }
+                break;
+
+            case TournamentType.MostFishCaught:
+                entry.Score += 1; // Increment fish count
+                entryUpdated = true;
+                break;
+
+            case TournamentType.SpecificFishType:
+                // This would need tournament configuration to specify which fish type
+                // For now, we'll skip this tournament type
+                break;
+
+            case TournamentType.BiggestCollectiveGuild:
+                // This would need guild information
+                // For now, we'll skip this tournament type  
+                break;
+        }
+
+        if (entryUpdated)
+        {
+            entry.LastUpdated = DateTime.UtcNow;
+            
+            // Update rankings (simple approach - could be optimized)
+            UpdateTournamentRankings(tournament);
+            
+            await tournamentRepository.UpdateTournamentAsync(tournament);
+            
+            _logger.LogDebug("Updated tournament entry for user {UserId} in tournament {TournamentName} with score {Score}", 
+                fishCatch.UserId, tournament.Name, entry.Score);
+        }
+    }
+
+    /// <summary>
+    /// Update tournament rankings for all entries
+    /// </summary>
+    private static void UpdateTournamentRankings(Tournament tournament)
+    {
+        var sortedEntries = tournament.Entries.OrderByDescending(e => e.Score).ToList();
+        
+        for (int i = 0; i < sortedEntries.Count; i++)
+        {
+            sortedEntries[i].Rank = i + 1;
+        }
     }
 }
