@@ -51,13 +51,32 @@ public class EventService : BackgroundService
         foreach (var ev in upcomingEvents)
         {
             ev.Status = EventStatus.Active;
+            // Initialize phase progression for multi-phase events
+            if (ev.Phases.Any())
+            {
+                ev.CurrentPhase = 0;
+                _logger.LogInformation($"Activated multi-phase event: {ev.Name} - Starting Phase {ev.CurrentPhase + 1}: {ev.Phases[ev.CurrentPhase].Name}");
+            }
+            else
+            {
+                _logger.LogInformation($"Activated event: {ev.Name}");
+            }
             await eventRepository.UpdateEventAsync(ev);
-            _logger.LogInformation($"Activated event: {ev.Name}");
+        }
+
+        // Process phase transitions for active events
+        var activeEvents = allEvents.Where(e => e.Status == EventStatus.Active);
+        foreach (var ev in activeEvents)
+        {
+            if (ev.Phases.Any() && await ProcessEventPhases(ev, now))
+            {
+                await eventRepository.UpdateEventAsync(ev);
+            }
         }
 
         // End active events
-        var activeEvents = allEvents.Where(e => e.Status == EventStatus.Active && e.EndDate <= now);
-        foreach (var ev in activeEvents)
+        var expiredEvents = allEvents.Where(e => e.Status == EventStatus.Active && e.EndDate <= now);
+        foreach (var ev in expiredEvents)
         {
             ev.Status = EventStatus.Ended;
             await eventRepository.UpdateEventAsync(ev);
@@ -79,6 +98,67 @@ public class EventService : BackgroundService
                 _logger.LogInformation($"Event ending soon: {ev.Name}");
             }
         }
+
+        // Process world boss events
+        await ProcessWorldBossEventsAsync(eventRepository, now);
+    }
+
+    private async Task<bool> ProcessEventPhases(SeasonalEvent eventObj, DateTime now)
+    {
+        if (!eventObj.Phases.Any() || eventObj.CurrentPhase >= eventObj.Phases.Count)
+            return false;
+
+        var currentPhase = eventObj.Phases[eventObj.CurrentPhase];
+        var phaseStartTime = eventObj.StartDate.Add(
+            TimeSpan.FromTicks(eventObj.Phases.Take(eventObj.CurrentPhase)
+                .Sum(p => p.Duration.Ticks)));
+
+        // Check if current phase should end
+        if (now >= phaseStartTime.Add(currentPhase.Duration))
+        {
+            // Move to next phase
+            eventObj.CurrentPhase++;
+            
+            if (eventObj.CurrentPhase >= eventObj.Phases.Count)
+            {
+                // Event completed all phases
+                _logger.LogInformation($"Event {eventObj.Name} completed all phases");
+                return true;
+            }
+
+            var nextPhase = eventObj.Phases[eventObj.CurrentPhase];
+            _logger.LogInformation($"Event {eventObj.Name} progressed to Phase {eventObj.CurrentPhase + 1}: {nextPhase.Name}");
+            
+            // TODO: Send phase transition notifications to Discord channels
+            return true;
+        }
+
+        return false;
+    }
+
+    private async Task ProcessWorldBossEventsAsync(IEventRepository eventRepository, DateTime now)
+    {
+        var activeBosses = await eventRepository.GetActiveWorldBossesAsync();
+        
+        foreach (var boss in activeBosses)
+        {
+            // Check for timeout (30 minutes for boss encounters)
+            if (boss.Status == BossStatus.Active && now >= boss.StartTime.AddMinutes(30))
+            {
+                boss.Status = BossStatus.Escaped;
+                boss.EndTime = now;
+                await eventRepository.UpdateWorldBossAsync(boss);
+                _logger.LogInformation($"World boss {boss.Name} escaped due to timeout");
+            }
+            // Check if waiting too long for participants (10 minutes)
+            else if (boss.Status == BossStatus.Waiting && now >= boss.StartTime.AddMinutes(10))
+            {
+                boss.Status = BossStatus.Failed;
+                boss.EndTime = now;
+                await eventRepository.UpdateWorldBossAsync(boss);
+                _logger.LogInformation($"World boss {boss.Name} failed - not enough participants");
+            }
+        }
     }
 
     private async Task CreateSeasonalEventsAsync(IEventRepository eventRepository)
@@ -94,6 +174,9 @@ public class EventService : BackgroundService
         
         // Check for special holidays
         await CreateHolidayEventIfNeeded(eventRepository, allEvents, now);
+        
+        // Create dynamic events periodically (Phase 11 addition)
+        await CreateDynamicEventsIfNeeded(eventRepository, allEvents, now);
     }
 
     private async Task CreateSeasonalEventIfNeeded(IEventRepository eventRepository, List<SeasonalEvent> allEvents, EventSeason season, DateTime now)
@@ -378,5 +461,213 @@ public class EventService : BackgroundService
             new() { Name = "Easter Egg Hunter", Type = RewardType.Milestone, RequirementType = RequirementType.CatchEventFish, RequiredAmount = 15, FishCoins = 555, SpecialTitle = "Easter Egg Hunter" },
             new() { Name = "Spring Renewal Master", Type = RewardType.Completion, RequirementType = RequirementType.CatchEventFish, RequiredAmount = 30, FishCoins = 888, SpecialTitle = "Spring Renewal Master" }
         ];
+    }
+
+    // Phase 11 additions - Dynamic Event Creation
+    private async Task CreateDynamicEventsIfNeeded(IEventRepository eventRepository, List<SeasonalEvent> allEvents, DateTime now)
+    {
+        // Check if we should create a random dynamic event (5% chance each hour when processing)
+        if (Random.Shared.NextDouble() < 0.05)
+        {
+            var eventTypes = Enum.GetValues<EventType>().Where(t => t == EventType.Dynamic).ToArray();
+            if (eventTypes.Length > 0)
+            {
+                var recentDynamicEvents = allEvents.Where(e => 
+                    e.Type == EventType.Dynamic && 
+                    e.StartDate > now.AddDays(-7)).ToList(); // No dynamic events in last 7 days
+
+                if (!recentDynamicEvents.Any())
+                {
+                    var dynamicEvent = CreateRandomDynamicEvent(now);
+                    await eventRepository.CreateEventAsync(dynamicEvent);
+                    _logger.LogInformation($"Created dynamic event: {dynamicEvent.Name}");
+                }
+            }
+        }
+    }
+
+    private static SeasonalEvent CreateRandomDynamicEvent(DateTime now)
+    {
+        var eventTemplates = new[]
+        {
+            CreateFishingFrenzyEvent(now),
+            CreateDarkSkiesEvent(now),
+            CreateFloodSeasonEvent(now),
+            CreateVolcanicUnrestEvent(now),
+            CreateCelestialDriftEvent(now)
+        };
+
+        return eventTemplates[Random.Shared.Next(eventTemplates.Length)];
+    }
+
+    private static SeasonalEvent CreateFishingFrenzyEvent(DateTime now)
+    {
+        return new SeasonalEvent
+        {
+            Name = "Fishing Frenzy",
+            Description = "The fish are biting like crazy! All fishing spots are active with increased catch rates!",
+            Season = EventSeason.Special,
+            Type = EventType.Dynamic,
+            StartDate = now,
+            EndDate = now.AddHours(6), // 6-hour event
+            Status = EventStatus.Upcoming,
+            SpecialEmoji = "🎣",
+            EffectModifiers = new Dictionary<string, double>
+            {
+                ["bite_rate_bonus"] = 0.25, // +25% bite rate
+                ["all_rods_anywhere"] = 1.0 // Any rod works anywhere
+            },
+            SpecialFish = [],
+            SpecialItems = [],
+            Rewards = [
+                new() { Name = "Frenzy Participant", Type = RewardType.Participation, RequirementType = RequirementType.CatchAnyFish, RequiredAmount = 3, FishCoins = 200 },
+                new() { Name = "Frenzy Master", Type = RewardType.Milestone, RequirementType = RequirementType.CatchAnyFish, RequiredAmount = 15, FishCoins = 750 }
+            ]
+        };
+    }
+
+    private static SeasonalEvent CreateDarkSkiesEvent(DateTime now)
+    {
+        return new SeasonalEvent
+        {
+            Name = "Dark Skies",
+            Description = "Ominous clouds gather as mysterious forces stir the waters...",
+            Season = EventSeason.Special,
+            Type = EventType.Dynamic,
+            StartDate = now,
+            EndDate = now.AddHours(12), // 12-hour multi-phase event
+            Status = EventStatus.Upcoming,
+            SpecialEmoji = "⚡",
+            Phases = [
+                new EventPhase
+                {
+                    Name = "Storm Gathering",
+                    Description = "Dark clouds form overhead, eerie fish begin to appear",
+                    Duration = TimeSpan.FromHours(4),
+                    PhaseModifiers = new Dictionary<string, double> { ["eerie_fish_spawn"] = 0.15 },
+                    PhaseFish = [
+                        new() { FishId = "shadow_fish", Name = "Shadow Fish", Rarity = ItemRarity.Rare, SpecialEmoji = "🌑", SpawnRate = 0.15 }
+                    ]
+                },
+                new EventPhase
+                {
+                    Name = "Storm Peak",
+                    Description = "Lightning strikes the water, storm fish emerge from the depths",
+                    Duration = TimeSpan.FromHours(4),
+                    PhaseModifiers = new Dictionary<string, double> { ["storm_fish_spawn"] = 0.2, ["lightning_bonus"] = 0.1 },
+                    PhaseFish = [
+                        new() { FishId = "storm_bass", Name = "Storm Bass", Rarity = ItemRarity.Epic, SpecialEmoji = "⚡", SpawnRate = 0.1 },
+                        new() { FishId = "thunder_eel", Name = "Thunder Eel", Rarity = ItemRarity.Legendary, SpecialEmoji = "🌩️", SpawnRate = 0.05 }
+                    ]
+                },
+                new EventPhase
+                {
+                    Name = "Calm After Storm",
+                    Description = "The storm passes, leaving behind enriched waters with bonus rewards",
+                    Duration = TimeSpan.FromHours(4),
+                    PhaseModifiers = new Dictionary<string, double> { ["reward_bonus"] = 0.3, ["peaceful_waters"] = 1.0 }
+                }
+            ],
+            EffectModifiers = new Dictionary<string, double>
+            {
+                ["weather_effects"] = 1.0,
+                ["rare_fish_bonus"] = 0.1
+            },
+            Rewards = [
+                new() { Name = "Storm Survivor", Type = RewardType.Participation, RequirementType = RequirementType.CatchEventFish, RequiredAmount = 5, FishCoins = 300 },
+                new() { Name = "Lightning Catcher", Type = RewardType.Milestone, RequirementType = RequirementType.CatchEventFish, RequiredAmount = 20, FishCoins = 1000, SpecialTitle = "Storm Chaser" }
+            ]
+        };
+    }
+
+    private static SeasonalEvent CreateFloodSeasonEvent(DateTime now)
+    {
+        return new SeasonalEvent
+        {
+            Name = "Flood Season",
+            Description = "Rising waters have flooded the docks! Only boat fishing is possible during this time.",
+            Season = EventSeason.Special,
+            Type = EventType.Dynamic,
+            StartDate = now,
+            EndDate = now.AddDays(2), // 2-day event
+            Status = EventStatus.Upcoming,
+            SpecialEmoji = "🌊",
+            EffectModifiers = new Dictionary<string, double>
+            {
+                ["dock_fishing_disabled"] = 1.0,
+                ["boat_fishing_required"] = 1.0,
+                ["flood_fish_bonus"] = 0.2
+            },
+            SpecialFish = [
+                new() { FishId = "flood_carp", Name = "Flood Carp", Rarity = ItemRarity.Rare, SpecialEmoji = "🌊", SpawnRate = 0.12 },
+                new() { FishId = "torrent_trout", Name = "Torrent Trout", Rarity = ItemRarity.Epic, SpecialEmoji = "💧", SpawnRate = 0.08 }
+            ],
+            Rewards = [
+                new() { Name = "Flood Navigator", Type = RewardType.Participation, RequirementType = RequirementType.CatchAnyFish, RequiredAmount = 8, FishCoins = 400 },
+                new() { Name = "Master of the Deluge", Type = RewardType.Completion, RequirementType = RequirementType.CatchEventFish, RequiredAmount = 25, FishCoins = 1200, SpecialTitle = "Flood Master" }
+            ]
+        };
+    }
+
+    private static SeasonalEvent CreateVolcanicUnrestEvent(DateTime now)
+    {
+        return new SeasonalEvent
+        {
+            Name = "Volcanic Unrest",
+            Description = "Underwater volcanic activity has opened new lava zones! Heat-proof rods required for extreme fishing.",
+            Season = EventSeason.Special,
+            Type = EventType.Dynamic,
+            StartDate = now,
+            EndDate = now.AddDays(3), // 3-day event
+            Status = EventStatus.Upcoming,
+            SpecialEmoji = "🌋",
+            EffectModifiers = new Dictionary<string, double>
+            {
+                ["lava_zone_opened"] = 1.0,
+                ["heat_proof_required"] = 1.0,
+                ["volcanic_fish_bonus"] = 0.25
+            },
+            SpecialFish = [
+                new() { FishId = "magma_fish", Name = "Magma Fish", Rarity = ItemRarity.Epic, SpecialEmoji = "🔥", SpawnRate = 0.1 },
+                new() { FishId = "obsidian_bass", Name = "Obsidian Bass", Rarity = ItemRarity.Legendary, SpecialEmoji = "🌋", SpawnRate = 0.03 }
+            ],
+            SpecialItems = [
+                new() { ItemId = "heat_proof_rod", Name = "Heat-Proof Rod", ItemType = "Rod", Rarity = ItemRarity.Epic, SpecialEmoji = "🔥" }
+            ],
+            Rewards = [
+                new() { Name = "Volcano Explorer", Type = RewardType.Participation, RequirementType = RequirementType.CatchAnyFish, RequiredAmount = 5, FishCoins = 350 },
+                new() { Name = "Lava Fisher", Type = RewardType.Milestone, RequirementType = RequirementType.CatchEventFish, RequiredAmount = 15, FishCoins = 900, SpecialTitle = "Volcano Diver" }
+            ]
+        };
+    }
+
+    private static SeasonalEvent CreateCelestialDriftEvent(DateTime now)
+    {
+        return new SeasonalEvent
+        {
+            Name = "Celestial Drift",
+            Description = "Cosmic energies flow through all fishing zones, bringing otherworldly fish to every location!",
+            Season = EventSeason.Special,
+            Type = EventType.Dynamic,
+            StartDate = now,
+            EndDate = now.AddHours(18), // 18-hour event
+            Status = EventStatus.Upcoming,
+            SpecialEmoji = "✨",
+            EffectModifiers = new Dictionary<string, double>
+            {
+                ["cosmic_fish_everywhere"] = 1.0,
+                ["stellar_bonus"] = 0.15,
+                ["zone_restrictions_removed"] = 1.0
+            },
+            SpecialFish = [
+                new() { FishId = "star_fish", Name = "Star Fish", Rarity = ItemRarity.Rare, SpecialEmoji = "⭐", SpawnRate = 0.15 },
+                new() { FishId = "nebula_eel", Name = "Nebula Eel", Rarity = ItemRarity.Epic, SpecialEmoji = "🌌", SpawnRate = 0.08 },
+                new() { FishId = "cosmic_leviathan", Name = "Cosmic Leviathan", Rarity = ItemRarity.Legendary, SpecialEmoji = "🌠", SpawnRate = 0.02 }
+            ],
+            Rewards = [
+                new() { Name = "Stargazer", Type = RewardType.Participation, RequirementType = RequirementType.CatchAnyFish, RequiredAmount = 6, FishCoins = 450 },
+                new() { Name = "Cosmic Navigator", Type = RewardType.Completion, RequirementType = RequirementType.CatchEventFish, RequiredAmount = 20, FishCoins = 1100, SpecialTitle = "Celestial Fisher" }
+            ]
+        };
     }
 }

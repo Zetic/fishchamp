@@ -160,4 +160,11 @@ public interface IEventRepository
     Task<List<EventParticipation>> GetUserEventParticipationsAsync(ulong userId);
     Task<EventParticipation> CreateEventParticipationAsync(EventParticipation participation);
     Task UpdateEventParticipationAsync(EventParticipation participation);
+    
+    // Phase 11 additions
+    Task<WorldBossEvent?> GetWorldBossAsync(string bossId);
+    Task<List<WorldBossEvent>> GetActiveWorldBossesAsync();
+    Task<WorldBossEvent> CreateWorldBossAsync(WorldBossEvent bossEvent);
+    Task UpdateWorldBossAsync(WorldBossEvent bossEvent);
+    Task DeleteWorldBossAsync(string bossId);
 }

@@ -7,6 +7,7 @@ public class JsonEventRepository : IEventRepository
 {
     private readonly string _eventsDataPath = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "data", "events.json");
     private readonly string _participationsDataPath = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "data", "event_participations.json");
+    private readonly string _worldBossesDataPath = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "data", "world_bosses.json");
     private readonly SemaphoreSlim _semaphore = new(1, 1);
 
     public async Task<SeasonalEvent?> GetEventAsync(string eventId)
@@ -224,5 +225,108 @@ public class JsonEventRepository : IEventRepository
         Directory.CreateDirectory(Path.GetDirectoryName(_participationsDataPath)!);
         var json = JsonSerializer.Serialize(participations, new JsonSerializerOptions { WriteIndented = true });
         await File.WriteAllTextAsync(_participationsDataPath, json);
+    }
+
+    // Phase 11 additions - World Boss functionality
+    public async Task<WorldBossEvent?> GetWorldBossAsync(string bossId)
+    {
+        await _semaphore.WaitAsync();
+        try
+        {
+            var bosses = await LoadWorldBossesAsync();
+            return bosses.FirstOrDefault(b => b.BossId == bossId);
+        }
+        finally
+        {
+            _semaphore.Release();
+        }
+    }
+
+    public async Task<List<WorldBossEvent>> GetActiveWorldBossesAsync()
+    {
+        await _semaphore.WaitAsync();
+        try
+        {
+            var bosses = await LoadWorldBossesAsync();
+            return bosses.Where(b => b.Status == BossStatus.Active || b.Status == BossStatus.Waiting).ToList();
+        }
+        finally
+        {
+            _semaphore.Release();
+        }
+    }
+
+    public async Task<WorldBossEvent> CreateWorldBossAsync(WorldBossEvent bossEvent)
+    {
+        await _semaphore.WaitAsync();
+        try
+        {
+            var bosses = await LoadWorldBossesAsync();
+            bosses.Add(bossEvent);
+            await SaveWorldBossesAsync(bosses);
+            return bossEvent;
+        }
+        finally
+        {
+            _semaphore.Release();
+        }
+    }
+
+    public async Task UpdateWorldBossAsync(WorldBossEvent bossEvent)
+    {
+        await _semaphore.WaitAsync();
+        try
+        {
+            var bosses = await LoadWorldBossesAsync();
+            var existingBoss = bosses.FirstOrDefault(b => b.BossId == bossEvent.BossId);
+            if (existingBoss != null)
+            {
+                bosses.Remove(existingBoss);
+                bosses.Add(bossEvent);
+                await SaveWorldBossesAsync(bosses);
+            }
+        }
+        finally
+        {
+            _semaphore.Release();
+        }
+    }
+
+    public async Task DeleteWorldBossAsync(string bossId)
+    {
+        await _semaphore.WaitAsync();
+        try
+        {
+            var bosses = await LoadWorldBossesAsync();
+            var boss = bosses.FirstOrDefault(b => b.BossId == bossId);
+            if (boss != null)
+            {
+                bosses.Remove(boss);
+                await SaveWorldBossesAsync(bosses);
+            }
+        }
+        finally
+        {
+            _semaphore.Release();
+        }
+    }
+
+    private async Task<List<WorldBossEvent>> LoadWorldBossesAsync()
+    {
+        if (!File.Exists(_worldBossesDataPath))
+        {
+            Directory.CreateDirectory(Path.GetDirectoryName(_worldBossesDataPath)!);
+            return new List<WorldBossEvent>();
+        }
+
+        var json = await File.ReadAllTextAsync(_worldBossesDataPath);
+        return JsonSerializer.Deserialize<List<WorldBossEvent>>(json) ?? new List<WorldBossEvent>();
+    }
+
+    private async Task SaveWorldBossesAsync(List<WorldBossEvent> bosses)
+    {
+        Directory.CreateDirectory(Path.GetDirectoryName(_worldBossesDataPath)!);
+        var json = JsonSerializer.Serialize(bosses, new JsonSerializerOptions { WriteIndented = true });
+        await File.WriteAllTextAsync(_worldBossesDataPath, json);
     }
 }

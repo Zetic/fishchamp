@@ -97,6 +97,26 @@ public class EventCommandGroup(IInteractionContext context,
             _ => seasonalEvent.Status.ToString()
         };
 
+        // Phase 11 addition - Show current phase info for multi-phase events
+        string phaseInfo = "";
+        if (seasonalEvent.Phases.Any() && seasonalEvent.Status == EventStatus.Active)
+        {
+            if (seasonalEvent.CurrentPhase < seasonalEvent.Phases.Count)
+            {
+                var currentPhase = seasonalEvent.Phases[seasonalEvent.CurrentPhase];
+                phaseInfo = $"\n**Current Phase:** {currentPhase.PhaseEmoji} {currentPhase.Name}\n{currentPhase.Description}";
+            }
+        }
+
+        // Show active event effects
+        string effectsInfo = "";
+        if (seasonalEvent.EffectModifiers.Any())
+        {
+            effectsInfo = "\n**Active Effects:**\n" + 
+                         string.Join("\n", seasonalEvent.EffectModifiers.Take(3).Select(e => 
+                             $"• {FormatEffectName(e.Key)}: {FormatEffectValue(e.Value)}"));
+        }
+
         var specialFishText = seasonalEvent.SpecialFish.Any()
             ? string.Join("\n", seasonalEvent.SpecialFish.Take(5).Select(f => $"• {f.SpecialEmoji ?? "🐟"} {f.Name} ({f.Rarity})"))
             : "No special fish";
@@ -112,11 +132,12 @@ public class EventCommandGroup(IInteractionContext context,
         var embed = new Embed
         {
             Title = $"{emoji} {seasonalEvent.Name}",
-            Description = seasonalEvent.Description,
+            Description = seasonalEvent.Description + phaseInfo + effectsInfo,
             Fields = new List<EmbedField>
             {
                 new("📅 Schedule", timeInfo, true),
                 new("🎪 Season", seasonalEvent.Season.ToString(), true),
+                new("⚡ Type", seasonalEvent.Type.ToString(), true),
                 new("🐟 Special Fish", specialFishText, true),
                 new("🎁 Special Items", specialItemsText, true),
                 new("🏆 Rewards", rewardsText, false)
@@ -444,6 +465,297 @@ public class EventCommandGroup(IInteractionContext context,
             RequirementType.UseEventItem => $"Use event items {reward.RequiredAmount} times",
             RequirementType.CompleteObjective => $"Complete {reward.RequiredAmount} objectives",
             _ => "Participation"
+        };
+    }
+
+    // Phase 11 additions - Helper methods for formatting
+    private static string FormatEffectName(string effectKey)
+    {
+        return effectKey switch
+        {
+            "bite_rate_bonus" => "Bite Rate Bonus",
+            "all_rods_anywhere" => "All Rods Work Anywhere",
+            "eerie_fish_spawn" => "Eerie Fish Spawn Rate",
+            "storm_fish_spawn" => "Storm Fish Spawn Rate",
+            "lightning_bonus" => "Lightning Bonus",
+            "reward_bonus" => "Reward Bonus",
+            "dock_fishing_disabled" => "Dock Fishing Disabled",
+            "boat_fishing_required" => "Boat Fishing Required",
+            "flood_fish_bonus" => "Flood Fish Bonus",
+            "lava_zone_opened" => "Lava Zone Opened",
+            "heat_proof_required" => "Heat-Proof Rods Required",
+            "volcanic_fish_bonus" => "Volcanic Fish Bonus",
+            "cosmic_fish_everywhere" => "Cosmic Fish in All Zones",
+            "stellar_bonus" => "Stellar Bonus",
+            "zone_restrictions_removed" => "Zone Restrictions Removed",
+            _ => effectKey
+        };
+    }
+
+    private static string FormatEffectValue(double value)
+    {
+        if (value == 1.0)
+            return "Active";
+        else if (value > 0 && value < 1.0)
+            return $"+{value * 100:F0}%";
+        else if (value > 1.0)
+            return $"+{(value - 1.0) * 100:F0}%";
+        else
+            return value.ToString("F2");
+    }
+
+    // World Boss Commands
+    [Command("bosses")]
+    [Description("List active world boss encounters")]
+    public async Task<IResult> ListWorldBossesAsync()
+    {
+        var activeBosses = await eventRepository.GetActiveWorldBossesAsync();
+
+        if (!activeBosses.Any())
+        {
+            return await feedbackService.SendContextualContentAsync("🐉 No world bosses are currently active!", Color.Yellow);
+        }
+
+        var description = "**🐉 Active World Bosses:**\n\n";
+
+        foreach (var boss in activeBosses.Take(5))
+        {
+            var participants = boss.Participants.Count;
+            var healthPercent = (boss.CurrentHealth * 100) / boss.MaxHealth;
+            var statusIcon = boss.Status switch
+            {
+                BossStatus.Waiting => "⏳",
+                BossStatus.Active => "⚔️",
+                _ => "❓"
+            };
+
+            description += $"{statusIcon} **{boss.Name}** {boss.BossEmoji}\n" +
+                          $"  Health: {healthPercent}% ({boss.CurrentHealth}/{boss.MaxHealth})\n" +
+                          $"  Participants: {participants}/{boss.RequiredPlayers}\n" +
+                          $"  Status: {boss.Status}\n\n";
+        }
+
+        var embed = new Embed
+        {
+            Title = "🐉 World Boss Encounters",
+            Description = description,
+            Colour = Color.Red,
+            Footer = new EmbedFooter("Use /event boss <boss_id> to view details or join the fight!"),
+            Timestamp = DateTimeOffset.UtcNow
+        };
+
+        return await feedbackService.SendContextualEmbedAsync(embed);
+    }
+
+    [Command("trigger")]
+    [Description("Trigger a special event (admin only)")]
+    public async Task<IResult> TriggerEventAsync([Description("Event type")] string eventType)
+    {
+        if (!(context.Interaction.Member.TryGet(out var member) && member.User.TryGet(out var user)))
+        {
+            return Result.FromError(new NotFoundError("Failed to get user"));
+        }
+
+        // TODO: Add proper admin permission check
+        // For now, allow anyone to trigger events for demonstration
+        
+        var now = DateTime.UtcNow;
+        SeasonalEvent? triggeredEvent = eventType.ToLower() switch
+        {
+            "frenzy" => CreateFishingFrenzyEvent(now),
+            "storm" => CreateDarkSkiesEvent(now),
+            "flood" => CreateFloodSeasonEvent(now),
+            "volcano" => CreateVolcanicUnrestEvent(now),
+            "cosmic" => CreateCelestialDriftEvent(now),
+            "boss" => null, // Handle world boss separately
+            _ => null
+        };
+
+        if (triggeredEvent != null)
+        {
+            await eventRepository.CreateEventAsync(triggeredEvent);
+            
+            var embed = new Embed
+            {
+                Title = "⚡ Event Triggered!",
+                Description = $"**{triggeredEvent.Name}** has been activated!\n\n{triggeredEvent.Description}",
+                Colour = Color.Green,
+                Timestamp = DateTimeOffset.UtcNow
+            };
+
+            return await feedbackService.SendContextualEmbedAsync(embed);
+        }
+        else if (eventType.ToLower() == "boss")
+        {
+            return await TriggerWorldBossAsync();
+        }
+        else
+        {
+            return await feedbackService.SendContextualContentAsync(
+                "🚫 Unknown event type! Available: frenzy, storm, flood, volcano, cosmic, boss", Color.Red);
+        }
+    }
+
+    private async Task<IResult> TriggerWorldBossAsync()
+    {
+        var worldBoss = CreateAbyssalKingBoss();
+        await eventRepository.CreateWorldBossAsync(worldBoss);
+
+        var embed = new Embed
+        {
+            Title = "🐉 World Boss Awakened!",
+            Description = $"**{worldBoss.Name}** {worldBoss.BossEmoji} has emerged from the depths!\n\n" +
+                         $"{worldBoss.Description}\n\n" +
+                         $"**Required Players:** {worldBoss.RequiredPlayers}\n" +
+                         $"**Health:** {worldBoss.MaxHealth}\n\n" +
+                         $"Use `/event join-boss {worldBoss.BossId}` to join the fight!",
+            Colour = Color.DarkRed,
+            Timestamp = DateTimeOffset.UtcNow
+        };
+
+        return await feedbackService.SendContextualEmbedAsync(embed);
+    }
+
+    private static WorldBossEvent CreateAbyssalKingBoss()
+    {
+        return new WorldBossEvent
+        {
+            Name = "The Abyssal King",
+            Description = "A massive leviathan from the deepest ocean trenches. Its tentacles can crush boats and its eyes glow with ancient malice.",
+            RequiredPlayers = 3,
+            MaxHealth = 1500,
+            CurrentHealth = 1500,
+            BossEmoji = "🐙",
+            BossRewards = [
+                new() { Name = "Abyssal Slayer", Type = RewardType.Completion, RequirementType = RequirementType.CompleteObjective, RequiredAmount = 1, FishCoins = 2000, SpecialTitle = "Abyssal Slayer" },
+                new() { Name = "Leviathan's Bane", Type = RewardType.Leaderboard, RequirementType = RequirementType.CompleteObjective, RequiredAmount = 1, FishCoins = 5000, SpecialTitle = "Leviathan's Bane" }
+            ]
+        };
+    }
+
+    // Helper methods for creating triggered events
+    private static SeasonalEvent CreateFishingFrenzyEvent(DateTime now)
+    {
+        return new SeasonalEvent
+        {
+            Name = "Fishing Frenzy",
+            Description = "The fish are biting like crazy! All fishing spots are active with increased catch rates!",
+            Season = EventSeason.Special,
+            Type = EventType.Triggered,
+            StartDate = now,
+            EndDate = now.AddHours(6),
+            Status = EventStatus.Active,
+            SpecialEmoji = "🎣",
+            EffectModifiers = new Dictionary<string, double>
+            {
+                ["bite_rate_bonus"] = 0.25,
+                ["all_rods_anywhere"] = 1.0
+            },
+            Rewards = [
+                new() { Name = "Frenzy Participant", Type = RewardType.Participation, RequirementType = RequirementType.CatchAnyFish, RequiredAmount = 3, FishCoins = 200 }
+            ]
+        };
+    }
+
+    private static SeasonalEvent CreateDarkSkiesEvent(DateTime now)
+    {
+        return new SeasonalEvent
+        {
+            Name = "Dark Skies",
+            Description = "Ominous clouds gather as mysterious forces stir the waters...",
+            Season = EventSeason.Special,
+            Type = EventType.Triggered,
+            StartDate = now,
+            EndDate = now.AddHours(12),
+            Status = EventStatus.Active,
+            SpecialEmoji = "⚡",
+            Phases = [
+                new EventPhase
+                {
+                    Name = "Storm Gathering",
+                    Description = "Dark clouds form overhead, eerie fish begin to appear",
+                    Duration = TimeSpan.FromHours(4),
+                    PhaseEmoji = "🌑"
+                },
+                new EventPhase
+                {
+                    Name = "Storm Peak",
+                    Description = "Lightning strikes the water, storm fish emerge from the depths",
+                    Duration = TimeSpan.FromHours(4),
+                    PhaseEmoji = "⚡"
+                },
+                new EventPhase
+                {
+                    Name = "Calm After Storm",
+                    Description = "The storm passes, leaving behind enriched waters",
+                    Duration = TimeSpan.FromHours(4),
+                    PhaseEmoji = "🌈"
+                }
+            ],
+            EffectModifiers = new Dictionary<string, double>
+            {
+                ["storm_fish_spawn"] = 0.15
+            }
+        };
+    }
+
+    private static SeasonalEvent CreateFloodSeasonEvent(DateTime now)
+    {
+        return new SeasonalEvent
+        {
+            Name = "Flood Season",
+            Description = "Rising waters have flooded the docks! Only boat fishing is possible.",
+            Season = EventSeason.Special,
+            Type = EventType.Triggered,
+            StartDate = now,
+            EndDate = now.AddDays(2),
+            Status = EventStatus.Active,
+            SpecialEmoji = "🌊",
+            EffectModifiers = new Dictionary<string, double>
+            {
+                ["dock_fishing_disabled"] = 1.0,
+                ["boat_fishing_required"] = 1.0
+            }
+        };
+    }
+
+    private static SeasonalEvent CreateVolcanicUnrestEvent(DateTime now)
+    {
+        return new SeasonalEvent
+        {
+            Name = "Volcanic Unrest",
+            Description = "Underwater volcanic activity has opened new lava zones!",
+            Season = EventSeason.Special,
+            Type = EventType.Triggered,
+            StartDate = now,
+            EndDate = now.AddDays(3),
+            Status = EventStatus.Active,
+            SpecialEmoji = "🌋",
+            EffectModifiers = new Dictionary<string, double>
+            {
+                ["lava_zone_opened"] = 1.0,
+                ["heat_proof_required"] = 1.0
+            }
+        };
+    }
+
+    private static SeasonalEvent CreateCelestialDriftEvent(DateTime now)
+    {
+        return new SeasonalEvent
+        {
+            Name = "Celestial Drift",
+            Description = "Cosmic energies flow through all fishing zones!",
+            Season = EventSeason.Special,
+            Type = EventType.Triggered,
+            StartDate = now,
+            EndDate = now.AddHours(18),
+            Status = EventStatus.Active,
+            SpecialEmoji = "✨",
+            EffectModifiers = new Dictionary<string, double>
+            {
+                ["cosmic_fish_everywhere"] = 1.0,
+                ["stellar_bonus"] = 0.15
+            }
         };
     }
 }
