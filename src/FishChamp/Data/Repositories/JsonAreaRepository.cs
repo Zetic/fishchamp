@@ -84,6 +84,12 @@ public class JsonAreaRepository : IAreaRepository
 
     private async Task SaveAreasAsync(List<AreaState> areas)
     {
+        var directory = Path.GetDirectoryName(_dataPath);
+        if (!string.IsNullOrEmpty(directory) && !Directory.Exists(directory))
+        {
+            Directory.CreateDirectory(directory);
+        }
+        
         var json = JsonSerializer.Serialize(areas, options: new JsonSerializerOptions() { WriteIndented = true });
         await File.WriteAllTextAsync(_dataPath, json);
     }
