@@ -7,6 +7,9 @@ public class JsonTradeRepository : ITradeRepository
 {
     private readonly string _tradesDataPath = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "data", "trades.json");
     private readonly string _marketDataPath = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "data", "market.json");
+    private readonly string _ordersDataPath = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "data", "orders.json");
+    private readonly string _executionsDataPath = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "data", "executions.json");
+    private readonly string _statsDataPath = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "data", "market_stats.json");
     private readonly SemaphoreSlim _semaphore = new(1, 1);
 
     public async Task<Trade?> GetTradeAsync(string tradeId)
@@ -230,5 +233,240 @@ public class JsonTradeRepository : ITradeRepository
         Directory.CreateDirectory(Path.GetDirectoryName(_marketDataPath)!);
         var json = JsonSerializer.Serialize(listings, new JsonSerializerOptions { WriteIndented = true });
         await File.WriteAllTextAsync(_marketDataPath, json);
+    }
+
+    // Order Book System Implementation
+    public async Task<MarketOrder> CreateOrderAsync(MarketOrder order)
+    {
+        await _semaphore.WaitAsync();
+        try
+        {
+            var orders = await LoadOrdersAsync();
+            orders.Add(order);
+            await SaveOrdersAsync(orders);
+            return order;
+        }
+        finally
+        {
+            _semaphore.Release();
+        }
+    }
+
+    public async Task<MarketOrder?> GetOrderAsync(string orderId)
+    {
+        await _semaphore.WaitAsync();
+        try
+        {
+            var orders = await LoadOrdersAsync();
+            return orders.FirstOrDefault(o => o.OrderId == orderId);
+        }
+        finally
+        {
+            _semaphore.Release();
+        }
+    }
+
+    public async Task<List<MarketOrder>> GetUserOrdersAsync(ulong userId, OrderStatus? status = null)
+    {
+        await _semaphore.WaitAsync();
+        try
+        {
+            var orders = await LoadOrdersAsync();
+            var query = orders.Where(o => o.UserId == userId);
+            
+            if (status.HasValue)
+                query = query.Where(o => o.Status == status.Value);
+                
+            return query.OrderByDescending(o => o.CreatedAt).ToList();
+        }
+        finally
+        {
+            _semaphore.Release();
+        }
+    }
+
+    public async Task<List<MarketOrder>> GetOrderBookAsync(string itemId, OrderType? orderType = null)
+    {
+        await _semaphore.WaitAsync();
+        try
+        {
+            var orders = await LoadOrdersAsync();
+            var query = orders.Where(o => o.ItemId == itemId && 
+                                        (o.Status == OrderStatus.Pending || o.Status == OrderStatus.PartiallyFilled) &&
+                                        (!o.ExpiresAt.HasValue || o.ExpiresAt > DateTime.UtcNow));
+            
+            if (orderType.HasValue)
+                query = query.Where(o => o.OrderType == orderType.Value);
+                
+            return query.ToList();
+        }
+        finally
+        {
+            _semaphore.Release();
+        }
+    }
+
+    public async Task UpdateOrderAsync(MarketOrder order)
+    {
+        await _semaphore.WaitAsync();
+        try
+        {
+            var orders = await LoadOrdersAsync();
+            var existingOrder = orders.FirstOrDefault(o => o.OrderId == order.OrderId);
+            if (existingOrder != null)
+            {
+                orders.Remove(existingOrder);
+                orders.Add(order);
+                await SaveOrdersAsync(orders);
+            }
+        }
+        finally
+        {
+            _semaphore.Release();
+        }
+    }
+
+    public async Task CancelOrderAsync(string orderId)
+    {
+        await _semaphore.WaitAsync();
+        try
+        {
+            var orders = await LoadOrdersAsync();
+            var order = orders.FirstOrDefault(o => o.OrderId == orderId);
+            if (order != null && (order.Status == OrderStatus.Pending || order.Status == OrderStatus.PartiallyFilled))
+            {
+                order.Status = OrderStatus.Cancelled;
+                await SaveOrdersAsync(orders);
+            }
+        }
+        finally
+        {
+            _semaphore.Release();
+        }
+    }
+
+    public async Task<TradeExecution> CreateTradeExecutionAsync(TradeExecution execution)
+    {
+        await _semaphore.WaitAsync();
+        try
+        {
+            var executions = await LoadExecutionsAsync();
+            executions.Add(execution);
+            await SaveExecutionsAsync(executions);
+            return execution;
+        }
+        finally
+        {
+            _semaphore.Release();
+        }
+    }
+
+    public async Task<List<TradeExecution>> GetTradeHistoryAsync(string itemId, int hours = 24)
+    {
+        await _semaphore.WaitAsync();
+        try
+        {
+            var executions = await LoadExecutionsAsync();
+            var cutoff = DateTime.UtcNow.AddHours(-hours);
+            return executions.Where(e => e.ItemId == itemId && e.ExecutedAt >= cutoff)
+                           .OrderByDescending(e => e.ExecutedAt)
+                           .ToList();
+        }
+        finally
+        {
+            _semaphore.Release();
+        }
+    }
+
+    public async Task<MarketStatistics?> GetMarketStatisticsAsync(string itemId)
+    {
+        await _semaphore.WaitAsync();
+        try
+        {
+            var stats = await LoadMarketStatisticsAsync();
+            return stats.FirstOrDefault(s => s.ItemId == itemId);
+        }
+        finally
+        {
+            _semaphore.Release();
+        }
+    }
+
+    public async Task UpdateMarketStatisticsAsync(MarketStatistics marketStats)
+    {
+        await _semaphore.WaitAsync();
+        try
+        {
+            var stats = await LoadMarketStatisticsAsync();
+            var existing = stats.FirstOrDefault(s => s.ItemId == marketStats.ItemId);
+            if (existing != null)
+            {
+                stats.Remove(existing);
+            }
+            stats.Add(marketStats);
+            await SaveMarketStatisticsAsync(stats);
+        }
+        finally
+        {
+            _semaphore.Release();
+        }
+    }
+
+    // Private helper methods for order book data
+    private async Task<List<MarketOrder>> LoadOrdersAsync()
+    {
+        if (!File.Exists(_ordersDataPath))
+        {
+            Directory.CreateDirectory(Path.GetDirectoryName(_ordersDataPath)!);
+            return new List<MarketOrder>();
+        }
+
+        var json = await File.ReadAllTextAsync(_ordersDataPath);
+        return JsonSerializer.Deserialize<List<MarketOrder>>(json) ?? new List<MarketOrder>();
+    }
+
+    private async Task SaveOrdersAsync(List<MarketOrder> orders)
+    {
+        Directory.CreateDirectory(Path.GetDirectoryName(_ordersDataPath)!);
+        var json = JsonSerializer.Serialize(orders, new JsonSerializerOptions { WriteIndented = true });
+        await File.WriteAllTextAsync(_ordersDataPath, json);
+    }
+
+    private async Task<List<TradeExecution>> LoadExecutionsAsync()
+    {
+        if (!File.Exists(_executionsDataPath))
+        {
+            Directory.CreateDirectory(Path.GetDirectoryName(_executionsDataPath)!);
+            return new List<TradeExecution>();
+        }
+
+        var json = await File.ReadAllTextAsync(_executionsDataPath);
+        return JsonSerializer.Deserialize<List<TradeExecution>>(json) ?? new List<TradeExecution>();
+    }
+
+    private async Task SaveExecutionsAsync(List<TradeExecution> executions)
+    {
+        Directory.CreateDirectory(Path.GetDirectoryName(_executionsDataPath)!);
+        var json = JsonSerializer.Serialize(executions, new JsonSerializerOptions { WriteIndented = true });
+        await File.WriteAllTextAsync(_executionsDataPath, json);
+    }
+
+    private async Task<List<MarketStatistics>> LoadMarketStatisticsAsync()
+    {
+        if (!File.Exists(_statsDataPath))
+        {
+            Directory.CreateDirectory(Path.GetDirectoryName(_statsDataPath)!);
+            return new List<MarketStatistics>();
+        }
+
+        var json = await File.ReadAllTextAsync(_statsDataPath);
+        return JsonSerializer.Deserialize<List<MarketStatistics>>(json) ?? new List<MarketStatistics>();
+    }
+
+    private async Task SaveMarketStatisticsAsync(List<MarketStatistics> stats)
+    {
+        Directory.CreateDirectory(Path.GetDirectoryName(_statsDataPath)!);
+        var json = JsonSerializer.Serialize(stats, new JsonSerializerOptions { WriteIndented = true });
+        await File.WriteAllTextAsync(_statsDataPath, json);
     }
 }
