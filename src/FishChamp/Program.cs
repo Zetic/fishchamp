@@ -73,6 +73,7 @@ public class Program
                 // Discord Bot
                 services.AddDiscordCommands(true)
                     .AddResponder<SlashCommandConfigurator>()
+                    .AddResponder<DiscordResponseDebugger>()
                     .AddAutocompleteProvider<AreaFishSpotAutocompleteProvider>()
                     .AddAutocompleteProvider<GuildInviteAutocompleteProvider>()
                     .AddAutocompleteProvider<ShopAutocompleteProvider>()
