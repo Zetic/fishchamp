@@ -73,7 +73,7 @@ public class FishingCommandGroup(IInteractionCommandContext context, IDiscordRes
             Timestamp = DateTimeOffset.UtcNow
         };
         
-        return await feedbackService.SendContextualEmbedAsync(embed);
+        return await discordHelper.LoggedSendContextualEmbed(embed, "FishingCommandGroup.RegisterAsync");
     }
 
     [Command("profile")]
