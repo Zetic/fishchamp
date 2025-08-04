@@ -102,4 +102,37 @@ public class DiscordHelper(IDiscordRestChannelAPI channelAPI,
 
         return result;
     }
+
+    public async Task<IResult> LoggedSendContextualEmbed(Embed embed, string? context = null)
+    {
+        var result = await feedbackService.SendContextualEmbedAsync(embed);
+        
+        LogDiscordResponse("FeedbackService.SendContextualEmbedAsync", new
+        {
+            EmbedTitle = embed.Title.HasValue ? embed.Title.Value : null,
+            EmbedDescription = embed.Description.HasValue ? embed.Description.Value?.Length > 100 ? 
+                embed.Description.Value[..100] + "..." : embed.Description.Value : null,
+            EmbedColor = embed.Colour.HasValue ? embed.Colour.Value.ToString() : null,
+            FieldCount = embed.Fields.HasValue ? embed.Fields.Value.Count : 0,
+            Success = result.IsSuccess,
+            Context = context ?? "Direct call"
+        });
+
+        return result;
+    }
+
+    public async Task<IResult> LoggedSendContextualContent(string content, Color color = default, string? context = null)
+    {
+        var result = await feedbackService.SendContextualContentAsync(content, color);
+        
+        LogDiscordResponse("FeedbackService.SendContextualContentAsync", new
+        {
+            Content = content.Length > 100 ? content[..100] + "..." : content,
+            Color = color.ToString(),
+            Success = result.IsSuccess,
+            Context = context ?? "Direct call"
+        });
+
+        return result;
+    }
 }
