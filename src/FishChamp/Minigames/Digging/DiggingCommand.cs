@@ -63,9 +63,12 @@ public partial class FarmCommandGroup : CommandGroup
             Timestamp = DateTimeOffset.UtcNow
         };
 
-        return await interactionAPI.CreateFollowupMessageAsync(context.Interaction.ApplicationID,
+        return await discordHelper.LoggedCreateFollowupMessage(
+            context.Interaction.ApplicationID,
             context.Interaction.Token,
-            embeds: new Optional<IReadOnlyList<IEmbed>>([embed]),
-            components: components);
+            string.Empty, // no content, using embed
+            embeds: [embed],
+            components: components,
+            context: "FarmCommandGroup.DigForWormsAsync");
     }
 }

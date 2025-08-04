@@ -44,6 +44,6 @@ public class DiscordResponseDebugger : IResponder<IInteractionCreate>
         _logger.LogInformation("🎯 Discord Interaction Received: {InteractionData}", jsonString);
 
         // Don't actually handle the interaction, just log it
-        return Result.FromSuccess();
+        return Task.FromResult(Result.FromSuccess());
     }
 }
